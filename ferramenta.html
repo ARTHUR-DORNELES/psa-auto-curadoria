@@ -123,6 +123,14 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .chip:hover:not(:disabled){background:#ffffff0f;border-color:var(--psa-orange)}
 .chip:disabled{opacity:.45;cursor:default}
 .chip--solid{background:var(--psa-orange);border-color:var(--psa-orange)}
+.chip--feito{border-color:var(--psa-orange);color:var(--psa-orange);cursor:default}
+/* topo do resultado: título à esquerda, pedido de disponibilidade à direita */
+.res__topo{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s-5);flex-wrap:wrap}
+.res__enviado{font-size:var(--t-body-sm);font-weight:700;color:var(--psa-orange);text-align:right;line-height:1.4}
+.res__enviado span{display:block;font-weight:400;color:var(--fg-3);margin-top:4px}
+.escolha{display:inline-flex;align-items:center;gap:9px;font-size:var(--t-body-sm);color:var(--fg-2);cursor:pointer;border:1px solid var(--border-strong);border-radius:var(--r-pill);padding:8px 16px}
+.escolha:hover{border-color:var(--psa-orange);color:var(--fg-1)}
+.escolha input{accent-color:var(--psa-orange);width:16px;height:16px;cursor:pointer}
 
 .aviso{margin-top:var(--s-7);font-size:var(--t-caption);color:var(--fg-3);border-top:1px solid var(--border-section);padding-top:var(--s-5)}
 
@@ -740,8 +748,15 @@ function resumoDoBriefing(d) {
 function renderCompleto(d) {
   const r = d.resultado;
   $('#resultado').innerHTML = `
-    <span class="eyebrow">Curadoria liberada</span>
-    <h1>Seus<br>3 nomes.</h1>
+    <div class="res__topo">
+      <div>
+        <span class="eyebrow">Curadoria liberada</span>
+        <h1>Seus<br>3 nomes.</h1>
+      </div>
+      ${d.disponibilidade
+        ? `<p class="res__enviado">✓ Disponibilidade e orçamento solicitados<br><span>${esc(d.disponibilidade.palestrantes.join(', '))} — resposta em até 24h</span></p>`
+        : `<button class="btn btn--primary" id="enviar-disp" disabled>Solicitar disponibilidade e orçamento</button>`}
+    </div>
     <p class="leitura">${esc(r.leitura)}</p>
     ${r.indicacoes.map((ind, n) => `
       <article class="ind">
@@ -757,8 +772,10 @@ function renderCompleto(d) {
         <ul>${ind.porque.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
         <p class="ind__atencao"><strong>Ponto de atenção:</strong> ${esc(ind.atencao)}</p>
         <div class="acoes-pos">
-          <button class="chip chip--solid" data-acao="viabilidade" data-nome="${esc(ind.nome)}">Solicitar disponibilidade de data</button>
-          <button class="chip" data-acao="orcamento" data-nome="${esc(ind.nome)}">Solicitar orçamento</button>
+          ${d.disponibilidade
+            ? (d.disponibilidade.palestrantes.includes(ind.nome)
+                ? `<span class="chip chip--feito">✓ Disponibilidade e orçamento solicitados</span>` : '')
+            : `<label class="escolha"><input type="checkbox" class="chk-disp" value="${esc(ind.nome)}"> Quero disponibilidade e orçamento deste nome</label>`}
         </div>
       </article>`).join('')}
     <p class="ou">Nenhum dos três serviu?</p>
@@ -786,6 +803,47 @@ function renderCompleto(d) {
     });
     b.textContent = b.dataset.acao === 'viabilidade' ? '✓ Solicitado · até 24h' : '✓ Solicitado';
   }));
+
+  // Disponibilidade é pedido em lote: o cliente marca quais dos 3 quer checar e confirma
+  // uma vez, no botão do topo. Envio único porque cada envio cria item de linha no
+  // negócio — repetir dobraria o valor do negócio e a pesquisa do mesmo palestrante.
+  const caixas = () => [...$('#resultado').querySelectorAll('.chk-disp')];
+  const botaoDisp = $('#enviar-disp');
+  if (botaoDisp) {
+    const atualiza = () => {
+      const n = caixas().filter(c => c.checked).length;
+      botaoDisp.disabled = !n;
+      botaoDisp.textContent = n ? `Solicitar disponibilidade e orçamento (${n})` : 'Solicitar disponibilidade e orçamento';
+    };
+    caixas().forEach(c => c.addEventListener('change', atualiza));
+    atualiza();
+
+    botaoDisp.addEventListener('click', async () => {
+      const nomes = caixas().filter(c => c.checked).map(c => c.value);
+      if (!nomes.length) return;
+      const datas = prompt(
+        `Quais datas checar com ${nomes.length > 1 ? 'os nomes escolhidos' : nomes[0]}?\n\nA resposta depende da agenda do palestrante e pode levar até 24h.`,
+        d.briefing?.data || '');
+      if (!datas) return;
+      botaoDisp.disabled = true;
+      botaoDisp.textContent = 'Enviando…';
+      try {
+        const r = await fetch(`/api/resultado?id=${d.id}`, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ acao: 'disponibilidade', palestrantes: nomes, datas }),
+        });
+        if (!r.ok) throw new Error(await r.text());
+        const j = await r.json();
+        // redesenha no estado travado; o servidor é quem decide, então reenvio de quem
+        // recarregou a página volta o que já foi pedido em vez de pedir de novo
+        renderCompleto({ ...d, disponibilidade: { palestrantes: j.palestrantes || nomes } });
+      } catch (e) {
+        botaoDisp.disabled = false;
+        atualiza();
+        alert('Não conseguimos registrar o pedido agora. Tente de novo em instantes.');
+      }
+    });
+  }
 
   $('#quero-curador').addEventListener('click', async e => {
     e.target.disabled = true;

@@ -1,4 +1,4 @@
-import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherTres, PROP_NOMES, nota, lerCorpo, cors, CHECKOUT_URL } from './_lib.js';
+import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherTres, PROP_NOMES, nota, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha } from './_lib.js';
 
 const ACOES = {
   curador: 'CLIENTE PEDIU ATENDIMENTO DE CURADOR — assumir o processo pelo caminho tradicional.',
@@ -53,13 +53,15 @@ export default async function handler(req, res) {
 
     return res.status(200).json(
       reg.pago
-        ? { id, pronto: true, pago: true, criadoEm: reg.criadoEm, briefing: reg.briefing, resultado: paraCliente(reg.resultado), refacoesRestantes: MAX_REFACOES - (reg.refacoes || 0) }
+        // `disponibilidade` vai para o cliente porque quem recarrega o link precisa ver
+        // que já pediu; sem isso a tela volta destravada e o pedido parece não ter saído
+        ? { id, pronto: true, pago: true, criadoEm: reg.criadoEm, briefing: reg.briefing, resultado: paraCliente(reg.resultado), refacoesRestantes: MAX_REFACOES - (reg.refacoes || 0), disponibilidade: reg.disponibilidade ? { palestrantes: reg.disponibilidade.palestrantes, em: reg.disponibilidade.em } : null }
         : { id, pronto: true, pago: false, teaser: teaser(reg.resultado) }
     );
   }
 
   if (req.method === 'POST') {
-    const { acao, palestrante, datas, mensagem } = await lerCorpo(req);
+    const { acao, palestrante, palestrantes, datas, mensagem } = await lerCorpo(req);
 
     // Refazer: os 3 atuais saem de cena e a automação é acionada de novo pela
     // observação. Os nomes recusados ficam registrados para não voltarem.
@@ -93,6 +95,61 @@ export default async function handler(req, res) {
         }
       }
       return res.status(200).json({ ok: true, refacoes: reg.refacoes, restantes: MAX_REFACOES - reg.refacoes });
+    }
+
+    // Pedido em lote e único: o cliente marca quais dos 3 quer e confirma uma vez. Vale
+    // por disponibilidade E orçamento juntos — são a mesma decisão para quem está do
+    // outro lado, e separar em dois botões só fazia o cliente pedir metade.
+    // Cria um item de linha por selecionado no negócio, o que faz os nomes aparecerem na
+    // consulta de palestrantes para o time disparar a pesquisa.
+    //
+    // Uma vez só por curadoria, de propósito: um segundo envio duplicaria item de linha
+    // no negócio, e item de linha duplicado dobra o valor do negócio e faz o time
+    // pesquisar o mesmo palestrante duas vezes. Reenvio devolve o que já foi pedido.
+    if (acao === 'disponibilidade') {
+      if (!reg.pago) return res.status(402).json({ erro: 'disponível após a liberação da curadoria' });
+      if (reg.disponibilidade) {
+        return res.status(200).json({ ok: true, jaEnviado: true, ...reg.disponibilidade });
+      }
+
+      const escolhidos = [...new Set((Array.isArray(palestrantes) ? palestrantes : [])
+        .map(n => String(n || '').trim()).filter(Boolean))];
+      if (!escolhidos.length) return res.status(400).json({ erro: 'selecione ao menos um palestrante' });
+
+      // só nomes que esta curadoria realmente indicou — a lista vem do cliente
+      const indicados = (reg.resultado?.indicacoes || []).map(i => i.nome);
+      const validos = escolhidos.filter(n => indicados.includes(n));
+      if (!validos.length) return res.status(400).json({ erro: 'palestrante fora desta curadoria' });
+
+      let itens = { vinculados: [], semProduto: validos };
+      if (reg.hubspot?.negocioId) {
+        itens = await criarItensDeLinha(reg.hubspot.negocioId, validos);
+      }
+
+      reg.disponibilidade = { palestrantes: validos, datas: datas || null, em: new Date().toISOString(), ...itens };
+      reg.acoes.push({ acao, palestrantes: validos, datas, em: reg.disponibilidade.em });
+      await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
+
+      if (reg.hubspot?.negocioId) {
+        try {
+          await nota(reg.hubspot.negocioId, [
+            'AUTO CURADORIA — CLIENTE SOLICITOU DISPONIBILIDADE DE DATA E ORÇAMENTO.',
+            `Palestrantes escolhidos: ${validos.join(', ')}`,
+            datas ? `Datas: ${datas}` : '',
+            itens.vinculados.length ? `Itens de linha criados: ${itens.vinculados.join(', ')}` : '',
+            // sem produto resolvido o nome não entra na consulta de palestrantes;
+            // se ficar só no log, ninguém checa a disponibilidade desse nome
+            itens.semProduto.length
+              ? `ATENÇÃO — sem produto correspondente, vincular à mão: ${itens.semProduto.join(', ')}`
+              : '',
+            `Prazo combinado com o cliente: até 24h.`,
+            `Curadoria: ${id}`,
+          ].filter(Boolean).join('\n'));
+        } catch (e) {
+          console.error('nota de disponibilidade falhou:', e.message);
+        }
+      }
+      return res.status(200).json({ ok: true, ...itens });
     }
 
     if (!ACOES[acao]) return res.status(400).json({ erro: 'ação desconhecida' });

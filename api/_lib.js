@@ -472,3 +472,59 @@ export function teaser(resultado) {
     })),
   };
 }
+
+/**
+ * Palestrante não é registro próprio no CRM: é opção do dropdown do negócio, e no
+ * comercial existe como PRODUTO — os 32 mil itens de linha do portal todos carregam
+ * hs_product_id. Para criar item de linha da Auto Curadoria, então, é preciso achar
+ * o produto do nome indicado.
+ *
+ * Resolvido em runtime, e não num mapa gerado no build, porque a base de produtos é
+ * feita à mão e muda todo dia (3.579 produtos para ~590 palestrantes do roster, com
+ * "TANIA GENGO", "Kátia Stocco Smole" e "Danilo" convivendo). Mapa gerado nasceria
+ * velho; busca por nome erra igual, mas erra na hora e dá para avisar.
+ *
+ * Quando não resolve — zero resultado ou mais de um — devolve null em vez de chutar:
+ * vincular o palestrante errado faz o time pesquisar disponibilidade de outra pessoa.
+ */
+export async function produtoPorNome(nome) {
+  const busca = String(nome || '').trim();
+  if (!busca) return null;
+  const r = await hs('/crm/v3/objects/products/search', 'POST', {
+    filterGroups: [{ filters: [{ propertyName: 'name', operator: 'EQ', value: busca }] }],
+    properties: ['name'],
+    limit: 2,
+  });
+  return r.total === 1 ? r.results[0].id : null;
+}
+
+/**
+ * Cria um item de linha por palestrante selecionado, associado ao negócio.
+ * Sem preço: ao vincular hs_product_id o HubSpot copia o cachê do produto, que é
+ * como o time já faz. Quantidade 1, igual ao padrão do portal.
+ *
+ * Nunca lança: o pedido do cliente não pode falhar porque a base de produtos está
+ * suja. Devolve o que vinculou e o que não, para a nota dizer ao time o que sobrou
+ * para vincular à mão.
+ */
+export async function criarItensDeLinha(negocioId, nomes) {
+  const vinculados = [], semProduto = [];
+  for (const nome of nomes) {
+    try {
+      const produtoId = await produtoPorNome(nome);
+      if (!produtoId) { semProduto.push(nome); continue; }
+      await hs('/crm/v3/objects/line_items', 'POST', {
+        properties: { hs_product_id: produtoId, quantity: '1' },
+        associations: [{
+          to: { id: String(negocioId) },
+          types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 20 }],
+        }],
+      });
+      vinculados.push(nome);
+    } catch (e) {
+      console.error(`item de linha de ${nome} falhou:`, e.message);
+      semProduto.push(nome);
+    }
+  }
+  return { vinculados, semProduto };
+}
