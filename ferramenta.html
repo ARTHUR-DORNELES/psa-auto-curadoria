@@ -708,6 +708,10 @@ function renderTeaser(j) {
  * A curadoria só faz sentido junto com o briefing que a gerou — sem isso, quem
  * volta pelo link dias depois não lembra com que critérios os nomes saíram.
  */
+// Ao pé do resultado fica só "Salvar link desta curadoria", centralizado. Havia também
+// "Fazer uma nova curadoria" ao lado: competia com o pedido de disponibilidade e sugeria
+// recomeçar em vez de seguir com estes 3 nomes. Comentário aqui fora, e não dentro do
+// template, porque comentário HTML lá dentro vai servido para o cliente.
 function resumoDoBriefing(d) {
   const b = d.briefing;
   if (!b) return '';
@@ -738,9 +742,8 @@ function resumoDoBriefing(d) {
       <dl class="resumo__lista">
         ${linhas.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}
       </dl>
-      <div class="acoes" style="margin-top:var(--s-5)">
+      <div class="acoes" style="margin-top:var(--s-5);justify-content:center">
         <button class="btn btn--ghost" data-copiar>Salvar link desta curadoria</button>
-        <a class="btn btn--ghost" href="/auto-curadoria-briefing">Fazer uma nova curadoria</a>
       </div>
     </section>`;
 }
