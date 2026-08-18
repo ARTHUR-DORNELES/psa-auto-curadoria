@@ -189,7 +189,7 @@ export function notaDoBriefing(b, resultado, id) {
     `Formato: ${b.formato || 'não informado'}`,
     `Data: ${dataBR(b.data) || 'a definir'}`,
     `Horário: ${b.horario || 'não informado'}`,
-    `Duração da palestra: ${b.duracao || 'não informado'}`,
+    `Duração do evento: ${b.duracao || 'não informado'}`,
     `Local do evento: ${b.localEvento || 'não informado'}`,
     `Cidade: ${b.cidade || 'não informado'}`,
     `Estado: ${b.local || 'não informado'}`,
