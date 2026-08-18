@@ -1,0 +1,9 @@
+node_modules
+.vercel
+.next
+.env*
+!.env.example
+
+# Extrato comercial do HubSpot (cachê, volume e taxa de fechamento por palestrante).
+# Não versionado: é o núcleo comercial da PSA e é regenerável com `npm run dataset`.
+data/palestrantes.js

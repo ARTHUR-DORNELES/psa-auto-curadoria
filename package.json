@@ -1,0 +1,18 @@
+{
+  "name": "psa-auto-curadoria",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dataset": "node scripts/build-dataset.mjs",
+    "test": "node scripts/test-curadoria.mjs",
+    "embed": "node scripts/build-embed.mjs",
+    "auditoria": "node scripts/auditoria.mjs",
+    "enums": "node scripts/sync-enums.mjs"
+  },
+  "dependencies": {
+    "ioredis": "^5.11.1"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/auto-curadoria-briefing", "destination": "/ferramenta" },
+    { "source": "/auto-curadoria", "destination": "/" }
+  ],
+  "functions": {
+    "api/curar.js": { "maxDuration": 60 }
+  }
+}
