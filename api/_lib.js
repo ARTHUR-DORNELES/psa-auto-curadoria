@@ -487,15 +487,59 @@ export function teaser(resultado) {
  * Quando não resolve — zero resultado ou mais de um — devolve null em vez de chutar:
  * vincular o palestrante errado faz o time pesquisar disponibilidade de outra pessoa.
  */
+// Chave de comparação de nome: reusa semAcento e ainda achata pontuação e espaço
+// repetido, para "Maria  De Souza-Lima" e "maria de souza lima" caírem no mesmo lugar.
+export const chaveDeNome = s => semAcento(String(s || '')).replace(/[^a-z0-9]+/g, ' ').trim();
+
+const CHAVE_INDICE = 'auto-curadoria:produtos';
+
+/**
+ * Índice chaveDeNome -> ids de produto, para a segunda tentativa do match.
+ * Existe porque o nome que a curadoria mostra vem do slug do dropdown de negócio, e o
+ * slug perdeu o acento — `build-dataset.mjs` documenta isso ("Giovane Gavio",
+ * "Joao Kepler"). O EQ da API compara o valor gravado, então acento faltando derruba
+ * boa parte da base; comparar sem acento resolve a classe inteira de uma vez.
+ *
+ * Cacheado 24h no Redis que o app já usa: montar custa ~36 páginas e só vale uma vez
+ * por dia. Índice incompleto NÃO é cacheado — 24h com metade dos produtos faria o
+ * match falhar para nome que existe, e ninguém entenderia por quê.
+ */
+async function indiceDeProdutos() {
+  const cache = await redis().get(CHAVE_INDICE);
+  if (cache) return JSON.parse(cache);
+
+  const idx = {};
+  let after, paginas = 0, completo = false;
+  const limite = Date.now() + 8000;          // a requisição do cliente não pode expirar aqui
+  do {
+    const r = await hs(`/crm/v3/objects/products?limit=100&properties=name${after ? `&after=${after}` : ''}`, 'GET');
+    for (const p of r.results || []) {
+      const k = chaveDeNome(p.properties?.name);
+      if (k) (idx[k] = idx[k] || []).push(p.id);
+    }
+    after = r.paging?.next?.after;
+    if (!after) completo = true;
+  } while (after && ++paginas < 60 && Date.now() < limite);
+
+  if (completo) await redis().set(CHAVE_INDICE, JSON.stringify(idx), 'EX', 60 * 60 * 24);
+  return idx;
+}
+
 export async function produtoPorNome(nome) {
   const busca = String(nome || '').trim();
   if (!busca) return null;
+
+  // 1ª tentativa: nome exato. Resolve a maioria numa chamada, sem montar índice.
   const r = await hs('/crm/v3/objects/products/search', 'POST', {
     filterGroups: [{ filters: [{ propertyName: 'name', operator: 'EQ', value: busca }] }],
     properties: ['name'],
     limit: 2,
   });
-  return r.total === 1 ? r.results[0].id : null;
+  if (r.total === 1) return r.results[0].id;
+
+  // 2ª tentativa: sem acento e sem pontuação, contra o índice.
+  const ids = (await indiceDeProdutos())[chaveDeNome(busca)] || [];
+  return ids.length === 1 ? ids[0] : null;
 }
 
 /**

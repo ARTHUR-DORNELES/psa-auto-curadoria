@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { teaser, paraCliente, semNumerosInternos, notaDoBriefing, escolherTres, lerNomes, valorEmReais, faixaDeValor, telefoneE164, cors } from '../api/_lib.js';
+import { teaser, paraCliente, semNumerosInternos, notaDoBriefing, escolherTres, lerNomes, valorEmReais, faixaDeValor, telefoneE164, cors, chaveDeNome } from '../api/_lib.js';
 
 let ok = 0;
 const t = (nome, fn) => { fn(); console.log('✓', nome); ok++; };
@@ -333,3 +333,16 @@ t('LP e ferramenta são páginas separadas e se linkam', () => {
 });
 
 console.log(`\n${ok} checagens passaram.`);
+
+// O nome que a curadoria mostra vem do slug do dropdown, que perdeu o acento
+// ("Giovane Gavio"), enquanto o produto no HubSpot tem acento ("Giovane Gávio").
+// Se esta chave parar de achatar acento, nenhum item de linha desses nomes é criado
+// e o time recebe "vincular à mão" na maioria dos pedidos.
+t('chaveDeNome casa acento perdido no slug com o produto acentuado', () => {
+  assert.equal(chaveDeNome('Giovane Gavio'), chaveDeNome('Giovane Gávio'));
+  assert.equal(chaveDeNome('Joao Kepler'), chaveDeNome('João Kepler'));
+  assert.equal(chaveDeNome('TANIA GENGO'), chaveDeNome('Tânia Gengo'));
+  assert.equal(chaveDeNome('Maria  De Souza-Lima'), 'maria de souza lima');
+  // e não pode achatar demais: nome parecido continua sendo outra pessoa
+  assert.notEqual(chaveDeNome('Carlos Silva'), chaveDeNome('Carlos Silveira'));
+});
