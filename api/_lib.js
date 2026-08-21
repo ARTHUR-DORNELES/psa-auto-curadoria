@@ -27,6 +27,9 @@ export function redis() {
 }
 
 export const chave = id => `autocuradoria:${id}`;
+// vínculo negócio -> id da curadoria, para o gate reencontrar a curadoria pelo CPF/CNPJ
+// (sem depender de o cliente ter guardado o link). Mesma validade do registro: 90 dias.
+export const chaveDeal = dealId => `autocuradoria:deal:${dealId}`;
 
 // ── normalização ───────────────────────────────────────────────────────────
 const semAcento = s => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -797,7 +800,9 @@ export function normalizaDocumento(bruto) {
  * Casa o documento no contato (cpf ou cnpj), depois busca o negócio Pago associado.
  * Devolve { dealId, contatoId, doc } ou null (sem compra liberada).
  */
-export async function creditoPagoPorDocumento(bruto) {
+// Base compartilhada: acha o negócio da pipeline Auto Curadoria numa etapa, casado pelo
+// CPF/CNPJ (no contato) e associado a ele. `direction` escolhe o mais antigo/recente.
+async function _negocioAutoCuradoriaPorDoc(bruto, stage, direction) {
   const doc = normalizaDocumento(bruto);
   if (!doc) return null;
 
@@ -810,22 +815,54 @@ export async function creditoPagoPorDocumento(bruto) {
   const ids = (contatos.results || []).map((c) => c.id);
   if (!ids.length) return null;
 
-  // 2) negócio Pago na pipeline Auto Curadoria associado a esses contatos, mais antigo 1º.
-  //    Busca ANDando pipeline+stage+associação; cada contato é um filterGroup (OR), até 5.
+  // 2) negócio na etapa pedida, associado a esses contatos. Cada contato = filterGroup (OR), até 5.
   const deals = await hs('/crm/v3/objects/deals/search', 'POST', {
     filterGroups: ids.slice(0, 5).map((cid) => ({
       filters: [
         { propertyName: 'pipeline', operator: 'EQ', value: PIPE_AUTOCURADORIA },
-        { propertyName: 'dealstage', operator: 'EQ', value: STAGE_PAGO },
+        { propertyName: 'dealstage', operator: 'EQ', value: stage },
         { propertyName: 'associations.contact', operator: 'EQ', value: cid },
       ],
     })),
-    sorts: [{ propertyName: 'createdate', direction: 'ASCENDING' }],
-    properties: ['dealname', 'dealstage', 'pipeline', 'createdate'],
+    sorts: [{ propertyName: 'createdate', direction }],
+    properties: ['dealname', 'dealstage', 'createdate'],
     limit: 1,
   });
   const d = (deals.results || [])[0];
   return d ? { dealId: d.id, contatoId: ids[0], doc } : null;
+}
+
+// Negócio "Pago" MAIS ANTIGO (fila): libera o acesso e é o crédito que a geração consome.
+export async function creditoPagoPorDocumento(bruto) {
+  return _negocioAutoCuradoriaPorDoc(bruto, STAGE_PAGO, 'ASCENDING');
+}
+
+/**
+ * Decisão do gate a partir do CPF/CNPJ (o CPF vira a chave da curadoria):
+ *  - 'novo'     : tem compra "Pago" -> briefing novo
+ *  - 'retomar'  : só "Utilizado", mas a curadoria ainda tem refação -> retomar (devolve id)
+ *  - 'esgotado' : "Utilizado" sem refação, ou a curadoria expirou -> checkout
+ *  - 'nenhum'   : nada -> checkout
+ *  - 'invalido' : documento mal formado
+ */
+export async function decidirAcesso(bruto) {
+  if (!normalizaDocumento(bruto)) return { modo: 'invalido' };
+  if (await creditoPagoPorDocumento(bruto)) return { modo: 'novo' };
+
+  const util = await _negocioAutoCuradoriaPorDoc(bruto, STAGE_UTILIZADO, 'DESCENDING');
+  if (!util) return { modo: 'nenhum' };
+
+  // tem negócio "Utilizado": a curadoria ainda pode ter refação sobrando -> retomar
+  const uuid = await redis().get(chaveDeal(util.dealId));
+  if (uuid) {
+    const bruto2 = await redis().get(chave(uuid));
+    if (bruto2) {
+      const reg = JSON.parse(bruto2);
+      const max = Number(process.env.MAX_REFACOES || 1);
+      if (reg.resultado && (reg.refacoes || 0) < max) return { modo: 'retomar', id: uuid };
+    }
+  }
+  return { modo: 'esgotado' };
 }
 
 /**

@@ -170,6 +170,14 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
       <!-- aparece só quando NÃO há compra liberada: leva ao checkout -->
       <a class="btn" id="btnComprar" href="https://checkout.profissionaissa.com.br/curadoria/checkout/4fbc7e0d-c39c-4241-9334-ef62c2326b55" style="display:none;background:#16a34a;color:#fff;box-shadow:0 0 40px #16a34a55">Adquirir Curadoria →</a>
     </div>
+    <!-- aparece quando já existe curadoria com este CPF e ainda há refação: escolher -->
+    <div id="escolha" style="display:none">
+      <p class="sub" style="margin-top:var(--s-6)">Você já tem uma curadoria com este CPF/CNPJ. O que você prefere?</p>
+      <div class="acoes">
+        <button class="btn btn--primary" id="btnRetomar">Retomar minha curadoria →</button>
+        <a class="btn" id="btnCriarNova" href="https://checkout.profissionaissa.com.br/curadoria/checkout/4fbc7e0d-c39c-4241-9334-ef62c2326b55" style="background:#16a34a;color:#fff;box-shadow:0 0 40px #16a34a55">Criar nova curadoria →</a>
+      </div>
+    </div>
   </section>
 
   <div class="prog" id="prog" style="display:none"><i class="on"></i><i></i><i></i></div>
@@ -394,7 +402,7 @@ document.querySelectorAll('[data-vai]').forEach(b => b.addEventListener('click',
 // ── gate de acesso (paywall por CPF/CNPJ) ──────────────────
 // Só entra quem tem uma compra "Pago" na pipeline Auto Curadoria, casada pelo documento.
 // O servidor revalida em /api/curar — este gate é a porta, não a fechadura.
-let documentoValidado = '';
+let documentoValidado = '', retomarId = '';
 $('#btnAcesso').addEventListener('click', async () => {
   const doc = $('#documento').value.replace(/\D/g, '');
   $('#eGate').textContent = '';
@@ -422,7 +430,14 @@ $('#btnAcesso').addEventListener('click', async () => {
       }
       return;
     }
-    documentoValidado = doc;
+    if (j.modo === 'retomar') {
+      // já existe curadoria com este CPF e ainda há refação: mostra a escolha
+      retomarId = j.id;
+      $('#btnAcesso').style.display = 'none';
+      $('#escolha').style.display = '';
+      return;
+    }
+    documentoValidado = doc;   // modo 'novo': segue pro briefing
     mostra('p1', 1);
   } catch (e) {
     $('#eGate').textContent = 'Não conseguimos validar agora. Tente de novo em instantes.';
@@ -431,10 +446,11 @@ $('#btnAcesso').addEventListener('click', async () => {
   }
 });
 
-// corrigiu o documento -> volta ao estado inicial (esconde o verde, mostra "Iniciar")
+// corrigiu o documento -> volta ao estado inicial (esconde verde e escolha, mostra "Iniciar")
 $('#documento').addEventListener('input', () => {
   $('#eGate').textContent = '';
   $('#btnComprar').style.display = 'none';
+  $('#escolha').style.display = 'none';
   $('#btnAcesso').style.display = '';
   $('#btnAcesso').disabled = false;
   $('#btnAcesso').textContent = 'Iniciar curadoria →';
@@ -445,6 +461,10 @@ $('#documento').addEventListener('keydown', (e) => {
     e.preventDefault();
     $('#btnAcesso').click();
   }
+});
+// Retomar: recarrega a ferramenta com ?id=<curadoria>, que a IIFE do fim carrega sozinha.
+$('#btnRetomar').addEventListener('click', () => {
+  if (retomarId) location.search = 'id=' + retomarId;
 });
 
 
