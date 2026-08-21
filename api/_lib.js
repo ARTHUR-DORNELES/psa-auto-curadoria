@@ -339,6 +339,11 @@ export function lerNomes(bruto) {
       ),
       atencao: limpar(n.atencao || n.atenção),
       aderencia: String(n.aderencia || '').trim(),
+      // Caminho A: a IA Curadoria entrega o id do contato no HubSpot junto do nome.
+      // O disparo de disponibilidade usa isso para achar o contato certo sem casar por
+      // nome (que é furado: no HubSpot o Drauzio é firstname "Dr" / lastname "Drauzio
+      // Varella"). Nunca vai para o cliente — paraCliente() o remove.
+      id_contato: String(n.id_contato ?? n.idContato ?? n.contactId ?? '').trim(),
     };
   };
 
@@ -367,10 +372,15 @@ function lerTextoDaAutomacao(texto, normalizar) {
   let atual = null;
 
   for (const linha of texto.split('\n')) {
-    const cab = linha.match(RE_CABECALHO);
+    // Caminho A no formato texto: id do contato opcional no fim do cabeçalho,
+    // ex. "Permuta: Fulano de Tal [id:140227412350]". Extraído antes de casar a
+    // categoria para não sujar o nome; retrocompatível (linha sem id continua valendo).
+    let idContato = '';
+    const semId = linha.replace(/\s*\[id:\s*(\d+)\s*\]\s*$/i, (_m, g) => { idContato = g; return ''; });
+    const cab = semId.match(RE_CABECALHO);
     if (cab) {
       if (atual) blocos.push(atual);
-      atual = { categoria: cab[1], nome: cab[2], porque: [] };
+      atual = { categoria: cab[1], nome: cab[2], id_contato: idContato, porque: [] };
       continue;
     }
     const motivo = linha.match(RE_MOTIVO);
@@ -456,7 +466,7 @@ export function paraCliente(resultado) {
     leitura: resultado.leitura,
     // `categoria` diz se o nome veio de permuta — saber que a PSA não paga cachê
     // àquele palestrante é informação comercial nossa, não do cliente.
-    indicacoes: resultado.indicacoes.map(({ dados, id, categoria, ...visivel }) => visivel),
+    indicacoes: resultado.indicacoes.map(({ dados, id, categoria, id_contato, ...visivel }) => visivel),
   };
 }
 
@@ -571,4 +581,140 @@ export async function criarItensDeLinha(negocioId, nomes) {
     }
   }
   return { vinculados, semProduto };
+}
+
+/* ── Disparo da pesquisa de disponibilidade (WhatsApp) ──────────────────────
+ * Reaproveita o pipeline do palestrantes-app: grava os campos pesq_* + o gatilho
+ * pesq_disparar=true NO CONTATO do palestrante; o workflow "disparo whats palestrante"
+ * (HubSpot) espera ~5min, envia o WhatsApp e cria o tíquete. Aqui NÃO criamos tíquete
+ * nem enviamos WhatsApp — só fazemos o staging.
+ *
+ * A identidade vem do id_contato que a IA Curadoria grava junto do nome (Caminho A),
+ * então não há casamento de nome no HubSpot.
+ */
+const CONTACT_TRIGGER = 'pesq_disparar';
+
+const _fmtDataBR = v => {
+  const s = String(v || '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s.split('-').reverse().join('/') : (s || '-');
+};
+
+// controle de duplicidade, no MESMO formato do palestrantes-app ("dealId=assinatura")
+function _parseSigs(text) {
+  const map = {};
+  String(text || '').split('\n').forEach(l => {
+    const i = l.indexOf('=');
+    if (i > 0) map[l.slice(0, i).trim()] = l.slice(i + 1).trim();
+  });
+  return map;
+}
+const _serializeSigs = map => Object.keys(map).map(k => `${k}=${map[k]}`).join('\n');
+
+// para E.164 (+55…); vazio quando não dá para inferir — igual à filosofia do resto do app
+function _normalizePhone(v) {
+  let s = String(v || '').trim();
+  if (s.startsWith('+')) return '+' + s.slice(1).replace(/\D/g, '');
+  s = s.replace(/\D/g, '');
+  if (!s) return '';
+  if (s.startsWith('55') && (s.length === 12 || s.length === 13)) return `+${s}`;
+  if (s.length === 10 || s.length === 11) return `+55${s}`;
+  return `+${s}`;
+}
+
+/**
+ * Dispara a pesquisa de disponibilidade para cada palestrante escolhido.
+ * `indicacoes` são os objetos escolhidos (têm nome + id_contato). Nunca lança:
+ * o pedido do cliente não pode falhar por causa do disparo. Devolve o que disparou,
+ * o que não tinha contato e o que já estava disparado (dedup).
+ */
+export async function dispararDisponibilidade(negocioId, indicacoes, briefing, datas) {
+  const disparados = [], semContato = [], semTelefone = [], jaDisparado = [], falhas = [];
+
+  // dados do evento — iguais para todos os palestrantes deste negócio, montados uma vez
+  const local = [
+    briefing.localEvento,
+    [briefing.cidade, briefing.local].filter(Boolean).join('/'), // briefing.local = ESTADO
+  ].filter(Boolean).join(' — ');
+  const tema = [briefing.macroTema, briefing.microTema].filter(Boolean).join(' — ');
+  const obs = [
+    datas ? `Datas desejadas: ${datas}.` : '',
+    `Solicitado pelo cliente ${briefing.empresa || ''} via Auto Curadoria.`.replace(/\s+/g, ' ').trim(),
+  ].filter(Boolean).join(' ');
+
+  const ev = {
+    pesq_cliente: briefing.empresa || '-',
+    pesq_formato: briefing.formato || '-',
+    pesq_tema: tema || '-',
+    pesq_publico: briefing.publicoAlvo || '-',
+    pesq_data: _fmtDataBR(briefing.data),
+    pesq_horario: briefing.horario || '-',
+    pesq_local: local || '-',
+    pesq_duracao: briefing.duracao || '-',
+    pesq_ingresso: briefing.vendaIngresso || '-',
+    pesq_obs: obs || '-',
+  };
+  const resumo = [
+    `🤝 Cliente: ${ev.pesq_cliente}`,
+    `🎟️ Formato do evento: ${ev.pesq_formato}`,
+    `🎯 Tema: ${ev.pesq_tema}`,
+    `👥 Perfil do público: ${ev.pesq_publico}`,
+    `📅 Data: ${ev.pesq_data}`,
+    `🕐 Horário: ${ev.pesq_horario}`,
+    `📍 Local: ${ev.pesq_local}`,
+    `⏱️ Duração: ${ev.pesq_duracao}`,
+    `🎫 Venda de ingresso: ${ev.pesq_ingresso}`,
+    `📝 Observações: ${ev.pesq_obs}`,
+  ].join('\n');
+  const sig = `${ev.pesq_data}||${ev.pesq_local}`;
+
+  // dono do negócio → o workflow copia para dono_negocio do tíquete (opcional)
+  let dealOwner = '';
+  try {
+    const d = await hs(`/crm/v3/objects/deals/${negocioId}?properties=hubspot_owner_id`, 'GET');
+    dealOwner = String(d.properties?.hubspot_owner_id || '').trim();
+  } catch (e) { console.error('leitura do dono do negócio falhou:', e.message); }
+
+  for (const ind of indicacoes) {
+    const contatoId = String(ind.id_contato || '').trim();
+    if (!/^\d+$/.test(contatoId)) { semContato.push(ind.nome); continue; }
+    try {
+      // lê estado atual: assinaturas (dedup) + telefone do próprio contato do palestrante
+      let atual = {};
+      try {
+        const c = await hs(
+          `/crm/v3/objects/contacts/${contatoId}?properties=pesq_assinaturas,phone,hs_whatsapp_phone_number`,
+          'GET',
+        );
+        atual = c.properties || {};
+      } catch (e) { console.error(`leitura do contato ${contatoId} falhou:`, e.message); }
+
+      const sigs = _parseSigs(atual.pesq_assinaturas || '');
+      // dedup: mesma data+local já disparada para este palestrante+negócio? não repete
+      if (sigs[String(negocioId)] === sig) { jaDisparado.push(ind.nome); continue; }
+
+      const phone = _normalizePhone(atual.phone);
+      const temWhats = String(atual.hs_whatsapp_phone_number || '').trim();
+      if (!phone && !temWhats) { semTelefone.push(ind.nome); continue; }
+
+      const props = {
+        ...ev,
+        pesq_deal_id: String(negocioId),
+        pesq_resumo: resumo,
+        pesq_assinaturas: _serializeSigs({ ...sigs, [String(negocioId)]: sig }),
+        [CONTACT_TRIGGER]: 'true',
+      };
+      // reescreve phone (E.164) p/ o fluxo de correção do número rodar antes do envio,
+      // como o card faz; só quando há telefone no contato
+      if (phone) props.phone = phone;
+      if (dealOwner) props.pesq_deal_owner = dealOwner;
+
+      await hs(`/crm/v3/objects/contacts/${contatoId}`, 'PATCH', { properties: props });
+      disparados.push(ind.nome);
+    } catch (e) {
+      console.error(`disparo de disponibilidade de ${ind.nome} (${contatoId}) falhou:`, e.message);
+      falhas.push(ind.nome);
+    }
+  }
+
+  return { disparados, semContato, semTelefone, jaDisparado, falhas };
 }
