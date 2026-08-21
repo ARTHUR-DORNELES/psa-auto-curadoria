@@ -165,7 +165,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
       <div><label for="documento">CPF ou CNPJ <span>*</span></label><input id="documento" inputmode="numeric" autocomplete="off" placeholder="Somente números"></div>
     </div>
     <p class="erro" id="eGate"></p>
-    <div class="acoes"><button class="btn btn--primary" id="btnAcesso">Liberar minha curadoria →</button></div>
+    <div class="acoes"><button class="btn btn--primary" id="btnAcesso">Adquirir curadoria →</button></div>
   </section>
 
   <div class="prog" id="prog" style="display:none"><i class="on"></i><i></i><i></i></div>
@@ -409,7 +409,7 @@ $('#btnAcesso').addEventListener('click', async () => {
     if (!j.ok) {
       $('#eGate').textContent = j.erro || 'Compra não encontrada para este CPF/CNPJ.';
       $('#btnAcesso').disabled = false;
-      $('#btnAcesso').textContent = 'Liberar minha curadoria →';
+      $('#btnAcesso').textContent = 'Adquirir curadoria →';
       return;
     }
     documentoValidado = doc;
@@ -417,7 +417,7 @@ $('#btnAcesso').addEventListener('click', async () => {
   } catch (e) {
     $('#eGate').textContent = 'Não conseguimos validar agora. Tente de novo em instantes.';
     $('#btnAcesso').disabled = false;
-    $('#btnAcesso').textContent = 'Liberar minha curadoria →';
+    $('#btnAcesso').textContent = 'Adquirir curadoria →';
   }
 });
 
