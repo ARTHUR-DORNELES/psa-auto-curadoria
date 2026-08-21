@@ -1,4 +1,4 @@
-import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherTres, PROP_NOMES, nota, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha } from './_lib.js';
+import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherTres, PROP_NOMES, nota, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade } from './_lib.js';
 
 const ACOES = {
   curador: 'CLIENTE PEDIU ATENDIMENTO DE CURADOR — assumir o processo pelo caminho tradicional.',
@@ -116,17 +116,28 @@ export default async function handler(req, res) {
         .map(n => String(n || '').trim()).filter(Boolean))];
       if (!escolhidos.length) return res.status(400).json({ erro: 'selecione ao menos um palestrante' });
 
-      // só nomes que esta curadoria realmente indicou — a lista vem do cliente
-      const indicados = (reg.resultado?.indicacoes || []).map(i => i.nome);
-      const validos = escolhidos.filter(n => indicados.includes(n));
+      // só nomes que esta curadoria realmente indicou — a lista vem do cliente.
+      // Usamos os OBJETOS das indicações (não só o nome) porque é neles que viaja o
+      // id_contato que a IA Curadoria gravou (Caminho A) — é o que o disparo precisa.
+      const indicacoesEscolhidas = (reg.resultado?.indicacoes || []).filter(i => escolhidos.includes(i.nome));
+      const validos = indicacoesEscolhidas.map(i => i.nome);
       if (!validos.length) return res.status(400).json({ erro: 'palestrante fora desta curadoria' });
 
       let itens = { vinculados: [], semProduto: validos };
+      let disparo = { disparados: [], semContato: [], semTelefone: [], jaDisparado: [], falhas: [] };
       if (reg.hubspot?.negocioId) {
         itens = await criarItensDeLinha(reg.hubspot.negocioId, validos);
+        // dispara a pesquisa de disponibilidade (WhatsApp) reaproveitando o pipeline do
+        // palestrantes-app: staging pesq_* + pesq_disparar=true no contato de cada
+        // palestrante; o workflow do HubSpot envia e cria o tíquete. Nunca derruba o pedido.
+        try {
+          disparo = await dispararDisponibilidade(reg.hubspot.negocioId, indicacoesEscolhidas, reg.briefing || {}, datas);
+        } catch (e) {
+          console.error('disparo de disponibilidade falhou:', e.message);
+        }
       }
 
-      reg.disponibilidade = { palestrantes: validos, datas: datas || null, em: new Date().toISOString(), ...itens };
+      reg.disponibilidade = { palestrantes: validos, datas: datas || null, em: new Date().toISOString(), ...itens, disparo };
       reg.acoes.push({ acao, palestrantes: validos, datas, em: reg.disponibilidade.em });
       await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
 
@@ -142,6 +153,11 @@ export default async function handler(req, res) {
             itens.semProduto.length
               ? `ATENÇÃO — sem produto correspondente, vincular à mão: ${itens.semProduto.join(', ')}`
               : '',
+            disparo.disparados.length ? `WhatsApp de disponibilidade disparado para: ${disparo.disparados.join(', ')}` : '',
+            disparo.jaDisparado.length ? `Já havia disparo com a mesma data/local (não repetido): ${disparo.jaDisparado.join(', ')}` : '',
+            disparo.semContato.length ? `ATENÇÃO — sem id_contato, WhatsApp NÃO disparado (verificar): ${disparo.semContato.join(', ')}` : '',
+            disparo.semTelefone.length ? `ATENÇÃO — contato sem telefone, WhatsApp NÃO disparado: ${disparo.semTelefone.join(', ')}` : '',
+            disparo.falhas.length ? `ATENÇÃO — falha ao disparar WhatsApp: ${disparo.falhas.join(', ')}` : '',
             `Prazo combinado com o cliente: até 24h.`,
             `Curadoria: ${id}`,
           ].filter(Boolean).join('\n'));
