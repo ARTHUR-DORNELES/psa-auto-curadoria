@@ -439,6 +439,13 @@ $('#documento').addEventListener('input', () => {
   $('#btnAcesso').disabled = false;
   $('#btnAcesso').textContent = 'Iniciar curadoria →';
 });
+// Enter no campo dispara o "Iniciar curadoria" (só quando o botão está visível/ativo)
+$('#documento').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && $('#btnAcesso').style.display !== 'none' && !$('#btnAcesso').disabled) {
+    e.preventDefault();
+    $('#btnAcesso').click();
+  }
+});
 
 
 // ── validação ──────────────────────────────────────────────
