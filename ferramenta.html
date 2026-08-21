@@ -165,7 +165,11 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
       <div><label for="documento">CPF ou CNPJ <span>*</span></label><input id="documento" inputmode="numeric" autocomplete="off" placeholder="Somente números"></div>
     </div>
     <p class="erro" id="eGate"></p>
-    <div class="acoes"><button class="btn btn--primary" id="btnAcesso">Adquirir curadoria →</button></div>
+    <div class="acoes">
+      <button class="btn btn--primary" id="btnAcesso">Iniciar curadoria →</button>
+      <!-- aparece só quando NÃO há compra liberada: leva ao checkout -->
+      <a class="btn" id="btnComprar" href="https://checkout.profissionaissa.com.br/curadoria/checkout/4fbc7e0d-c39c-4241-9334-ef62c2326b55" style="display:none;background:#16a34a;color:#fff;box-shadow:0 0 40px #16a34a55">Adquirir Curadoria →</a>
+    </div>
   </section>
 
   <div class="prog" id="prog" style="display:none"><i class="on"></i><i></i><i></i></div>
@@ -408,8 +412,14 @@ $('#btnAcesso').addEventListener('click', async () => {
     const j = await r.json();
     if (!j.ok) {
       $('#eGate').textContent = j.erro || 'Compra não encontrada para este CPF/CNPJ.';
-      $('#btnAcesso').disabled = false;
-      $('#btnAcesso').textContent = 'Adquirir curadoria →';
+      if (j.motivo === 'nao_encontrado') {
+        // sem compra liberada: some o "Iniciar" e aparece o verde que leva ao checkout
+        $('#btnAcesso').style.display = 'none';
+        $('#btnComprar').style.display = '';
+      } else {
+        $('#btnAcesso').disabled = false;
+        $('#btnAcesso').textContent = 'Iniciar curadoria →';
+      }
       return;
     }
     documentoValidado = doc;
@@ -417,8 +427,17 @@ $('#btnAcesso').addEventListener('click', async () => {
   } catch (e) {
     $('#eGate').textContent = 'Não conseguimos validar agora. Tente de novo em instantes.';
     $('#btnAcesso').disabled = false;
-    $('#btnAcesso').textContent = 'Adquirir curadoria →';
+    $('#btnAcesso').textContent = 'Iniciar curadoria →';
   }
+});
+
+// corrigiu o documento -> volta ao estado inicial (esconde o verde, mostra "Iniciar")
+$('#documento').addEventListener('input', () => {
+  $('#eGate').textContent = '';
+  $('#btnComprar').style.display = 'none';
+  $('#btnAcesso').style.display = '';
+  $('#btnAcesso').disabled = false;
+  $('#btnAcesso').textContent = 'Iniciar curadoria →';
 });
 
 
