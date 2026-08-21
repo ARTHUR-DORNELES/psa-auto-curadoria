@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { registrarNoHubspot, redis, chave, lerCorpo, cors, creditoPagoPorDocumento, normalizaDocumento } from './_lib.js';
+import { anexarBriefingAoNegocio, redis, chave, lerCorpo, cors, creditoPagoPorDocumento, normalizaDocumento } from './_lib.js';
 
 // A ferramenta NÃO gera mais os nomes. Ela grava o briefing no negócio e a
 // automação da PSA (disparada pela observação) produz o arquivo da IA Curadoria
@@ -48,11 +48,12 @@ export default async function handler(req, res) {
 
     const id = crypto.randomUUID();
 
-    // Sem negócio no HubSpot não existe curadoria: é a observação que dispara a
-    // automação. Aqui a falha é fatal, diferente de antes.
+    // Fluxo unificado: o briefing vai no PRÓPRIO negócio "Pago" que liberou o acesso
+    // (creditoDealId), não num negócio novo do B2B. A observação dispara a automação.
+    // Aqui a falha é fatal: sem a nota no negócio, a curadoria não é gerada.
     let hubspot;
     try {
-      hubspot = await registrarNoHubspot(briefing, null, id);
+      hubspot = await anexarBriefingAoNegocio(credito.dealId, briefing, id);
     } catch (e) {
       console.error('HUBSPOT_FALHOU', id, e.message);
       return res.status(502).json({

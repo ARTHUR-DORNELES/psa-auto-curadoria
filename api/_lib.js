@@ -145,6 +145,57 @@ export async function registrarNoHubspot(briefing, resultado, id) {
   return { contatoId, negocioId: negocio.id };
 }
 
+/**
+ * Fluxo unificado (paywall): em vez de abrir um negócio novo no B2B, joga o briefing no
+ * PRÓPRIO negócio "Pago" da Auto Curadoria — o que liberou o acesso. Atualiza as props do
+ * briefing + o nome, MANTÉM a etapa (segue "Pago" até a geração consumir para "Utilizado")
+ * e adiciona a observação, que é o que dispara a automação (o webhook lê as notas do
+ * negócio). Tolera prop recusada igual ao criarNegocio: enum inválido não trava o fluxo.
+ */
+export async function anexarBriefingAoNegocio(dealId, briefing, id) {
+  const [primeiro] = (briefing.nome || '').trim().split(/\s+/);
+  let props = {
+    dealname: ['AUTO CURADORIA |', [primeiro, briefing.empresa, dataBR(briefing.data)].filter(Boolean).join(' - ')].join(' ').slice(0, 240),
+    macro_tema: briefing.macroTema || undefined,
+    micro_tema: briefing.microTema || undefined,
+    janeiro___orcamento: briefing.orcamento || undefined,
+    formato_evento: briefing.formato || undefined,
+    estado_negocio: briefing.local || undefined,
+    local_evento: briefing.localEvento || undefined,
+    cidade: briefing.cidade || undefined,
+    perfil_do_publico_participante__ganho_: briefing.publicoAlvo || undefined,
+    horario_da_palestra_do_1o_palestrante: briefing.horario || undefined,
+    duracao_do_evento: briefing.duracao || undefined,
+    evento_com_venda_de_ingresso_: briefing.vendaIngresso || undefined,
+    objetivos_do_evento: [
+      briefing.motivacao && `Motivo da busca: ${briefing.motivacao}.`,
+      briefing.sentimento && `Como o público deve sair: ${briefing.sentimento}.`,
+      briefing.briefing?.trim() && `Contexto do cliente: ${briefing.briefing.trim()}`,
+    ].filter(Boolean).join(' ').slice(0, 4000) || undefined,
+    data_da_palestra_do_1o_palestrante: briefing.data ? Date.parse(`${briefing.data}T00:00:00Z`) : undefined,
+    descreva_o_macro_tema: briefing.briefing?.slice(0, 4000) || undefined,
+  };
+  for (const k of Object.keys(props)) if (props[k] === undefined) delete props[k];
+
+  // PATCH tolerando prop recusada — nunca mexe em pipeline/dealstage (segue "Pago").
+  for (let tentativa = 0; tentativa < 6; tentativa++) {
+    try {
+      await hs(`/crm/v3/objects/deals/${dealId}`, 'PATCH', { properties: props });
+      break;
+    } catch (e) {
+      const recusadas = [...e.message.matchAll(/"name\\?":\\?"([a-z0-9_]+)\\?"/g)].map((m) => m[1])
+        .filter((p) => p in props && p !== 'dealname');
+      if (!recusadas.length) throw e;
+      for (const p of recusadas) delete props[p];
+      console.error('BRIEFING_PROP_RECUSADA', recusadas.join(','), '— seguindo sem ela');
+    }
+  }
+
+  // a observação dispara a automação (o workflow enrola o negócio com nota conhecida)
+  await nota(dealId, notaDoBriefing(briefing, null, id));
+  return { negocioId: dealId };
+}
+
 const dataBR = iso => (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.split('-').reverse().join('/') : '');
 
 /**
