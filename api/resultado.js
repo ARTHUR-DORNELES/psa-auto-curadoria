@@ -1,4 +1,4 @@
-import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherTres, PROP_NOMES, nota, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade } from './_lib.js';
+import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherTres, PROP_NOMES, nota, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, consumirCredito } from './_lib.js';
 
 const ACOES = {
   curador: 'CLIENTE PEDIU ATENDIMENTO DE CURADOR — assumir o processo pelo caminho tradicional.',
@@ -48,6 +48,12 @@ export default async function handler(req, res) {
         })),
       };
       if (!CHECKOUT_URL) reg.pago = true;   // sem checkout, entrega direto
+      // consome o crédito: move o negócio "Pago" -> "Utilizado" na PRIMEIRA geração.
+      // Guardado em reg.creditoConsumido para não reconsumir numa refação (a mesma
+      // compra cobre 1 briefing + 1 refação).
+      if (reg.creditoDealId && !reg.creditoConsumido) {
+        reg.creditoConsumido = await consumirCredito(reg.creditoDealId);
+      }
       await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
     }
 

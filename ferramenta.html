@@ -156,10 +156,22 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 
 <main class="wrap">
 
-  <div class="prog" id="prog"><i class="on"></i><i></i><i></i></div>
+  <!-- 0. acesso (paywall por CPF/CNPJ) -->
+  <section class="passo on" id="gate">
+    <span class="eyebrow">Acesso</span>
+    <h1>Vamos começar<br>sua curadoria.</h1>
+    <p class="sub">Digite o CPF ou CNPJ usado na compra da Auto Curadoria para liberar o seu briefing.</p>
+    <div class="campos">
+      <div><label for="documento">CPF ou CNPJ <span>*</span></label><input id="documento" inputmode="numeric" autocomplete="off" placeholder="Somente números"></div>
+    </div>
+    <p class="erro" id="eGate"></p>
+    <div class="acoes"><button class="btn btn--primary" id="btnAcesso">Liberar minha curadoria →</button></div>
+  </section>
+
+  <div class="prog" id="prog" style="display:none"><i class="on"></i><i></i><i></i></div>
 
   <!-- 1. contato -->
-  <section class="passo on" id="p1">
+  <section class="passo" id="p1">
     <span class="eyebrow">Passo 1 de 3</span>
     <h1>Quem está<br>organizando?</h1>
     <p class="sub">Precisamos saber com quem falar quando a curadoria ficar pronta.</p>
@@ -375,6 +387,40 @@ document.querySelectorAll('[data-vai]').forEach(b => b.addEventListener('click',
   mostra('p' + destino, +destino);
 }));
 
+// ── gate de acesso (paywall por CPF/CNPJ) ──────────────────
+// Só entra quem tem uma compra "Pago" na pipeline Auto Curadoria, casada pelo documento.
+// O servidor revalida em /api/curar — este gate é a porta, não a fechadura.
+let documentoValidado = '';
+$('#btnAcesso').addEventListener('click', async () => {
+  const doc = $('#documento').value.replace(/\D/g, '');
+  $('#eGate').textContent = '';
+  if (doc.length !== 11 && doc.length !== 14) {
+    $('#eGate').textContent = 'Informe um CPF (11 dígitos) ou CNPJ (14 dígitos), só números.';
+    return;
+  }
+  $('#btnAcesso').disabled = true;
+  $('#btnAcesso').textContent = 'Validando…';
+  try {
+    const r = await fetch('/api/acesso', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ documento: doc }),
+    });
+    const j = await r.json();
+    if (!j.ok) {
+      $('#eGate').textContent = j.erro || 'Compra não encontrada para este CPF/CNPJ.';
+      $('#btnAcesso').disabled = false;
+      $('#btnAcesso').textContent = 'Liberar minha curadoria →';
+      return;
+    }
+    documentoValidado = doc;
+    mostra('p1', 1);
+  } catch (e) {
+    $('#eGate').textContent = 'Não conseguimos validar agora. Tente de novo em instantes.';
+    $('#btnAcesso').disabled = false;
+    $('#btnAcesso').textContent = 'Liberar minha curadoria →';
+  }
+});
+
 
 // ── validação ──────────────────────────────────────────────
 // Todos os campos são obrigatórios, menos os descritivos: o recorte do tema
@@ -519,6 +565,7 @@ $('#enviar').addEventListener('click', async () => {
         orcamento: $('#orcamento').value, vendaIngresso: $('#vendaIngresso').value,
         motivacao: $('#motivacao').value, sentimento: $('#sentimento').value,
         briefing: $('#briefing').value, utm,
+        documento: documentoValidado,
       }),
     });
     const j = await r.json();
@@ -896,8 +943,8 @@ function renderCompleto(d) {
     if (d.pago) renderCompleto(d);
     else renderTeaser({ id, teaser: d.teaser, precoCentavos: 19700, checkoutUrl: '' });
   } catch (e) {
-    mostra('p1', 1);
-    $('#e1').textContent = 'Não encontramos essa curadoria. Preencha o briefing novamente.';
+    mostra('gate', 0);
+    $('#eGate').textContent = 'Não encontramos essa curadoria. Valide seu CPF/CNPJ para começar de novo.';
   }
 })();
 </script>
