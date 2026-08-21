@@ -82,7 +82,9 @@ export default async function handler(req, res) {
       reg.descartados = [...new Set([...(reg.descartados || []), ...recusados])];
       reg.refacoes = feitas + 1;
       delete reg.resultado;
-      reg.pago = false;
+      // NÃO zera reg.pago: no modelo de compra, quem passou pelo gate segue liberado a
+      // sessão inteira — a refação é coberta pela MESMA compra (não reconsome o crédito).
+      // Zerar aqui mostraria o teaser em vez do resultado da refação.
       await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
 
       if (reg.hubspot?.negocioId) {

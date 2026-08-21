@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { anexarBriefingAoNegocio, redis, chave, lerCorpo, cors, creditoPagoPorDocumento, normalizaDocumento } from './_lib.js';
+import { anexarBriefingAoNegocio, redis, chave, chaveDeal, lerCorpo, cors, creditoPagoPorDocumento, normalizaDocumento } from './_lib.js';
 
 // A ferramenta NÃO gera mais os nomes. Ela grava o briefing no negócio e a
 // automação da PSA (disparada pela observação) produz o arquivo da IA Curadoria
@@ -69,6 +69,9 @@ export default async function handler(req, res) {
       documento: doc.valor, documentoTipo: doc.tipo,
       creditoDealId: credito.dealId, creditoContatoId: credito.contatoId,
     }), 'EX', 60 * 60 * 24 * 90);
+    // vínculo negócio -> curadoria: deixa o gate reencontrar esta curadoria pelo CPF/CNPJ
+    // (retomar/refazer) mesmo que o cliente não tenha guardado o link.
+    await redis().set(chaveDeal(credito.dealId), id, 'EX', 60 * 60 * 24 * 90);
 
     res.status(200).json({ id });
   } catch (e) {
