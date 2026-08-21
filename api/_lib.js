@@ -11,6 +11,13 @@ export const CHECKOUT_URL = process.env.CHECKOUT_URL || '';
 // A etapa de entrada é decisionmakerboughtin ("Reunião agendada / Qualificado").
 const PIPELINE = 'default';
 const STAGE_NOVO = 'decisionmakerboughtin';
+
+// Pipeline "Auto Curadoria" (paywall). A compra pelo checkout cai em "Pago"; ao gerar
+// a curadoria, o negócio vira "Utilizado" e não pode mais liberar acesso.
+const PIPE_AUTOCURADORIA = '928503985';
+const STAGE_PAGO = '1423408703';
+const STAGE_UTILIZADO = '1423413584';
+
 const HS = 'https://api.hubapi.com';
 
 let _redis;
@@ -717,4 +724,74 @@ export async function dispararDisponibilidade(negocioId, indicacoes, briefing, d
   }
 
   return { disparados, semContato, semTelefone, jaDisparado, falhas };
+}
+
+/* ── Paywall por CPF/CNPJ ────────────────────────────────────────────────────
+ * Acesso à Auto Curadoria é liberado só para quem tem um negócio "Pago" na pipeline
+ * Auto Curadoria. O CPF/CNPJ (informado na entrada) casa com o contato comprador
+ * (propriedades `cpf`/`cnpj`), e o negócio "Pago" associado é o crédito. Ao gerar a
+ * curadoria, esse negócio vira "Utilizado".
+ */
+
+// só dígitos -> {tipo:'cpf'|'cnpj', valor} ou null. 11 díg = CPF, 14 = CNPJ.
+export function normalizaDocumento(bruto) {
+  const d = String(bruto || '').replace(/\D/g, '');
+  if (d.length === 11) return { tipo: 'cpf', valor: d };
+  if (d.length === 14) return { tipo: 'cnpj', valor: d };
+  return null;
+}
+
+/**
+ * Acha o negócio "Pago" MAIS ANTIGO (fila) na pipeline Auto Curadoria para um CPF/CNPJ.
+ * Casa o documento no contato (cpf ou cnpj), depois busca o negócio Pago associado.
+ * Devolve { dealId, contatoId, doc } ou null (sem compra liberada).
+ */
+export async function creditoPagoPorDocumento(bruto) {
+  const doc = normalizaDocumento(bruto);
+  if (!doc) return null;
+
+  // 1) contatos com esse cpf/cnpj (o checkout grava só dígitos, ex.: "01608209016")
+  const contatos = await hs('/crm/v3/objects/contacts/search', 'POST', {
+    filterGroups: [{ filters: [{ propertyName: doc.tipo, operator: 'EQ', value: doc.valor }] }],
+    properties: [doc.tipo],
+    limit: 100,
+  });
+  const ids = (contatos.results || []).map((c) => c.id);
+  if (!ids.length) return null;
+
+  // 2) negócio Pago na pipeline Auto Curadoria associado a esses contatos, mais antigo 1º.
+  //    Busca ANDando pipeline+stage+associação; cada contato é um filterGroup (OR), até 5.
+  const deals = await hs('/crm/v3/objects/deals/search', 'POST', {
+    filterGroups: ids.slice(0, 5).map((cid) => ({
+      filters: [
+        { propertyName: 'pipeline', operator: 'EQ', value: PIPE_AUTOCURADORIA },
+        { propertyName: 'dealstage', operator: 'EQ', value: STAGE_PAGO },
+        { propertyName: 'associations.contact', operator: 'EQ', value: cid },
+      ],
+    })),
+    sorts: [{ propertyName: 'createdate', direction: 'ASCENDING' }],
+    properties: ['dealname', 'dealstage', 'pipeline', 'createdate'],
+    limit: 1,
+  });
+  const d = (deals.results || [])[0];
+  return d ? { dealId: d.id, contatoId: ids[0], doc } : null;
+}
+
+/**
+ * Consome o crédito: move o negócio para "Utilizado". Idempotente e nunca lança —
+ * só move se ainda estiver "Pago" na pipeline certa (evita reconsumir numa refação
+ * ou mexer num negócio de outra pipeline). Devolve true se moveu.
+ */
+export async function consumirCredito(dealId) {
+  if (!dealId) return false;
+  try {
+    const d = await hs(`/crm/v3/objects/deals/${dealId}?properties=pipeline,dealstage`, 'GET');
+    const p = d.properties || {};
+    if (p.pipeline !== PIPE_AUTOCURADORIA || p.dealstage !== STAGE_PAGO) return false;
+    await hs(`/crm/v3/objects/deals/${dealId}`, 'PATCH', { properties: { dealstage: STAGE_UTILIZADO } });
+    return true;
+  } catch (e) {
+    console.error('consumirCredito falhou:', e.message);
+    return false;
+  }
 }
