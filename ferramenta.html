@@ -207,9 +207,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
   <section class="passo" id="chat">
     <div class="santi-header">
       <div class="santi-av" id="santiAv">
-        <video class="santi-vid" data-estado="idle" autoplay loop muted playsinline preload="auto" poster="https://psa-auto-curadoria.vercel.app/santiago.png"><source src="https://psa-auto-curadoria.vercel.app/santiago.mp4" type="video/mp4"></video>
-        <video class="santi-vid" data-estado="pensando" loop muted playsinline preload="auto" hidden><source src="https://psa-auto-curadoria.vercel.app/santiago-pensando.mp4" type="video/mp4"></video>
-        <video class="santi-vid" data-estado="falando" loop muted playsinline preload="auto" hidden><source src="https://psa-auto-curadoria.vercel.app/santiago-falando.mp4" type="video/mp4"></video>
+        <video class="santi-vid" autoplay loop muted playsinline preload="auto" poster="https://psa-auto-curadoria.vercel.app/santiago.png"><source src="https://psa-auto-curadoria.vercel.app/santiago-falando.mp4" type="video/mp4"></video>
       </div>
       <div class="santi-nome">Santiago<small>curador responsável pela sua demanda</small></div>
       <span class="santi-dot"></span>
@@ -532,12 +530,11 @@ function digitarBolha(texto) {
     const q = document.createElement('span'); q.className = 'quem'; q.textContent = 'Santiago'; el.appendChild(q);
     const span = document.createElement('span'); el.appendChild(span);
     $('#chatMsgs').appendChild(el);
-    santiEstado('falando');
     let i = 0;
     const timer = setInterval(() => {
       span.textContent = texto.slice(0, i += 1);
       el.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      if (i >= texto.length) { clearInterval(timer); pausarSanti(); resolve(); }
+      if (i >= texto.length) { clearInterval(timer); resolve(); }
     }, 20);
   });
 }
@@ -554,7 +551,6 @@ function bolha(quem, texto) {
 }
 
 function chatDigitando(on) {
-  if (on) santiEstado('pensando');   // enquanto gera a resposta, avatar "pensando"
   let d = $('#chatDigit');
   if (on && !d) {
     d = document.createElement('div'); d.id = 'chatDigit'; d.className = 'digitando';
@@ -625,7 +621,6 @@ async function chatTurno() {
     chatWidget(j.widget);   // widget aparece só depois que ele termina de "escrever"
   } catch (e) {
     chatDigitando(false);
-    santiEstado('idle');
     bolha('santiago', 'Tive um probleminha aqui. Pode repetir, por favor?');
   }
 }
@@ -653,7 +648,6 @@ function iniciarChat() {
   chatHist.length = 0; chatSlots = {};
   $('#chatMsgs').innerHTML = ''; $('#chatEntrada').innerHTML = '';
   mostra('chat', 0);
-  santiEstado('idle');
   chatTurno();   // 1º turno: Santiago se apresenta e faz a primeira pergunta
 }
 
