@@ -6,6 +6,7 @@
     { "source": "/auto-curadoria", "destination": "/" }
   ],
   "functions": {
-    "api/curar.js": { "maxDuration": 60 }
+    "api/curar.js": { "maxDuration": 60 },
+    "api/chat.js": { "maxDuration": 30 }
   }
 }

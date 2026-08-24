@@ -107,13 +107,14 @@ export default async function handler(req, res) {
   const faltando = OBRIGATORIOS.filter(c => !slots[c]);
 
   try {
-    const client = new Anthropic();
+    const client = new Anthropic({ timeout: 30000, maxRetries: 1 });
     const r = await client.messages.create({
       model: MODEL,
       max_tokens: 1024,
+      thinking: { type: 'disabled' },          // chat de briefing: rápido, sem raciocínio extenso
       system: sistema(faltando, slots),
       messages: mensagens,
-      output_config: { format: { type: 'json_schema', schema: TURNO_SCHEMA } },
+      output_config: { effort: 'low', format: { type: 'json_schema', schema: TURNO_SCHEMA } },
     });
 
     const txt = (r.content.find(b => b.type === 'text') || {}).text || '{}';
