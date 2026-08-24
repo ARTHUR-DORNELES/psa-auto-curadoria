@@ -157,8 +157,8 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
     .digitando{align-self:flex-start;color:var(--fg-3);font-size:var(--t-body-sm);font-style:italic}
     /* avatar do Santiago (respira parado, balança quando pensa) */
     .santi-header{display:flex;align-items:center;gap:14px;margin-bottom:var(--s-5)}
-    .santi-av{width:60px;height:60px;border-radius:50%;object-fit:cover;flex:none;border:2px solid var(--psa-orange);box-shadow:var(--glow-orange);background:#02060f}
-    .santi-av.pensando{filter:brightness(1.08) saturate(1.05)}
+    .santi-av{width:60px;height:60px;border-radius:50%;overflow:hidden;position:relative;flex:none;border:2px solid var(--psa-orange);box-shadow:var(--glow-orange);background:#02060f}
+    .santi-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     @keyframes santiRespira{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.035)}}
     @keyframes santiPensa{0%,100%{transform:translateY(0) rotate(-2.5deg)}50%{transform:translateY(-4px) rotate(2.5deg)}}
     .santi-nome{font-weight:700;line-height:1.2}
@@ -206,11 +206,11 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
   <!-- conversa com o Santiago (curador) -->
   <section class="passo" id="chat">
     <div class="santi-header">
-      <video class="santi-av" id="santiAv" autoplay loop muted playsinline preload="auto"
-             poster="https://psa-auto-curadoria.vercel.app/santiago.png">
-        <source src="https://psa-auto-curadoria.vercel.app/santiago.mp4" type="video/mp4">
-        <img class="santi-av" src="https://psa-auto-curadoria.vercel.app/santiago.png" alt="Santiago, curador da PSA">
-      </video>
+      <div class="santi-av" id="santiAv">
+        <video class="santi-vid" data-estado="idle" autoplay loop muted playsinline preload="auto" poster="https://psa-auto-curadoria.vercel.app/santiago.png"><source src="https://psa-auto-curadoria.vercel.app/santiago.mp4" type="video/mp4"></video>
+        <video class="santi-vid" data-estado="pensando" loop muted playsinline preload="auto" hidden><source src="https://psa-auto-curadoria.vercel.app/santiago-pensando.mp4" type="video/mp4"></video>
+        <video class="santi-vid" data-estado="falando" loop muted playsinline preload="auto" hidden><source src="https://psa-auto-curadoria.vercel.app/santiago-falando.mp4" type="video/mp4"></video>
+      </div>
       <div class="santi-nome">Santiago<small>curador responsável pela sua demanda</small></div>
       <span class="santi-dot"></span>
     </div>
@@ -512,6 +512,23 @@ $('#btnRetomar').addEventListener('click', () => {
 const chatHist = [];        // [{role:'santiago'|'user', content}]
 let chatSlots = {};
 
+// troca o vídeo do avatar: 'idle' | 'pensando' | 'falando' (mostra 1, pausa os outros)
+function santiEstado(estado) {
+  document.querySelectorAll('#santiAv .santi-vid').forEach(v => {
+    const on = v.dataset.estado === estado;
+    v.hidden = !on;
+    if (on) { const p = v.play(); p && p.catch && p.catch(() => {}); } else { v.pause(); }
+  });
+}
+let _falarTimer;
+// entra em "falando" enquanto o cliente lê a resposta, depois volta pra "idle"
+function santiFalar(texto) {
+  santiEstado('falando');
+  clearTimeout(_falarTimer);
+  const ms = Math.min(7000, Math.max(2500, (texto || '').length * 55));
+  _falarTimer = setTimeout(() => santiEstado('idle'), ms);
+}
+
 function bolha(quem, texto) {
   const el = document.createElement('div');
   el.className = 'bolha ' + (quem === 'santiago' ? 'bolha--santiago' : 'bolha--voce');
@@ -524,7 +541,7 @@ function bolha(quem, texto) {
 }
 
 function chatDigitando(on) {
-  $('#santiAv') && $('#santiAv').classList.toggle('pensando', on);  // avatar balança enquanto pensa
+  if (on) santiEstado('pensando');   // enquanto gera a resposta, avatar "pensando"
   let d = $('#chatDigit');
   if (on && !d) {
     d = document.createElement('div'); d.id = 'chatDigit'; d.className = 'digitando';
@@ -590,11 +607,12 @@ async function chatTurno() {
     const j = await r.json();
     chatDigitando(false);
     chatSlots = j.slots || chatSlots;
-    if (j.mensagem) { bolha('santiago', j.mensagem); chatHist.push({ role: 'santiago', content: j.mensagem }); }
+    if (j.mensagem) { bolha('santiago', j.mensagem); chatHist.push({ role: 'santiago', content: j.mensagem }); santiFalar(j.mensagem); }
     if (j.completo) return chatFinaliza();
     chatWidget(j.widget);
   } catch (e) {
     chatDigitando(false);
+    santiEstado('idle');
     bolha('santiago', 'Tive um probleminha aqui. Pode repetir, por favor?');
   }
 }
@@ -622,6 +640,7 @@ function iniciarChat() {
   chatHist.length = 0; chatSlots = {};
   $('#chatMsgs').innerHTML = ''; $('#chatEntrada').innerHTML = '';
   mostra('chat', 0);
+  santiEstado('idle');
   chatTurno();   // 1º turno: Santiago se apresenta e faz a primeira pergunta
 }
 
