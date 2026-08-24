@@ -95,6 +95,7 @@ function sistema(faltando, slots) {
     'O app vai mostrar uma caixa de texto livre (não botões) pra essa primeira resposta. Dessa',
     'descrição, EXTRAIA o máximo de campos de uma vez. Depois disso, pergunte só o que faltar.',
     'NÃO liste campos nem faça várias perguntas nessa abertura.',
+    'Se o relato vier curto, NÃO insista nem peça mais detalhes — apenas siga para os campos que faltam.',
     primeiroNome
       ? `O cliente se chama ${primeiroNome}. Na PRIMEIRA mensagem, cumprimente-o pelo primeiro nome — comece por "Oi, ${primeiroNome}!".`
       : '',
