@@ -159,7 +159,10 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
     .chip-op:hover{background:var(--psa-orange);border-color:var(--psa-orange);color:#fff;transform:translateY(-1px)}
     .digitando{align-self:flex-start;color:var(--fg-3);font-size:var(--t-body-sm);font-style:italic}
     /* avatar do Santiago (respira parado, balança quando pensa) */
-    .santi-header{display:flex;align-items:center;gap:14px;margin-bottom:var(--s-5)}
+    .chat-layout{display:flex;gap:var(--s-6);align-items:flex-start}
+    .chat-col{flex:1;min-width:0}
+    .santi-header{flex:none;position:sticky;top:80px}
+    @media(max-width:680px){.chat-layout{flex-direction:column}.santi-header{position:static;align-self:center;margin-bottom:var(--s-5)}}
     .santi-av{width:180px;aspect-ratio:400/712;border-radius:16px;overflow:hidden;position:relative;flex:none;border:2px solid var(--psa-orange);box-shadow:var(--glow-orange);background:#02060f}
     .santi-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     @keyframes santiRespira{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.035)}}
@@ -208,20 +211,24 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 
   <!-- conversa com o Santiago (curador) -->
   <section class="passo" id="chat">
-    <div class="santi-header">
-      <div class="santi-av" id="santiAv">
-        <video class="santi-vid" data-estado="falando" autoplay loop muted playsinline preload="auto" poster="https://psa-auto-curadoria.vercel.app/santiago.png"><source src="https://psa-auto-curadoria.vercel.app/santiago-falando.mp4" type="video/mp4"></video>
-        <video class="santi-vid" data-estado="pensando" loop muted playsinline preload="auto" hidden><source src="https://psa-auto-curadoria.vercel.app/santiago-pensando.mp4" type="video/mp4"></video>
-        <span class="santi-dot"></span>
-        <div class="santi-legenda">Santiago<small>curador responsável</small></div>
+    <div class="chat-layout">
+      <div class="santi-header">
+        <div class="santi-av" id="santiAv">
+          <video class="santi-vid" data-estado="falando" autoplay loop muted playsinline preload="auto" poster="https://psa-auto-curadoria.vercel.app/santiago.png"><source src="https://psa-auto-curadoria.vercel.app/santiago-falando.mp4" type="video/mp4"></video>
+          <video class="santi-vid" data-estado="pensando" loop muted playsinline preload="auto" hidden><source src="https://psa-auto-curadoria.vercel.app/santiago-pensando.mp4" type="video/mp4"></video>
+          <span class="santi-dot"></span>
+          <div class="santi-legenda">Santiago<small>curador responsável</small></div>
+        </div>
       </div>
-    </div>
-    <div class="chat-topo" style="justify-content:flex-end;margin-bottom:var(--s-5)">
-      <a class="dica" id="chat-para-form" style="cursor:pointer;text-decoration:underline">prefiro preencher um formulário</a>
-    </div>
-    <div class="chat-caixa">
-      <div id="chatMsgs" class="chat-msgs"></div>
-      <div id="chatEntrada" class="chat-entrada"></div>
+      <div class="chat-col">
+        <div class="chat-topo" style="justify-content:flex-end;margin-bottom:var(--s-4)">
+          <a class="dica" id="chat-para-form" style="cursor:pointer;text-decoration:underline">prefiro preencher um formulário</a>
+        </div>
+        <div class="chat-caixa">
+          <div id="chatMsgs" class="chat-msgs"></div>
+          <div id="chatEntrada" class="chat-entrada"></div>
+        </div>
+      </div>
     </div>
   </section>
 
