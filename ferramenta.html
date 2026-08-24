@@ -520,13 +520,22 @@ function santiEstado(estado) {
     if (on) { const p = v.play(); p && p.catch && p.catch(() => {}); } else { v.pause(); }
   });
 }
-let _falarTimer;
-// entra em "falando" enquanto o cliente lê a resposta, depois volta pra "idle"
-function santiFalar(texto) {
-  santiEstado('falando');
-  clearTimeout(_falarTimer);
-  const ms = Math.min(7000, Math.max(2500, (texto || '').length * 55));
-  _falarTimer = setTimeout(() => santiEstado('idle'), ms);
+// digita a fala do Santiago letra a letra; avatar "falando" enquanto escreve, "idle" ao parar
+function digitarBolha(texto) {
+  return new Promise((resolve) => {
+    const el = document.createElement('div');
+    el.className = 'bolha bolha--santiago';
+    const q = document.createElement('span'); q.className = 'quem'; q.textContent = 'Santiago'; el.appendChild(q);
+    const span = document.createElement('span'); el.appendChild(span);
+    $('#chatMsgs').appendChild(el);
+    santiEstado('falando');
+    let i = 0;
+    const timer = setInterval(() => {
+      span.textContent = texto.slice(0, i += 1);
+      el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      if (i >= texto.length) { clearInterval(timer); santiEstado('idle'); resolve(); }
+    }, 20);
+  });
 }
 
 function bolha(quem, texto) {
@@ -545,7 +554,7 @@ function chatDigitando(on) {
   let d = $('#chatDigit');
   if (on && !d) {
     d = document.createElement('div'); d.id = 'chatDigit'; d.className = 'digitando';
-    d.textContent = 'Santiago está digitando…';
+    d.textContent = 'Santiago está pensando…';
     $('#chatMsgs').appendChild(d); d.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }
   if (!on && d) d.remove();
@@ -607,9 +616,9 @@ async function chatTurno() {
     const j = await r.json();
     chatDigitando(false);
     chatSlots = j.slots || chatSlots;
-    if (j.mensagem) { bolha('santiago', j.mensagem); chatHist.push({ role: 'santiago', content: j.mensagem }); santiFalar(j.mensagem); }
+    if (j.mensagem) { chatHist.push({ role: 'santiago', content: j.mensagem }); await digitarBolha(j.mensagem); }
     if (j.completo) return chatFinaliza();
-    chatWidget(j.widget);
+    chatWidget(j.widget);   // widget aparece só depois que ele termina de "escrever"
   } catch (e) {
     chatDigitando(false);
     santiEstado('idle');
