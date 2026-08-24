@@ -113,7 +113,7 @@ export default async function handler(req, res) {
       max_tokens: 1024,
       system: sistema(faltando, slots),
       messages: mensagens,
-      output_config: { format: { type: 'json_schema', name: 'turno', schema: TURNO_SCHEMA } },
+      output_config: { format: { type: 'json_schema', schema: TURNO_SCHEMA } },
     });
 
     const txt = (r.content.find(b => b.type === 'text') || {}).text || '{}';
