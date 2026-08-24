@@ -160,13 +160,13 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
     .digitando{align-self:flex-start;color:var(--fg-3);font-size:var(--t-body-sm);font-style:italic}
     /* avatar do Santiago (respira parado, balança quando pensa) */
     .santi-header{display:flex;align-items:center;gap:14px;margin-bottom:var(--s-5)}
-    .santi-av{width:128px;height:128px;border-radius:50%;overflow:hidden;position:relative;flex:none;border:3px solid var(--psa-orange);box-shadow:var(--glow-orange);background:#02060f}
+    .santi-av{width:150px;height:150px;border-radius:50%;overflow:hidden;position:relative;flex:none;border:3px solid var(--psa-orange);box-shadow:var(--glow-orange);background:#02060f}
     .santi-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     @keyframes santiRespira{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.035)}}
     @keyframes santiPensa{0%,100%{transform:translateY(0) rotate(-2.5deg)}50%{transform:translateY(-4px) rotate(2.5deg)}}
-    .santi-nome{font-weight:700;line-height:1.2}
-    .santi-nome small{display:block;font-size:var(--t-caption);color:var(--fg-3);font-weight:400;text-transform:none;letter-spacing:0}
-    .santi-dot{width:9px;height:9px;border-radius:50%;background:#16a34a;margin-left:auto;animation:santiPulso 2s infinite}
+    .santi-legenda{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:26px 6px 11px;background:linear-gradient(transparent,#000000e0);text-align:center;font-weight:800;font-size:15px;line-height:1;letter-spacing:.01em}
+    .santi-legenda small{display:block;font-size:8.5px;font-weight:500;color:#ffffffcc;letter-spacing:.05em;text-transform:uppercase;margin-top:3px}
+    .santi-dot{position:absolute;top:9px;right:9px;z-index:2;width:11px;height:11px;border-radius:50%;background:#16a34a;border:2px solid #02060f;animation:santiPulso 2s infinite}
     @keyframes santiPulso{0%{box-shadow:0 0 0 0 #16a34a99}70%{box-shadow:0 0 0 9px #16a34a00}100%{box-shadow:0 0 0 0 #16a34a00}}
 </style>
 </head>
@@ -212,9 +212,9 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
       <div class="santi-av" id="santiAv">
         <video class="santi-vid" data-estado="falando" autoplay loop muted playsinline preload="auto" poster="https://psa-auto-curadoria.vercel.app/santiago.png"><source src="https://psa-auto-curadoria.vercel.app/santiago-falando.mp4" type="video/mp4"></video>
         <video class="santi-vid" data-estado="pensando" loop muted playsinline preload="auto" hidden><source src="https://psa-auto-curadoria.vercel.app/santiago-pensando.mp4" type="video/mp4"></video>
+        <span class="santi-dot"></span>
+        <div class="santi-legenda">Santiago<small>curador responsável</small></div>
       </div>
-      <div class="santi-nome">Santiago<small>curador responsável pela sua demanda</small></div>
-      <span class="santi-dot"></span>
     </div>
     <div class="chat-topo" style="justify-content:flex-end;margin-bottom:var(--s-5)">
       <a class="dica" id="chat-para-form" style="cursor:pointer;text-decoration:underline">prefiro preencher um formulário</a>
