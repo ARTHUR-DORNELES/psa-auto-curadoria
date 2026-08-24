@@ -34,13 +34,35 @@ export default async function handler(req, res) {
       // a automação publicar nomes novos em vez de repetir a lista anterior.
       const descartados = new Set((reg.descartados || []).map(n => n.toLowerCase()));
       const cinco = lerNomes(curadoria.nomesBruto).filter(n => !descartados.has(n.nome.toLowerCase()));
-      if (cinco.length < 3) return res.status(200).json({ id, pronto: false, linkCuradoria: curadoria.link || undefined });
 
-      // 1 permuta + 1 matriz + 1 melhores; sem permuta, 2 matriz + 1 melhores
-      const escolhidos = escolherTres(cinco);
+      // Normalmente esperamos 3 nomes. Mas a automação às vezes devolve menos (típico na
+      // refação: os nomes já mostrados saem do bolo e sobra pouco inédito). Para o cliente
+      // NÃO ficar preso em "sendo montada" pra sempre: exigimos 3 até estourar o tempo; daí
+      // entregamos o que veio (>=1) marcado como incompleto — um curador completa depois.
+      const TIMEOUT_MIN = Number(process.env.CURADORIA_TIMEOUT_MIN || 8);
+      const clock = reg.refeitoEm || reg.criadoEm;
+      const idadeMin = clock ? (Date.now() - Date.parse(clock)) / 60000 : 0;
+      const estourou = idadeMin >= TIMEOUT_MIN;
+
+      // dentro do tempo e sem os 3: segue esperando a automação publicar mais nomes
+      if (cinco.length < 3 && !estourou) {
+        return res.status(200).json({ id, pronto: false, linkCuradoria: curadoria.link || undefined });
+      }
+      // estourou o tempo e não veio NENHUM nome: handoff pro curador (não fabrica resultado)
+      if (cinco.length === 0) {
+        return res.status(200).json({ id, pronto: false, timeout: true, linkCuradoria: curadoria.link || undefined });
+      }
+
+      // 1 permuta + 1 matriz + 1 melhores; sem permuta, 2 matriz + 1 melhores.
+      // Com menos de 3 (só após o timeout) entrega os que houver, na ordem em que vieram.
+      const escolhidos = cinco.length >= 3 ? escolherTres(cinco) : cinco.slice(0, 3);
+      const incompleto = escolhidos.length < 3;
       reg.linkCuradoria = curadoria.link;
       reg.resultado = {
-        leitura: 'Estes são os nomes com maior aderência ao briefing que você preencheu.',
+        leitura: incompleto
+          ? 'Adiantamos os nomes com maior aderência ao seu briefing. Um curador vai completar sua indicação em seguida.'
+          : 'Estes são os nomes com maior aderência ao briefing que você preencheu.',
+        incompleto,
         // `categoria` (permuta!) é comercial interno: paraCliente() a remove
         indicacoes: escolhidos.map((n, i) => ({
           ...n,
@@ -82,6 +104,7 @@ export default async function handler(req, res) {
       reg.descartados = [...new Set([...(reg.descartados || []), ...recusados])];
       reg.refacoes = feitas + 1;
       delete reg.resultado;
+      reg.refeitoEm = new Date().toISOString();   // reinicia o relógio do timeout p/ esta refação
       // NÃO zera reg.pago: no modelo de compra, quem passou pelo gate segue liberado a
       // sessão inteira — a refação é coberta pela MESMA compra (não reconsome o crédito).
       // Zerar aqui mostraria o teaser em vez do resultado da refação.

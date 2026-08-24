@@ -1084,13 +1084,14 @@ function renderCompleto(d) {
     <div class="res__topo">
       <div>
         <span class="eyebrow">Curadoria liberada</span>
-        <h1>Seus<br>3 nomes.</h1>
+        <h1>Seu${r.indicacoes.length > 1 ? 's' : ''}<br>${r.indicacoes.length} nome${r.indicacoes.length > 1 ? 's' : ''}.</h1>
       </div>
       ${d.disponibilidade
         ? `<p class="res__enviado">✓ Disponibilidade e orçamento solicitados<br><span>${esc(d.disponibilidade.palestrantes.join(', '))} — resposta em até 24h</span></p>`
         : `<button class="btn btn--primary" id="enviar-disp" disabled>Solicitar disponibilidade e orçamento</button>`}
     </div>
     <p class="leitura">${esc(r.leitura)}</p>
+    ${r.incompleto ? `<p class="aviso">Adiantamos ${r.indicacoes.length} nome${r.indicacoes.length > 1 ? 's' : ''} de alta aderência. Um curador vai completar sua indicação e te avisar — sem custo extra.</p>` : ''}
     ${r.indicacoes.map((ind, n) => `
       <article class="ind">
         <div class="ind__top">

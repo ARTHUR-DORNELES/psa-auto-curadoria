@@ -525,6 +525,7 @@ export function lerCorpo(req) {
 export function paraCliente(resultado) {
   return {
     leitura: resultado.leitura,
+    incompleto: resultado.incompleto || false,   // veio com menos de 3 (curador completa)
     // `categoria` diz se o nome veio de permuta — saber que a PSA não paga cachê
     // àquele palestrante é informação comercial nossa, não do cliente.
     indicacoes: resultado.indicacoes.map(({ dados, id, categoria, id_contato, ...visivel }) => visivel),
