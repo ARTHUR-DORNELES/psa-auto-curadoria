@@ -153,6 +153,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ mensagem: out.mensagem || '', slots: slots2, widget, completo });
   } catch (e) {
     console.error('CHAT_FALHOU', e.message);
-    return res.status(200).json({ mensagem: 'Tive um probleminha aqui do meu lado. Pode repetir, por favor?', slots, widget: null, erro: true, detalhe: String((e && e.message) || e).slice(0, 600) });
+    return res.status(200).json({ mensagem: 'Tive um probleminha aqui do meu lado. Pode repetir, por favor?', slots, widget: null, erro: true });
   }
 }
