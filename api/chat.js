@@ -99,6 +99,8 @@ function sistema(faltando, slots) {
     '',
     `Campos obrigatórios ainda faltando: ${faltando.length ? faltando.map(c => rotuloCampo[c] || c).join(', ') : '(nenhum — pode fechar)'}.`,
     `Já captado: ${Object.keys(slots).filter(k => slots[k]).map(k => `${k}=${slots[k]}`).join('; ') || '(nada ainda)'}.`,
+    '',
+    'IMPORTANTE: sua resposta INTEIRA é só o JSON — começa com { e termina com }. Nada de texto fora do JSON.',
   ].filter(Boolean).join('\n');
 }
 
@@ -112,7 +114,7 @@ export default async function handler(req, res) {
   const faltando = OBRIGATORIOS.filter(c => !slots[c]);
 
   try {
-    const client = new Anthropic({ timeout: 20000, maxRetries: 0 });
+    const client = new Anthropic({ timeout: 26000, maxRetries: 0 });
     const r = await client.messages.create({
       model: MODEL,
       max_tokens: 900,
@@ -121,11 +123,17 @@ export default async function handler(req, res) {
       messages: mensagens,
     });
 
-    // o modelo devolve JSON no texto (a validação de enum é feita no servidor abaixo)
-    let txt = (r.content.find(b => b.type === 'text') || {}).text || '{}';
-    const a = txt.indexOf('{'), z = txt.lastIndexOf('}');
-    if (a >= 0 && z > a) txt = txt.slice(a, z + 1);
-    const out = JSON.parse(txt);
+    // o modelo devolve JSON no texto (a validação de enum é feita no servidor abaixo).
+    // Rede de segurança: se ele escorregar e responder texto puro, usa o texto como
+    // mensagem e segue — nunca quebra a conversa.
+    const bruto = (r.content.find(b => b.type === 'text') || {}).text || '';
+    let out;
+    try {
+      const a = bruto.indexOf('{'), z = bruto.lastIndexOf('}');
+      out = JSON.parse(a >= 0 && z > a ? bruto.slice(a, z + 1) : bruto);
+    } catch {
+      out = { mensagem: bruto, campos: {}, proximoCampo: '', completo: false };
+    }
 
     // valida + mescla os campos (defesa em profundidade — o schema já trava os enums)
     const novos = {};
