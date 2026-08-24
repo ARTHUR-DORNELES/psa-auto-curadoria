@@ -14,6 +14,7 @@
     "cidades": "node scripts/sync-cidades.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
     "ioredis": "^5.11.1"
   }
 }
