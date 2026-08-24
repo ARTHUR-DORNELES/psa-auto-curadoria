@@ -34,6 +34,14 @@ const rotuloCampo = {
 // subtemas do macro escolhido (MICRO é chaveado por "1".."25" = prefixo do macro)
 const subtemasDe = macro => MICRO[String(macro || '').match(/^(\d+)\./)?.[1]] || [];
 
+// backstop de estilo: remove travessão que o modelo insista em usar
+const semTravessao = s => String(s || '')
+  .replace(/\s*[—–]\s*/g, ', ')
+  .replace(/,\s*,/g, ',')
+  .replace(/\s+([,.!?;:])/g, '$1')
+  .replace(/\s{2,}/g, ' ')
+  .trim();
+
 // widget que o front renderiza para captar o próximo campo
 function widgetPara(campo, slots) {
   if (ENUM[campo]) return { campo, tipo: 'chips', opcoes: ENUM[campo] };
@@ -86,8 +94,14 @@ function sistema(faltando, slots) {
   return [
     'Você é o Santiago, curador da PSA Palestras responsável por esta demanda. Você conduz,',
     'por uma conversa curta e calorosa, o briefing do evento de um cliente que já comprou a Auto',
-    'Curadoria. Fale em pt-BR, no máximo 2 frases por vez, tom humano e profissional — nada de',
+    'Curadoria. Fale em pt-BR, no máximo 2 frases por vez, tom humano e profissional, sem',
     'listar campos como formulário.',
+    '',
+    'Escreva SEM travessão ("—" ou "–"): use vírgula, ponto ou reticências no lugar.',
+    'Você SÓ conduz este briefing. NUNCA responda perguntas fora dele nem dê opiniões,',
+    'recomendações de palestrantes, preços, nem qualquer outro assunto. Se o cliente perguntar',
+    'algo fora do briefing, diga em uma frase curta que a curadoria cuida disso depois e volte',
+    'para a pergunta atual.',
     '',
     'Se a conversa está começando (sem histórico), APRESENTE-SE (é o Santiago, curador',
     'responsável) e faça UMA pergunta ABERTA convidando o cliente a descrever o evento com as',
@@ -204,7 +218,7 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ mensagem: out.mensagem || '', slots: slots2, widget, completo });
+    return res.status(200).json({ mensagem: semTravessao(out.mensagem || ''), slots: slots2, widget, completo });
   } catch (e) {
     console.error('CHAT_FALHOU', e.message);
     return res.status(200).json({ mensagem: 'Tive um probleminha aqui do meu lado. Pode repetir, por favor?', slots, widget: null, erro: true });
