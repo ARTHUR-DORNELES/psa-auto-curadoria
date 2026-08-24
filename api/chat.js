@@ -44,6 +44,18 @@ function widgetPara(campo, slots) {
   return { campo, tipo: 'texto' };
 }
 
+// backstop: a resposta do usuário ao widget é aceitável para aquele campo? (validação leve)
+function aceitaBackstop(campo, val, slots) {
+  if (ENUM[campo]) return ENUM[campo].includes(val);
+  if (campo === 'cidade') return (CIDADES[slots.estado] || []).includes(val);
+  if (campo === 'microTema') return subtemasDe(slots.macroTema).includes(val);
+  if (campo === 'data') return /^\d{4}-\d{2}-\d{2}$/.test(val);
+  if (campo === 'horario') return /^\d{1,2}:\d{2}$/.test(val);
+  if (campo === 'email') return /\S+@\S+\.\S+/.test(val);
+  if (campo === 'telefone') return val.replace(/\D/g, '').length >= 10;
+  return true;   // nome, empresa, localEvento, contexto -> qualquer texto serve
+}
+
 // schema da saída estruturada — os enums fixos ficam TRAVADOS aqui (o Claude não inventa valor)
 const propsCampos = {
   nome: { type: 'string' }, empresa: { type: 'string' }, email: { type: 'string' },
@@ -108,7 +120,7 @@ export default async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method !== 'POST') return res.status(405).json({ erro: 'use POST' });
 
-  const { historico = [], slots = {} } = await lerCorpo(req);
+  const { historico = [], slots = {}, campoRespondido = '' } = await lerCorpo(req);
   const mensagens = (historico.length ? historico : [{ role: 'user', content: 'Vamos começar.' }])
     .map(m => ({ role: m.role === 'santiago' ? 'assistant' : 'user', content: String(m.content || '').slice(0, 2000) }));
   const faltando = OBRIGATORIOS.filter(c => !slots[c]);
@@ -148,6 +160,13 @@ export default async function handler(req, res) {
       novos[k] = val;
     }
     const slots2 = { ...slots, ...novos };
+    // captura determinística: se o modelo não pegou o campo que o widget pediu, usa a
+    // resposta do usuário (o widget perguntou exatamente aquele campo).
+    if (campoRespondido && !slots2[campoRespondido]) {
+      const ult = [...historico].reverse().find(m => m.role === 'user');
+      const v = String((ult && ult.content) || '').trim();
+      if (v && aceitaBackstop(campoRespondido, v, slots2)) slots2[campoRespondido] = v;
+    }
     const faltando2 = OBRIGATORIOS.filter(c => !slots2[c]);
     const completo = faltando2.length === 0;
 

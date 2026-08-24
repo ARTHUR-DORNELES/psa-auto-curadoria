@@ -508,7 +508,7 @@ $('#btnRetomar').addEventListener('click', () => {
 
 // ── conversa com o Santiago (curador) ──────────────────────
 const chatHist = [];        // [{role:'santiago'|'user', content}]
-let chatSlots = {};
+let chatSlots = {}, campoAtual = '';   // campoAtual = campo que o widget está pedindo
 
 // troca o vídeo do avatar: 'idle' | 'pensando' | 'falando' (mostra 1, pausa os outros)
 function santiEstado(estado) {
@@ -564,6 +564,7 @@ function chatDigitando(on) {
 function chatWidget(widget) {
   const area = $('#chatEntrada');
   area.innerHTML = '';
+  campoAtual = widget ? widget.campo : '';   // guarda o campo pedido p/ captura determinística
   if (!widget) return;
   const responder = (valor, rotulo) => chatResponder(valor, rotulo || valor);
 
@@ -611,7 +612,7 @@ async function chatTurno() {
   try {
     const r = await fetch('/api/chat', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ historico: chatHist, slots: chatSlots }),
+      body: JSON.stringify({ historico: chatHist, slots: chatSlots, campoRespondido: campoAtual }),
     });
     const j = await r.json();
     chatDigitando(false);
