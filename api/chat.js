@@ -92,6 +92,11 @@ function sistema(faltando, slots) {
     '- Quando TODOS os obrigatórios estiverem captados, mande uma mensagem de fechamento curta',
     '  ("perfeito, é só isso que eu precisava — vou montar sua curadoria") e devolva completo=true.',
     '',
+    '',
+    'RESPONDA SEMPRE apenas com um JSON válido (nada antes nem depois), nesta forma exata:',
+    '{"mensagem":"sua fala aqui","campos":{...só os campos captados nesta rodada...},"proximoCampo":"chave do próximo campo ou \\"\\"","completo":false}',
+    'Chaves possíveis em "campos": nome, empresa, email, telefone, macroTema, microTema, publicoAlvo, formato, data, horario, duracao, localEvento, estado, cidade, orcamento, vendaIngresso, motivacao, sentimento, contexto. Só inclua as que captou nesta rodada; use o valor EXATO das listas fechadas.',
+    '',
     `Campos obrigatórios ainda faltando: ${faltando.length ? faltando.map(c => rotuloCampo[c] || c).join(', ') : '(nenhum — pode fechar)'}.`,
     `Já captado: ${Object.keys(slots).filter(k => slots[k]).map(k => `${k}=${slots[k]}`).join('; ') || '(nada ainda)'}.`,
   ].filter(Boolean).join('\n');
@@ -107,17 +112,19 @@ export default async function handler(req, res) {
   const faltando = OBRIGATORIOS.filter(c => !slots[c]);
 
   try {
-    const client = new Anthropic({ timeout: 30000, maxRetries: 1 });
+    const client = new Anthropic({ timeout: 20000, maxRetries: 0 });
     const r = await client.messages.create({
       model: MODEL,
-      max_tokens: 1024,
+      max_tokens: 900,
       thinking: { type: 'disabled' },          // chat de briefing: rápido, sem raciocínio extenso
       system: sistema(faltando, slots),
       messages: mensagens,
-      output_config: { effort: 'low', format: { type: 'json_schema', schema: TURNO_SCHEMA } },
     });
 
-    const txt = (r.content.find(b => b.type === 'text') || {}).text || '{}';
+    // o modelo devolve JSON no texto (a validação de enum é feita no servidor abaixo)
+    let txt = (r.content.find(b => b.type === 'text') || {}).text || '{}';
+    const a = txt.indexOf('{'), z = txt.lastIndexOf('}');
+    if (a >= 0 && z > a) txt = txt.slice(a, z + 1);
     const out = JSON.parse(txt);
 
     // valida + mescla os campos (defesa em profundidade — o schema já trava os enums)
