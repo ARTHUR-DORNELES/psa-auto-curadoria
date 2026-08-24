@@ -590,6 +590,28 @@ function chatWidget(widget) {
       wrap.appendChild(s);
     }
     area.appendChild(wrap);
+  } else if (widget.tipo === 'busca') {
+    // autocomplete: a pessoa digita e as opções aparecem; valida contra a lista
+    const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    const inp = document.createElement('input');
+    inp.placeholder = 'Digite e escolha…';
+    inp.setAttribute('autocomplete', 'off');
+    inp.setAttribute('list', 'lista-' + widget.campo);
+    const dl = document.createElement('datalist'); dl.id = 'lista-' + widget.campo;
+    (widget.opcoes || []).forEach(op => { const o = document.createElement('option'); o.value = op; dl.appendChild(o); });
+    const erro = document.createElement('span'); erro.className = 'dica'; erro.style.color = '#ff8a66';
+    const enviar = () => {
+      const exato = (widget.opcoes || []).find(o => norm(o) === norm(inp.value));
+      if (!exato) { erro.textContent = 'Escolha uma opção da lista.'; return; }
+      responder(exato);
+    };
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); enviar(); } });
+    inp.addEventListener('input', () => { erro.textContent = ''; });
+    area.appendChild(inp); area.appendChild(dl);
+    const b = document.createElement('button'); b.className = 'btn btn--primary'; b.textContent = 'Enviar →';
+    b.addEventListener('click', enviar);
+    area.appendChild(b); area.appendChild(erro);
+    inp.focus();
   } else {
     const inp = document.createElement('input');
     inp.type = widget.tipo === 'data' ? 'date' : widget.tipo === 'hora' ? 'time' : 'text';

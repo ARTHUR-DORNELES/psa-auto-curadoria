@@ -37,7 +37,7 @@ const subtemasDe = macro => MICRO[String(macro || '').match(/^(\d+)\./)?.[1]] ||
 // widget que o front renderiza para captar o próximo campo
 function widgetPara(campo, slots) {
   if (ENUM[campo]) return { campo, tipo: 'chips', opcoes: ENUM[campo] };
-  if (campo === 'cidade') return { campo, tipo: 'chips', opcoes: CIDADES[slots.estado] || [] };
+  if (campo === 'cidade') return { campo, tipo: 'busca', opcoes: CIDADES[slots.estado] || [] };   // autocomplete (lista grande)
   if (campo === 'microTema') return { campo, tipo: 'chips', opcoes: subtemasDe(slots.macroTema) };
   if (campo === 'data') return { campo, tipo: 'data' };
   if (campo === 'horario') return { campo, tipo: 'hora' };
