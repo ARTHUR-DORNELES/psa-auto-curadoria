@@ -144,7 +144,9 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .resumo__lista dd{font-size:var(--t-body-sm);color:var(--fg-1);word-break:break-word}
     /* ── chat do Santiago ── */
     .chat-topo{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:var(--s-5)}
-    .chat-msgs{display:flex;flex-direction:column;gap:12px;min-height:220px;margin-bottom:var(--s-6)}
+    .chat-msgs{display:flex;flex-direction:column;gap:12px;min-height:220px;max-height:min(52vh,460px);overflow-y:auto;padding-right:8px;margin-bottom:var(--s-6)}
+    .chat-msgs::-webkit-scrollbar{width:6px}
+    .chat-msgs::-webkit-scrollbar-thumb{background:#ffffff2e;border-radius:3px}
     .bolha{max-width:82%;padding:14px 18px;border-radius:16px;font-size:var(--t-body);line-height:1.5;white-space:pre-wrap;animation:sobe .3s var(--ease)}
     .bolha--santiago{align-self:flex-start;background:#ffffff0d;border:1px solid var(--border);border-bottom-left-radius:4px}
     .bolha--voce{align-self:flex-end;background:var(--psa-orange);color:#fff;border-bottom-right-radius:4px}
@@ -535,12 +537,13 @@ function digitarBolha(texto) {
     let i = 0;
     const timer = setInterval(() => {
       span.textContent = texto.slice(0, i += 1);
-      el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      chatScroll();
       if (i >= texto.length) { clearInterval(timer); pausarSanti(); resolve(); }  // parou de escrever -> congela
     }, 20);
   });
 }
 
+function chatScroll() { const m = $('#chatMsgs'); if (m) m.scrollTop = m.scrollHeight; }   // rola só o quadro
 function bolha(quem, texto) {
   const el = document.createElement('div');
   el.className = 'bolha ' + (quem === 'santiago' ? 'bolha--santiago' : 'bolha--voce');
@@ -549,7 +552,7 @@ function bolha(quem, texto) {
   }
   el.appendChild(document.createTextNode(texto));
   $('#chatMsgs').appendChild(el);
-  el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  chatScroll();
 }
 
 function chatDigitando(on) {
@@ -558,7 +561,7 @@ function chatDigitando(on) {
   if (on && !d) {
     d = document.createElement('div'); d.id = 'chatDigit'; d.className = 'digitando';
     d.textContent = 'Santiago está pensando…';
-    $('#chatMsgs').appendChild(d); d.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    $('#chatMsgs').appendChild(d); chatScroll();
   }
   if (!on && d) d.remove();
 }
