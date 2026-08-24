@@ -549,7 +549,7 @@ function digitarBolha(texto) {
       span.textContent = texto.slice(0, i += 1);
       chatScroll();
       if (i >= texto.length) { clearInterval(timer); pausarSanti(); resolve(); }  // parou de escrever -> congela
-    }, 20);
+    }, 35);
   });
 }
 
