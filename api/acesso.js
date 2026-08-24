@@ -1,4 +1,4 @@
-import { decidirAcesso, normalizaDocumento, lerCorpo, cors } from './_lib.js';
+import { decidirAcesso, dadosContato, normalizaDocumento, lerCorpo, cors } from './_lib.js';
 
 // Gate de acesso: o CPF/CNPJ é a chave da curadoria. Decide o que a ferramenta faz:
 //  - modo 'novo'    (ok)  : tem compra "Pago" -> briefing novo

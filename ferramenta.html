@@ -490,7 +490,7 @@ $('#btnAcesso').addEventListener('click', async () => {
       return;
     }
     documentoValidado = doc;   // modo 'novo': abre a conversa com o Santiago
-    iniciarChat();
+    iniciarChat(j.contato);    // já traz nome/empresa/email/telefone do contato -> não pergunta de novo
   } catch (e) {
     $('#eGate').textContent = 'Não conseguimos validar agora. Tente de novo em instantes.';
     $('#btnAcesso').disabled = false;
@@ -683,8 +683,8 @@ function chatFinaliza() {
   });
 }
 
-function iniciarChat() {
-  chatHist.length = 0; chatSlots = {};
+function iniciarChat(slotsIniciais) {
+  chatHist.length = 0; chatSlots = { ...(slotsIniciais || {}) };   // já sabemos nome/empresa/email/telefone do contato
   $('#chatMsgs').innerHTML = ''; $('#chatEntrada').innerHTML = '';
   mostra('chat', 0);
   chatTurno();   // 1º turno: Santiago se apresenta e faz a primeira pergunta

@@ -845,9 +845,24 @@ export async function creditoPagoPorDocumento(bruto) {
  *  - 'nenhum'   : nada -> checkout
  *  - 'invalido' : documento mal formado
  */
+// dados do contato comprador (já temos no HubSpot) p/ pré-preencher o briefing
+export async function dadosContato(contatoId) {
+  if (!contatoId) return {};
+  try {
+    const c = await hs(`/crm/v3/objects/contacts/${contatoId}?properties=firstname,lastname,email,phone,company`, 'GET');
+    const p = c.properties || {};
+    const nome = [p.firstname, p.lastname].filter(Boolean).join(' ').trim();
+    return { nome, empresa: (p.company || '').trim(), email: (p.email || '').trim(), telefone: (p.phone || '').trim() };
+  } catch (e) {
+    console.error('dadosContato falhou:', e.message);
+    return {};
+  }
+}
+
 export async function decidirAcesso(bruto) {
   if (!normalizaDocumento(bruto)) return { modo: 'invalido' };
-  if (await creditoPagoPorDocumento(bruto)) return { modo: 'novo' };
+  const pago = await creditoPagoPorDocumento(bruto);
+  if (pago) return { modo: 'novo', contatoId: pago.contatoId };
 
   const util = await _negocioAutoCuradoriaPorDoc(bruto, STAGE_UTILIZADO, 'DESCENDING');
   if (!util) return { modo: 'nenhum' };
