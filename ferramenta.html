@@ -157,8 +157,8 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
     .digitando{align-self:flex-start;color:var(--fg-3);font-size:var(--t-body-sm);font-style:italic}
     /* avatar do Santiago (respira parado, balança quando pensa) */
     .santi-header{display:flex;align-items:center;gap:14px;margin-bottom:var(--s-5)}
-    .santi-av{width:60px;height:60px;border-radius:50%;object-fit:cover;flex:none;border:2px solid var(--psa-orange);box-shadow:var(--glow-orange);animation:santiRespira 3.6s var(--ease) infinite}
-    .santi-av.pensando{animation:santiPensa .7s var(--ease) infinite}
+    .santi-av{width:60px;height:60px;border-radius:50%;object-fit:cover;flex:none;border:2px solid var(--psa-orange);box-shadow:var(--glow-orange);background:#02060f}
+    .santi-av.pensando{filter:brightness(1.08) saturate(1.05)}
     @keyframes santiRespira{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.035)}}
     @keyframes santiPensa{0%,100%{transform:translateY(0) rotate(-2.5deg)}50%{transform:translateY(-4px) rotate(2.5deg)}}
     .santi-nome{font-weight:700;line-height:1.2}
@@ -206,7 +206,11 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
   <!-- conversa com o Santiago (curador) -->
   <section class="passo" id="chat">
     <div class="santi-header">
-      <img class="santi-av" id="santiAv" src="https://psa-auto-curadoria.vercel.app/santiago.png" alt="Santiago, curador da PSA" onerror="this.remove()">
+      <video class="santi-av" id="santiAv" autoplay loop muted playsinline preload="auto"
+             poster="https://psa-auto-curadoria.vercel.app/santiago.png">
+        <source src="https://psa-auto-curadoria.vercel.app/santiago.mp4" type="video/mp4">
+        <img class="santi-av" src="https://psa-auto-curadoria.vercel.app/santiago.png" alt="Santiago, curador da PSA">
+      </video>
       <div class="santi-nome">Santiago<small>curador responsável pela sua demanda</small></div>
       <span class="santi-dot"></span>
     </div>
