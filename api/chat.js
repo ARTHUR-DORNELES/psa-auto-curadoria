@@ -89,9 +89,12 @@ function sistema(faltando, slots) {
     'Curadoria. Fale em pt-BR, no máximo 2 frases por vez, tom humano e profissional — nada de',
     'listar campos como formulário.',
     '',
-    'Se a conversa está começando (sem histórico), APRESENTE-SE: diga que é o Santiago, curador',
-    'responsável, e que vai fazer algumas perguntas rápidas pra montar a melhor curadoria. Depois',
-    'faça a primeira pergunta.',
+    'Se a conversa está começando (sem histórico), APRESENTE-SE (é o Santiago, curador',
+    'responsável) e faça UMA pergunta ABERTA convidando o cliente a descrever o evento com as',
+    'próprias palavras — algo como "me conta um pouco sobre o evento que você está planejando?".',
+    'O app vai mostrar uma caixa de texto livre (não botões) pra essa primeira resposta. Dessa',
+    'descrição, EXTRAIA o máximo de campos de uma vez. Depois disso, pergunte só o que faltar.',
+    'NÃO liste campos nem faça várias perguntas nessa abertura.',
     primeiroNome
       ? `O cliente se chama ${primeiroNome}. Na PRIMEIRA mensagem, cumprimente-o pelo primeiro nome — comece por "Oi, ${primeiroNome}!".`
       : '',
@@ -167,22 +170,38 @@ export default async function handler(req, res) {
       novos[k] = val;
     }
     const slots2 = { ...slots, ...novos };
-    // captura determinística: se o modelo não pegou o campo que o widget pediu, usa a
-    // resposta do usuário (o widget perguntou exatamente aquele campo).
-    if (campoRespondido && !slots2[campoRespondido]) {
-      const ult = [...historico].reverse().find(m => m.role === 'user');
-      const v = String((ult && ult.content) || '').trim();
+    // relato de abertura: a pessoa descreveu o evento com as próprias palavras.
+    // Guardamos o texto cru como contexto (detalhe pro curador) — o modelo já extraiu
+    // os campos estruturados acima.
+    const ultUser = () => String(([...historico].reverse().find(m => m.role === 'user') || {}).content || '').trim();
+    if (campoRespondido === 'relato') {
+      const v = ultUser();
+      if (v) {
+        slots2._relato = true;
+        slots2.contexto = slots2.contexto ? `${slots2.contexto}\n${v}` : v;
+      }
+    } else if (campoRespondido && !slots2[campoRespondido]) {
+      // captura determinística: se o modelo não pegou o campo que o widget pediu, usa a
+      // resposta do usuário (o widget perguntou exatamente aquele campo).
+      const v = ultUser();
       if (v && aceitaBackstop(campoRespondido, v, slots2)) slots2[campoRespondido] = v;
     }
     const faltando2 = OBRIGATORIOS.filter(c => !slots2[c]);
     const completo = faltando2.length === 0;
 
-    // o SERVIDOR decide o próximo campo (não confia cegamente no modelo) e o widget
-    let prox = '';
+    // o SERVIDOR decide o próximo campo/widget. Na abertura (cliente ainda não descreveu
+    // o evento), mostra um campo LIVRE pra pessoa contar tudo de uma vez.
+    let prox = '', widget = null;
     if (!completo) {
-      prox = faltando2.includes(out.proximoCampo) ? out.proximoCampo : faltando2[0];
+      const clienteFalou = historico.some(m => m.role === 'user');
+      if (!slots2._relato && !clienteFalou) {
+        widget = { campo: 'relato', tipo: 'texto', multilinha: true,
+          placeholder: 'Conte com suas palavras: que evento é, pra quem, quando e onde, formato, e o que motivou a busca por esse tema…' };
+      } else {
+        prox = faltando2.includes(out.proximoCampo) ? out.proximoCampo : faltando2[0];
+        widget = widgetPara(prox, slots2);
+      }
     }
-    const widget = prox ? widgetPara(prox, slots2) : null;
 
     return res.status(200).json({ mensagem: out.mensagem || '', slots: slots2, widget, completo });
   } catch (e) {
