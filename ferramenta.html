@@ -147,6 +147,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
     .chat-msgs{display:flex;flex-direction:column;gap:12px;min-height:220px;max-height:min(52vh,460px);overflow-y:auto;padding-right:8px;margin-bottom:var(--s-6)}
     .chat-msgs::-webkit-scrollbar{width:6px}
     .chat-msgs::-webkit-scrollbar-thumb{background:#ffffff2e;border-radius:3px}
+    .chat-caixa{border:1px solid var(--border);border-radius:var(--r-md);background:#ffffff05;padding:var(--s-5);box-shadow:0 10px 44px #00000045}
     .bolha{max-width:82%;padding:14px 18px;border-radius:16px;font-size:var(--t-body);line-height:1.5;white-space:pre-wrap;animation:sobe .3s var(--ease)}
     .bolha--santiago{align-self:flex-start;background:#ffffff0d;border:1px solid var(--border);border-bottom-left-radius:4px}
     .bolha--voce{align-self:flex-end;background:var(--psa-orange);color:#fff;border-bottom-right-radius:4px}
@@ -218,8 +219,10 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
     <div class="chat-topo" style="justify-content:flex-end;margin-bottom:var(--s-5)">
       <a class="dica" id="chat-para-form" style="cursor:pointer;text-decoration:underline">prefiro preencher um formulário</a>
     </div>
-    <div id="chatMsgs" class="chat-msgs"></div>
-    <div id="chatEntrada" class="chat-entrada"></div>
+    <div class="chat-caixa">
+      <div id="chatMsgs" class="chat-msgs"></div>
+      <div id="chatEntrada" class="chat-entrada"></div>
+    </div>
   </section>
 
   <div class="prog" id="prog" style="display:none"><i class="on"></i><i></i><i></i></div>
