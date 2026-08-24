@@ -520,6 +520,10 @@ function santiEstado(estado) {
     if (on) { const p = v.play(); p && p.catch && p.catch(() => {}); } else { v.pause(); }
   });
 }
+// congela o vídeo visível ali mesmo (não troca de estado) — usado ao terminar de escrever
+function pausarSanti() {
+  document.querySelectorAll('#santiAv .santi-vid').forEach(v => { if (!v.hidden) v.pause(); });
+}
 // digita a fala do Santiago letra a letra; avatar "falando" enquanto escreve, "idle" ao parar
 function digitarBolha(texto) {
   return new Promise((resolve) => {
@@ -533,7 +537,7 @@ function digitarBolha(texto) {
     const timer = setInterval(() => {
       span.textContent = texto.slice(0, i += 1);
       el.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      if (i >= texto.length) { clearInterval(timer); santiEstado('idle'); resolve(); }
+      if (i >= texto.length) { clearInterval(timer); pausarSanti(); resolve(); }
     }, 20);
   });
 }
