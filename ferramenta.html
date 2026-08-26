@@ -173,6 +173,25 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
     .santi-legenda small{display:block;font-size:8.5px;font-weight:500;color:#ffffffcc;letter-spacing:.05em;text-transform:uppercase;margin-top:3px}
     .santi-dot{position:absolute;top:9px;right:9px;z-index:2;width:11px;height:11px;border-radius:50%;background:#16a34a;border:2px solid #02060f;animation:santiPulso 2s infinite}
     @keyframes santiPulso{0%{box-shadow:0 0 0 0 #16a34a99}70%{box-shadow:0 0 0 9px #16a34a00}100%{box-shadow:0 0 0 0 #16a34a00}}
+
+    /* ── Impressão / PDF (o cliente usa "Salvar como PDF" do navegador) ── */
+    @media print {
+      @page { margin: 14mm; }
+      html, body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      header, .chat-topo, .santi-header { display: none !important; }
+      main.wrap { width: 100% !important; max-width: none !important; margin: 0 !important; }
+      main.wrap > .passo:not(#resultado) { display: none !important; }
+      /* nada de botões/avisos operacionais no papel */
+      #resultado .acoes, #resultado .acoes--topo, #resultado .acoes-pos, #resultado .btn,
+      #resultado .ou, #resultado .aviso, #resultado .dica { display: none !important; }
+      /* tema claro pro papel */
+      #resultado, #resultado * { color: #14181f !important; }
+      #resultado .eyebrow, #resultado .ind__rank { color: #d24317 !important; }
+      #resultado .leitura { border-left-color: #d24317 !important; color: #333 !important; }
+      #resultado .resumo, #resultado .ind { background: #fff !important; border: 1px solid #dcdfe4 !important; box-shadow: none !important; break-inside: avoid; }
+      #resultado .resumo__lista dt, #resultado .ind__fit, #resultado .ind__faixa, #resultado .resumo__data { color: #6b7280 !important; }
+      #resultado h1 { break-after: avoid; }
+    }
 </style>
 </head>
 <body>
@@ -973,6 +992,7 @@ async function copiarLink(botao) {
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-copiar]');
   if (b) copiarLink(b);
+  if (e.target.closest('[data-pdf]')) window.print();   // navegador -> Salvar como PDF
 });
 
 const reais = c => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 });
@@ -1070,9 +1090,6 @@ function resumoDoBriefing(d) {
       <dl class="resumo__lista">
         ${linhas.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}
       </dl>
-      <div class="acoes" style="margin-top:var(--s-5);justify-content:center">
-        <button class="btn btn--ghost" data-copiar>Salvar link desta curadoria</button>
-      </div>
     </section>`;
 }
 
@@ -1081,6 +1098,10 @@ function renderCompleto(d) {
   $('#resultado').innerHTML = `
     <span class="eyebrow">Ponto de partida</span>
     <h1>Seu<br>briefing.</h1>
+    <div class="acoes acoes--topo" style="margin-bottom:var(--s-4)">
+      <button class="btn btn--primary" data-pdf>Baixar PDF</button>
+      <button class="btn btn--ghost" data-copiar>Salvar link desta curadoria</button>
+    </div>
     ${resumoDoBriefing(d)}
     <div class="res__topo">
       <div>
