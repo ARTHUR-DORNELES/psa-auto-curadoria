@@ -150,9 +150,10 @@ a{color:inherit;text-decoration:none}
 .cmp thead th{font-family:var(--font-display-wide);font-weight:800;text-transform:uppercase;font-size:var(--t-caption);letter-spacing:.1em;color:var(--fg-bone-3)}
 .cmp td:first-child{font-weight:700}
 .cmp .yes{color:var(--psa-blue);font-weight:700}
-/* destaca e separa a coluna "Auto Curadoria" (2ª) */
-.cmp th:nth-child(2),.cmp td:nth-child(2){background:#0038b00d;border-left:1px solid var(--border-light);border-right:1px solid var(--border-light)}
-.cmp thead th:nth-child(2){color:var(--psa-blue);border-top:1px solid var(--border-light)}
+/* destaca e separa a coluna "Auto Curadoria" (2ª) como um box "recomendado" */
+.cmp th:nth-child(2),.cmp td:nth-child(2){background:#e9eefb;border-left:1.5px solid #0038b033;border-right:1.5px solid #0038b033}
+.cmp thead th:nth-child(2){color:var(--psa-blue);border-top:4px solid var(--psa-orange)}
+.cmp tbody tr:last-child td:nth-child(2){border-bottom:1.5px solid #0038b033}
 .cmp__scroll{overflow-x:auto}
 
 /* ---------- preço ---------- */
