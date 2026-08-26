@@ -174,9 +174,10 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
     .santi-dot{position:absolute;top:9px;right:9px;z-index:2;width:11px;height:11px;border-radius:50%;background:#16a34a;border:2px solid #02060f;animation:santiPulso 2s infinite}
     @keyframes santiPulso{0%{box-shadow:0 0 0 0 #16a34a99}70%{box-shadow:0 0 0 9px #16a34a00}100%{box-shadow:0 0 0 0 #16a34a00}}
 
-    /* ── Impressão / PDF (o cliente usa "Salvar como PDF" do navegador) ── */
+    /* ── Impressão / PDF (o cliente usa "Salvar como PDF" do navegador) ──
+       Veste o resultado com a identidade PSA: papel claro, tinta marinho, acento laranja. */
     @media print {
-      @page { margin: 14mm; }
+      @page { margin: 13mm; }
       html, body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       header, .chat-topo, .santi-header { display: none !important; }
       main.wrap { width: 100% !important; max-width: none !important; margin: 0 !important; }
@@ -184,13 +185,17 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
       /* nada de botões/avisos operacionais no papel */
       #resultado .acoes, #resultado .acoes--topo, #resultado .acoes-pos, #resultado .btn,
       #resultado .ou, #resultado .aviso, #resultado .dica { display: none !important; }
-      /* tema claro pro papel */
-      #resultado, #resultado * { color: #14181f !important; }
-      #resultado .eyebrow, #resultado .ind__rank { color: #d24317 !important; }
-      #resultado .leitura { border-left-color: #d24317 !important; color: #333 !important; }
-      #resultado .resumo, #resultado .ind { background: #fff !important; border: 1px solid #dcdfe4 !important; box-shadow: none !important; break-inside: avoid; }
-      #resultado .resumo__lista dt, #resultado .ind__fit, #resultado .ind__faixa, #resultado .resumo__data { color: #6b7280 !important; }
-      #resultado h1 { break-after: avoid; }
+      /* tinta marinho PSA + acento laranja */
+      #resultado, #resultado * { color: #0E1B3D !important; }
+      #resultado h1, #resultado .disp { color: #0E1B3D !important; break-after: avoid; }
+      #resultado .eyebrow, #resultado .ind__rank { color: #F85000 !important; }
+      #resultado .leitura { border-left:2px solid #F85000 !important; color: #3A4360 !important; }
+      #resultado .resumo, #resultado .ind { background: #FBFAF7 !important; border: 1px solid #E4E2DB !important; box-shadow: none !important; break-inside: avoid; }
+      #resultado .ind { background:#fff !important; border-top:2px solid #0E1B3D !important; border-left:0;border-right:0;border-bottom:0;border-radius:0 }
+      #resultado .resumo__lista dt, #resultado .ind__fit, #resultado .ind__faixa, #resultado .resumo__data { color: #787F92 !important; }
+      #resultado .ind__nome { color:#0E1B3D !important }
+      #resultado .ind ul li::marker { color:#F85000 !important }
+      #resultado .ind__faixa { color:#F85000 !important }
     }
 </style>
 </head>
@@ -994,9 +999,6 @@ document.addEventListener('click', e => {
   if (b) copiarLink(b);
 });
 
-// Endpoint que gera o PDF branqueado (Chromium no psa-ia-board). Configurável.
-const PDF_API = 'https://psa-ia-board.vercel.app/api/curadoria-cliente-pdf';
-
 const reais = c => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 });
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 
@@ -1185,46 +1187,10 @@ function renderCompleto(d) {
     });
   });
 
-  // Baixar PDF: manda os dados que o cliente vê pro gerador (Chromium) e baixa o arquivo.
-  // Se o gerador falhar, cai na impressão do navegador (o @media print cobre).
+  // Baixar PDF: impressão do navegador -> "Salvar como PDF". O @media print veste
+  // o resultado com a identidade PSA (some o menu/botões, papel claro, acentos laranja).
   const btnPdf = $('#resultado').querySelector('[data-pdf]');
-  if (btnPdf) btnPdf.addEventListener('click', async () => {
-    const b = d.briefing || {};
-    const dataBR = iso => (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.split('-').reverse().join('/') : iso || '');
-    const n = (d.resultado?.indicacoes || []).length;
-    const palavras = { 1: 'Um nome', 2: 'Dois nomes', 3: 'Três nomes', 4: 'Quatro nomes', 5: 'Cinco nomes', 6: 'Seis nomes', 7: 'Sete nomes' };
-    const payload = {
-      titulo: `${palavras[n] || n + ' nomes'} pro seu evento.`,
-      geradaEm: d.criadoEm ? new Date(d.criadoEm).toLocaleDateString('pt-BR') : '',
-      briefing: {
-        empresa: b.empresa, responsavel: b.nome, tema: (b.macroTema || '').replace(/^\d+\.\s*/, ''),
-        formato: b.formato, data: dataBR(b.data), horario: b.horario, duracao: b.duracao,
-        local: b.localEvento, cidade: b.cidade, estado: b.local, orcamento: b.orcamento,
-        publicoAlvo: b.publicoAlvo, vendaIngresso: b.vendaIngresso,
-        motivacao: b.motivacao, sentimento: b.sentimento, contexto: b.briefing,
-      },
-      indicacoes: (d.resultado?.indicacoes || []).map(i => ({
-        nome: i.nome, perfil: i.perfil, aderencia: i.aderencia, porque: i.porque, faixa: i.faixa,
-      })),
-    };
-    const antes = btnPdf.textContent;
-    btnPdf.disabled = true; btnPdf.textContent = 'Gerando PDF…';
-    try {
-      const r = await fetch(PDF_API, {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
-      });
-      if (!r.ok) throw new Error('pdf');
-      const url = URL.createObjectURL(await r.blob());
-      const a = document.createElement('a');
-      a.href = url; a.download = 'curadoria-psa.pdf';
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
-    } catch (e) {
-      window.print();   // fallback: Salvar como PDF do navegador
-    } finally {
-      btnPdf.disabled = false; btnPdf.textContent = antes;
-    }
-  });
+  if (btnPdf) btnPdf.addEventListener('click', () => window.print());
 
   $('#quero-curador').addEventListener('click', async e => {
     e.target.disabled = true;
