@@ -96,28 +96,28 @@ t('os enums do formulário são coerentes com o HubSpot', () => {
   assert.equal(Object.values(micro).flat().length, 135, 'micro_tema deveria ter 135 opções');
 });
 
-// A escolha garante a mistura mínima por categoria e completa até o teto N.
-t('escolha respeita a cota por categoria e o teto N', () => {
+// A escolha entrega 5: 1 permuta + 2 matriz + 2 melhor geral, e completa o que faltar.
+t('escolha respeita a mistura 1 permuta + 2 matriz + 2 melhor (N=5)', () => {
   const n = (categoria, i) => ({ nome: `${categoria}-${i}`, categoria });
-  const cheio = [n('permuta', 1), n('matriz', 1), n('matriz', 2), n('melhores', 1), n('melhores', 2)];
+  const cheio = [n('permuta', 1), n('permuta', 2), n('matriz', 1), n('matriz', 2), n('matriz', 3),
+                 n('melhores', 1), n('melhores', 2), n('melhores', 3)];
 
-  // teto 3: mantém a mistura 1/1/1, permuta primeiro
-  const tres = escolherIndicacoes(cheio, 3);
-  assert.deepEqual(tres.map(x => x.categoria), ['permuta', 'matriz', 'melhores'], '1/1/1 quando há permuta');
-  assert.deepEqual(tres.map(x => x.nome), ['permuta-1', 'matriz-1', 'melhores-1'], 'primeiro de cada, na ordem');
+  const cinco = escolherIndicacoes(cheio);   // default N=5
+  assert.deepEqual(cinco.map(x => x.categoria),
+    ['permuta', 'matriz', 'matriz', 'melhores', 'melhores'], '1 permuta + 2 matriz + 2 melhor');
+  assert.deepEqual(cinco.map(x => x.nome),
+    ['permuta-1', 'matriz-1', 'matriz-2', 'melhores-1', 'melhores-2'], 'primeiros de cada, na ordem');
 
-  // teto 3 sem permuta: 2 matriz + 1 melhores
-  const semPermuta = escolherIndicacoes(cheio.filter(x => x.categoria !== 'permuta'), 3);
-  assert.deepEqual(semPermuta.map(x => x.categoria), ['matriz', 'matriz', 'melhores'], '0/2/1 sem permuta');
+  // sem permuta: mantém 2 matriz e completa até 5 com melhor geral
+  const semPermuta = escolherIndicacoes(cheio.filter(x => x.categoria !== 'permuta'));
+  assert.equal(semPermuta.length, 5, 'completa 5 mesmo sem permuta');
+  assert.equal(semPermuta.filter(x => x.categoria === 'matriz').length, 2, 'mantém 2 matriz');
 
-  // teto alto (8): devolve TODOS os disponíveis, sem repetir
-  const todos = escolherIndicacoes(cheio, 8);
-  assert.equal(todos.length, 5, 'devolve todos quando há menos nomes que o teto');
-  assert.equal(new Set(todos.map(x => x.nome)).size, 5, 'sem nome repetido');
-
-  // nunca inventa: lista curta devolve o que tem; vazio devolve vazio
-  assert.equal(escolherIndicacoes([n('matriz', 1), n('melhores', 1)], 8).length, 2);
-  assert.equal(escolherIndicacoes([], 8).length, 0);
+  // arquivo abaixo de N: devolve o que tem, sem repetir; vazio devolve vazio
+  const poucos = [n('permuta', 1), n('matriz', 1), n('melhores', 1)];
+  assert.equal(escolherIndicacoes(poucos).length, 3);
+  assert.equal(new Set(escolherIndicacoes(poucos).map(x => x.nome)).size, 3, 'sem nome repetido');
+  assert.equal(escolherIndicacoes([]).length, 0);
 });
 
 // A automação grava os 5 nomes numa propriedade do negócio. JSON é o formato
@@ -164,8 +164,8 @@ t('lê os 5 nomes da propriedade em JSON e em texto', () => {
   assert.deepEqual(doReal.map(n => n.nome), ['Alsones Balestrin', 'Cristiano Machado', 'André Santos']);
   assert.equal(doReal[0].porque.length, 2, 'os marcadores viram motivos');
   assert.ok(doReal[0].porque[0].startsWith('Ele está no Top 100'), 'motivo sem o marcador');
-  // sem permuta e com só um matriz, entrega os 3 disponíveis (abaixo do teto N)
-  assert.equal(escolherIndicacoes(doReal, 8).length, 3);
+  // sem permuta e com só um matriz, entrega os 3 disponíveis (abaixo do teto N=5)
+  assert.equal(escolherIndicacoes(doReal).length, 3);
 
   // vazio e lixo não explodem
   assert.deepEqual(lerNomes(''), []);

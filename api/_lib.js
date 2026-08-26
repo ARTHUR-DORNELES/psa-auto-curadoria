@@ -322,13 +322,13 @@ export function cors(req, res) {
 }
 
 // Quantas indicações vão para o cliente. Tunável por env sem mexer no código.
-export const N_INDICACOES = Number(process.env.N_INDICACOES || 8);
+export const N_INDICACOES = Number(process.env.N_INDICACOES || 5);
 
 /**
  * Escolhe as N indicações que vão para o cliente a partir do arquivo da IA Curadoria.
- * Garante a mistura mínima (1 permuta + 1 matriz + 1 melhores; sem permuta, 2 matriz + 1
- * melhores) e completa até N com o que sobrar, na ordem melhores → matriz → permuta.
- * Devolver o máximo de nomes (até N) importa mais que a proporção exata.
+ * Mistura pedida: 1 permuta + 2 matriz + 2 melhor geral (= 5). Sem permuta, 2 matriz +
+ * 2 melhores e completa o que faltar. Falta de estoque numa categoria é coberta pelas
+ * outras (melhores → matriz → permuta): devolver o máximo de nomes importa mais que a proporção.
  */
 export function escolherIndicacoes(lista, n = N_INDICACOES) {
   const porCategoria = cat => lista.filter(x => x.categoria === cat);
@@ -337,8 +337,8 @@ export function escolherIndicacoes(lista, n = N_INDICACOES) {
   const melhores = porCategoria('melhores');
 
   const cota = permuta.length
-    ? { permuta: 1, matriz: 1, melhores: 1 }
-    : { permuta: 0, matriz: 2, melhores: 1 };
+    ? { permuta: 1, matriz: 2, melhores: 2 }
+    : { permuta: 0, matriz: 2, melhores: 2 };
 
   const escolhidos = [
     ...permuta.slice(0, cota.permuta),
