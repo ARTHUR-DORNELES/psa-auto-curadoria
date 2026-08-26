@@ -120,6 +120,25 @@ t('escolha respeita a mistura 1 permuta + 2 matriz + 2 melhor (N=5)', () => {
   assert.equal(escolherIndicacoes([]).length, 0);
 });
 
+// Nome pedido pelo cliente NUNCA pode ser descartado: entra sempre, na frente, além dos 5.
+t('nomes pedidos entram todos, na frente dos 5 da curadoria', () => {
+  const txt = [
+    'Pedido do cliente: Ana Souza [id:111]',
+    'Permuta: Bruno Lima [id:222]',
+    'Matriz: Carla Dias [id:333]',
+    'Matriz: Diego Reis [id:444]',
+    'Melhor geral: Elisa Prado [id:555]',
+    'Melhor geral: Fabio Nunes [id:666]',
+  ].join('\n');
+  const nomes = lerNomes(txt);
+  assert.ok(nomes.some(n => n.nome === 'Ana Souza'), 'o pedido é lido (não descartado)');
+  const esc = escolherIndicacoes(nomes);
+  assert.equal(esc[0].nome, 'Ana Souza', 'o pedido vem primeiro');
+  assert.equal(esc.length, 6, 'pedido (1) + os 5 da curadoria');
+  assert.ok(esc.slice(1).every(n => n.categoria !== 'pedido'), 'o resto é a mistura');
+  assert.equal(esc.find(n => n.nome === 'Ana Souza').id_contato, '111', 'id do contato preservado p/ disparo');
+});
+
 // A automação grava os 5 nomes numa propriedade do negócio. JSON é o formato
 // pedido, mas texto solto não pode derrubar a entrega.
 t('lê os 5 nomes da propriedade em JSON e em texto', () => {

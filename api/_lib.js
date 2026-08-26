@@ -325,13 +325,15 @@ export function cors(req, res) {
 export const N_INDICACOES = Number(process.env.N_INDICACOES || 5);
 
 /**
- * Escolhe as N indicações que vão para o cliente a partir do arquivo da IA Curadoria.
- * Mistura pedida: 1 permuta + 2 matriz + 2 melhor geral (= 5). Sem permuta, 2 matriz +
- * 2 melhores e completa o que faltar. Falta de estoque numa categoria é coberta pelas
- * outras (melhores → matriz → permuta): devolver o máximo de nomes importa mais que a proporção.
+ * Escolhe as indicações que vão para o cliente a partir do arquivo da IA Curadoria.
+ * Os nomes PEDIDOS pelo cliente (categoria 'pedido') entram SEMPRE, todos, na frente.
+ * Depois vem a curadoria: N=5 na mistura 1 permuta + 2 matriz + 2 melhor geral (sem
+ * permuta, 2 matriz + 2 melhores, completando o que faltar na ordem melhores → matriz →
+ * permuta). Total = pedidos + até N. Devolver o máximo importa mais que a proporção exata.
  */
 export function escolherIndicacoes(lista, n = N_INDICACOES) {
   const porCategoria = cat => lista.filter(x => x.categoria === cat);
+  const pedidos = porCategoria('pedido');
   const permuta = porCategoria('permuta');
   const matriz = porCategoria('matriz');
   const melhores = porCategoria('melhores');
@@ -340,19 +342,27 @@ export function escolherIndicacoes(lista, n = N_INDICACOES) {
     ? { permuta: 1, matriz: 2, melhores: 2 }
     : { permuta: 0, matriz: 2, melhores: 2 };
 
-  const escolhidos = [
+  const mix = [
     ...permuta.slice(0, cota.permuta),
     ...matriz.slice(0, cota.matriz),
     ...melhores.slice(0, cota.melhores),
   ];
-
-  // completa até N com o que sobrou, sem repetir
-  if (escolhidos.length < n) {
-    const sobra = [...melhores, ...matriz, ...permuta].filter(x => !escolhidos.includes(x));
-    escolhidos.push(...sobra.slice(0, n - escolhidos.length));
+  // completa a mistura até N com o que sobrou, sem repetir
+  if (mix.length < n) {
+    const sobra = [...melhores, ...matriz, ...permuta].filter(x => !mix.includes(x));
+    mix.push(...sobra.slice(0, n - mix.length));
   }
 
-  return escolhidos.slice(0, n);
+  // pedidos (todos) na frente, depois a mistura (até N); dedup por nome
+  const vistos = new Set();
+  const out = [];
+  for (const x of [...pedidos, ...mix.slice(0, n)]) {
+    const k = String(x.nome || '').toLowerCase();
+    if (vistos.has(k)) continue;
+    vistos.add(k);
+    out.push(x);
+  }
+  return out;
 }
 
 // Propriedade de negócio onde a automação grava os 5 nomes da IA Curadoria.
@@ -427,7 +437,7 @@ export function lerNomes(bruto) {
 //     - motivo
 // A categoria pode ter mais de uma palavra ("Melhor geral"), e os motivos vêm
 // como marcadores nas linhas seguintes até o próximo cabeçalho.
-const RE_CABECALHO = /^\s*(permutas?|matriz(?:es)?|melhor(?:es)?(?:\s+geral)?|top(?:\s+\w+)?)\s*[:\-—]\s*(.+?)\s*$/i;
+const RE_CABECALHO = /^\s*(pedido(?:\s+do\s+cliente)?|permutas?|matriz(?:es)?|melhor(?:es)?(?:\s+geral)?|top(?:\s+\w+)?)\s*[:\-—]\s*(.+?)\s*$/i;
 const RE_MOTIVO = /^\s*[-–—•*]\s+(.+?)\s*$/;
 
 function lerTextoDaAutomacao(texto, normalizar) {
@@ -503,6 +513,7 @@ export function faixaDeValor(reais) {
 
 const categoriaCanonica = v => {
   const s = String(v).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  if (s.startsWith('pedido')) return 'pedido';   // nome que o cliente pediu explicitamente
   if (s.startsWith('permut')) return 'permuta';
   if (s.startsWith('matriz')) return 'matriz';
   if (s.startsWith('melhor') || s.startsWith('top')) return 'melhores';
