@@ -326,14 +326,14 @@ export const N_INDICACOES = Number(process.env.N_INDICACOES || 5);
 
 /**
  * Escolhe as indicações que vão para o cliente a partir do arquivo da IA Curadoria.
- * Os nomes PEDIDOS pelo cliente (categoria 'pedido') entram SEMPRE, todos, na frente.
- * Depois vem a curadoria: N=5 na mistura 1 permuta + 2 matriz + 2 melhor geral (sem
- * permuta, 2 matriz + 2 melhores, completando o que faltar na ordem melhores → matriz →
- * permuta). Total = pedidos + até N. Devolver o máximo importa mais que a proporção exata.
+ * No máximo UM nome PEDIDO pelo cliente (categoria 'pedido') entra, na frente. Depois vem
+ * a curadoria: N=5 na mistura 1 permuta + 2 matriz + 2 melhor geral (sem permuta, 2 matriz
+ * + 2 melhores, completando o que faltar na ordem melhores → matriz → permuta).
+ * Total = até 1 pedido + até N. Devolver o máximo importa mais que a proporção exata.
  */
 export function escolherIndicacoes(lista, n = N_INDICACOES) {
   const porCategoria = cat => lista.filter(x => x.categoria === cat);
-  const pedidos = porCategoria('pedido');
+  const pedidos = porCategoria('pedido').slice(0, 1);   // só um pedido do cliente
   const permuta = porCategoria('permuta');
   const matriz = porCategoria('matriz');
   const melhores = porCategoria('melhores');
