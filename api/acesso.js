@@ -18,7 +18,9 @@ export default async function handler(req, res) {
     const dec = await decidirAcesso(documento);
     switch (dec.modo) {
       case 'novo':
-        return res.status(200).json({ ok: true, modo: 'novo' });
+        // já sabemos quem é o comprador (casado pelo CPF/CNPJ) -> manda nome/empresa/
+        // email/telefone p/ o chat pré-preencher e o Santiago cumprimentar pelo nome
+        return res.status(200).json({ ok: true, modo: 'novo', contato: await dadosContato(dec.contatoId) });
       case 'retomar':
         return res.status(200).json({ ok: true, modo: 'retomar', id: dec.id });
       case 'esgotado':
