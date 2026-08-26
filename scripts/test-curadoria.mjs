@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { teaser, paraCliente, semNumerosInternos, notaDoBriefing, escolherTres, lerNomes, valorEmReais, faixaDeValor, telefoneE164, cors, chaveDeNome } from '../api/_lib.js';
+import { teaser, paraCliente, semNumerosInternos, notaDoBriefing, escolherIndicacoes, lerNomes, valorEmReais, faixaDeValor, telefoneE164, cors, chaveDeNome } from '../api/_lib.js';
 
 let ok = 0;
 const t = (nome, fn) => { fn(); console.log('✓', nome); ok++; };
@@ -96,30 +96,28 @@ t('os enums do formulário são coerentes com o HubSpot', () => {
   assert.equal(Object.values(micro).flat().length, 135, 'micro_tema deveria ter 135 opções');
 });
 
-// O arquivo da IA Curadoria traz 5 nomes: 1 permuta, 2 matriz, 2 melhores.
-// Vão 3 para o cliente: 1 de cada. Sem permuta, 2 matriz + 1 melhores.
-t('escolha dos 3 nomes respeita a cota por categoria', () => {
+// A escolha garante a mistura mínima por categoria e completa até o teto N.
+t('escolha respeita a cota por categoria e o teto N', () => {
   const n = (categoria, i) => ({ nome: `${categoria}-${i}`, categoria });
   const cheio = [n('permuta', 1), n('matriz', 1), n('matriz', 2), n('melhores', 1), n('melhores', 2)];
 
-  const comPermuta = escolherTres(cheio).map(x => x.categoria);
-  assert.deepEqual(comPermuta, ['permuta', 'matriz', 'melhores'], '1/1/1 quando há permuta');
+  // teto 3: mantém a mistura 1/1/1, permuta primeiro
+  const tres = escolherIndicacoes(cheio, 3);
+  assert.deepEqual(tres.map(x => x.categoria), ['permuta', 'matriz', 'melhores'], '1/1/1 quando há permuta');
+  assert.deepEqual(tres.map(x => x.nome), ['permuta-1', 'matriz-1', 'melhores-1'], 'primeiro de cada, na ordem');
 
-  const semPermuta = escolherTres(cheio.filter(x => x.categoria !== 'permuta'));
+  // teto 3 sem permuta: 2 matriz + 1 melhores
+  const semPermuta = escolherIndicacoes(cheio.filter(x => x.categoria !== 'permuta'), 3);
   assert.deepEqual(semPermuta.map(x => x.categoria), ['matriz', 'matriz', 'melhores'], '0/2/1 sem permuta');
 
-  // pega sempre o primeiro de cada categoria, na ordem do arquivo
-  assert.deepEqual(escolherTres(cheio).map(x => x.nome), ['permuta-1', 'matriz-1', 'melhores-1']);
+  // teto alto (8): devolve TODOS os disponíveis, sem repetir
+  const todos = escolherIndicacoes(cheio, 8);
+  assert.equal(todos.length, 5, 'devolve todos quando há menos nomes que o teto');
+  assert.equal(new Set(todos.map(x => x.nome)).size, 5, 'sem nome repetido');
 
-  // arquivo incompleto: devolver 3 nomes importa mais que a proporção
-  const magro = [n('matriz', 1), n('melhores', 1), n('melhores', 2), n('melhores', 3)];
-  const r = escolherTres(magro);
-  assert.equal(r.length, 3, 'tem de devolver 3 mesmo com categoria faltando');
-  assert.equal(new Set(r.map(x => x.nome)).size, 3, 'sem nome repetido');
-
-  // arquivo com menos de 3 nomes não inventa
-  assert.equal(escolherTres([n('matriz', 1), n('melhores', 1)]).length, 2);
-  assert.equal(escolherTres([]).length, 0);
+  // nunca inventa: lista curta devolve o que tem; vazio devolve vazio
+  assert.equal(escolherIndicacoes([n('matriz', 1), n('melhores', 1)], 8).length, 2);
+  assert.equal(escolherIndicacoes([], 8).length, 0);
 });
 
 // A automação grava os 5 nomes numa propriedade do negócio. JSON é o formato
@@ -166,8 +164,8 @@ t('lê os 5 nomes da propriedade em JSON e em texto', () => {
   assert.deepEqual(doReal.map(n => n.nome), ['Alsones Balestrin', 'Cristiano Machado', 'André Santos']);
   assert.equal(doReal[0].porque.length, 2, 'os marcadores viram motivos');
   assert.ok(doReal[0].porque[0].startsWith('Ele está no Top 100'), 'motivo sem o marcador');
-  // sem permuta e com só um matriz, ainda assim entrega 3
-  assert.equal(escolherTres(doReal).length, 3);
+  // sem permuta e com só um matriz, entrega os 3 disponíveis (abaixo do teto N)
+  assert.equal(escolherIndicacoes(doReal, 8).length, 3);
 
   // vazio e lixo não explodem
   assert.deepEqual(lerNomes(''), []);
@@ -203,28 +201,30 @@ t('permuta e matriz nunca chegam ao cliente — nem como campo, nem como palavra
   assert.ok(lidos[0].nome === 'Beltrano', 'o nome não pode ser alterado pela limpeza');
 });
 
-// Refazer só faz sentido se os recusados não voltarem. O filtro roda antes da cota,
-// e menos de 3 inéditos significa "ainda não pronto" — a página espera a automação.
+// Refazer só faz sentido se os recusados não voltarem. O filtro de descartados roda
+// ANTES da escolha, então nenhum nome já mostrado reaparece na rodada seguinte.
 t('nomes descartados não voltam numa refação', () => {
   const lista = [
     { nome: 'Ana', categoria: 'permuta' }, { nome: 'Bruno', categoria: 'matriz' },
     { nome: 'Carla', categoria: 'matriz' }, { nome: 'Diego', categoria: 'melhores' },
     { nome: 'Elisa', categoria: 'melhores' },
   ];
-  const mostrados = escolherTres(lista).map(n => n.nome);
-  assert.deepEqual(mostrados, ['Ana', 'Bruno', 'Diego']);
+  // teto 8 com 5 disponíveis: mostra os 5, permuta primeiro, sem repetir
+  const mostrados = escolherIndicacoes(lista).map(n => n.nome);
+  assert.equal(mostrados.length, 5, 'mostra todos os disponíveis abaixo do teto');
+  assert.equal(mostrados[0], 'Ana', 'permuta primeiro');
+  assert.equal(new Set(mostrados).size, 5, 'sem nome repetido');
 
-  // segunda rodada com a MESMA lista: sobram 2 inéditos, insuficiente
+  // segunda rodada com a MESMA lista: todos já foram mostrados -> nada inédito
   const descartados = new Set(mostrados.map(n => n.toLowerCase()));
   const sobra = lista.filter(n => !descartados.has(n.nome.toLowerCase()));
-  assert.equal(sobra.length, 2, 'os 2 restantes não formam um trio');
+  assert.equal(sobra.length, 0, 'todos os 5 já foram mostrados');
 
-  // com nomes novos publicados pela automação, o trio sai sem repetir
+  // com nomes novos publicados pela automação, saem sem repetir os recusados
   const rodadaNova = [...sobra,
     { nome: 'Fábio', categoria: 'permuta' }, { nome: 'Gina', categoria: 'matriz' }, { nome: 'Hugo', categoria: 'melhores' }];
-  const segundos = escolherTres(rodadaNova.filter(n => !descartados.has(n.nome.toLowerCase())));
-  assert.equal(segundos.length, 3);
-  assert.ok(segundos.every(n => !mostrados.includes(n.nome)), 'nenhum recusado voltou');
+  const segundos = escolherIndicacoes(rodadaNova.filter(n => !descartados.has(n.nome.toLowerCase())));
+  assert.ok(segundos.length === 3 && segundos.every(n => !mostrados.includes(n.nome)), 'nenhum recusado voltou');
 });
 
 // O cliente vê faixa, nunca o cachê exato — o valor fechado é a posição de

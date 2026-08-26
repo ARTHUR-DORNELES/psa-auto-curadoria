@@ -321,15 +321,17 @@ export function cors(req, res) {
   return false;
 }
 
+// Quantas indicações vão para o cliente. Tunável por env sem mexer no código.
+export const N_INDICACOES = Number(process.env.N_INDICACOES || 8);
+
 /**
- * Escolhe as 3 indicações que vão para o cliente a partir das 5 do arquivo da IA Curadoria.
- * Regra: 1 permuta + 1 matriz + 1 melhores.
- * Sem permuta no arquivo: 2 matriz + 1 melhores.
- * Falta de estoque em qualquer categoria é coberta pelas outras, na ordem melhores → matriz → permuta,
- * porque devolver menos de 3 nomes é pior do que desrespeitar a proporção.
+ * Escolhe as N indicações que vão para o cliente a partir do arquivo da IA Curadoria.
+ * Garante a mistura mínima (1 permuta + 1 matriz + 1 melhores; sem permuta, 2 matriz + 1
+ * melhores) e completa até N com o que sobrar, na ordem melhores → matriz → permuta.
+ * Devolver o máximo de nomes (até N) importa mais que a proporção exata.
  */
-export function escolherTres(cinco) {
-  const porCategoria = cat => cinco.filter(n => n.categoria === cat);
+export function escolherIndicacoes(lista, n = N_INDICACOES) {
+  const porCategoria = cat => lista.filter(x => x.categoria === cat);
   const permuta = porCategoria('permuta');
   const matriz = porCategoria('matriz');
   const melhores = porCategoria('melhores');
@@ -344,13 +346,13 @@ export function escolherTres(cinco) {
     ...melhores.slice(0, cota.melhores),
   ];
 
-  // completa com o que sobrou, sem repetir
-  if (escolhidos.length < 3) {
-    const sobra = [...melhores, ...matriz, ...permuta].filter(n => !escolhidos.includes(n));
-    escolhidos.push(...sobra.slice(0, 3 - escolhidos.length));
+  // completa até N com o que sobrou, sem repetir
+  if (escolhidos.length < n) {
+    const sobra = [...melhores, ...matriz, ...permuta].filter(x => !escolhidos.includes(x));
+    escolhidos.push(...sobra.slice(0, n - escolhidos.length));
   }
 
-  return escolhidos.slice(0, 3);
+  return escolhidos.slice(0, n);
 }
 
 // Propriedade de negócio onde a automação grava os 5 nomes da IA Curadoria.

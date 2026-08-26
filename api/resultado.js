@@ -1,4 +1,4 @@
-import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherTres, PROP_NOMES, nota, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, consumirCredito } from './_lib.js';
+import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, PROP_NOMES, nota, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, consumirCredito } from './_lib.js';
 
 const ACOES = {
   curador: 'CLIENTE PEDIU ATENDIMENTO DE CURADOR — assumir o processo pelo caminho tradicional.',
@@ -33,30 +33,29 @@ export default async function handler(req, res) {
       // inéditos, a curadoria segue "não pronta" — é assim que uma refação espera
       // a automação publicar nomes novos em vez de repetir a lista anterior.
       const descartados = new Set((reg.descartados || []).map(n => n.toLowerCase()));
-      const cinco = lerNomes(curadoria.nomesBruto).filter(n => !descartados.has(n.nome.toLowerCase()));
+      const nomes = lerNomes(curadoria.nomesBruto).filter(n => !descartados.has(n.nome.toLowerCase()));
 
-      // Normalmente esperamos 3 nomes. Mas a automação às vezes devolve menos (típico na
+      // Esperamos N_INDICACOES nomes. Mas a automação às vezes devolve menos (típico na
       // refação: os nomes já mostrados saem do bolo e sobra pouco inédito). Para o cliente
-      // NÃO ficar preso em "sendo montada" pra sempre: exigimos 3 até estourar o tempo; daí
+      // NÃO ficar preso em "sendo montada" pra sempre: exigimos N até estourar o tempo; daí
       // entregamos o que veio (>=1) marcado como incompleto — um curador completa depois.
       const TIMEOUT_MIN = Number(process.env.CURADORIA_TIMEOUT_MIN || 8);
       const clock = reg.refeitoEm || reg.criadoEm;
       const idadeMin = clock ? (Date.now() - Date.parse(clock)) / 60000 : 0;
       const estourou = idadeMin >= TIMEOUT_MIN;
 
-      // dentro do tempo e sem os 3: segue esperando a automação publicar mais nomes
-      if (cinco.length < 3 && !estourou) {
+      // dentro do tempo e sem os N: segue esperando a automação publicar mais nomes
+      if (nomes.length < N_INDICACOES && !estourou) {
         return res.status(200).json({ id, pronto: false, linkCuradoria: curadoria.link || undefined });
       }
       // estourou o tempo e não veio NENHUM nome: handoff pro curador (não fabrica resultado)
-      if (cinco.length === 0) {
+      if (nomes.length === 0) {
         return res.status(200).json({ id, pronto: false, timeout: true, linkCuradoria: curadoria.link || undefined });
       }
 
-      // 1 permuta + 1 matriz + 1 melhores; sem permuta, 2 matriz + 1 melhores.
-      // Com menos de 3 (só após o timeout) entrega os que houver, na ordem em que vieram.
-      const escolhidos = cinco.length >= 3 ? escolherTres(cinco) : cinco.slice(0, 3);
-      const incompleto = escolhidos.length < 3;
+      // até N nomes, com a mistura mínima por categoria. Menos de N só após o timeout.
+      const escolhidos = escolherIndicacoes(nomes);
+      const incompleto = escolhidos.length < N_INDICACOES;
       reg.linkCuradoria = curadoria.link;
       reg.resultado = {
         leitura: incompleto
@@ -64,10 +63,7 @@ export default async function handler(req, res) {
           : 'Estes são os nomes com maior aderência ao briefing que você preencheu.',
         incompleto,
         // `categoria` (permuta!) é comercial interno: paraCliente() a remove
-        indicacoes: escolhidos.map((n, i) => ({
-          ...n,
-          aderencia: n.aderencia || (i === 2 ? 'alternativa estratégica' : 'alta'),
-        })),
+        indicacoes: escolhidos.map(n => ({ ...n, aderencia: n.aderencia || 'alta' })),
       };
       if (!CHECKOUT_URL) reg.pago = true;   // sem checkout, entrega direto
       // consome o crédito: move o negócio "Pago" -> "Utilizado" na PRIMEIRA geração.
