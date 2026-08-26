@@ -1081,6 +1081,7 @@ function resumoDoBriefing(d) {
 function renderCompleto(d) {
   const r = d.resultado;
   $('#resultado').innerHTML = `
+    ${resumoDoBriefing(d)}
     <div class="res__topo">
       <div>
         <span class="eyebrow">Curadoria liberada</span>
@@ -1119,8 +1120,7 @@ function renderCompleto(d) {
       <button class="btn btn--ghost" id="quero-curador">Falar com um curador da PSA</button>
     </div>
     ${d.refacoesRestantes > 0 ? `<p class="dica" style="text-align:center">Você pode refazer uma única vez — os 3 nomes atuais saem e não voltam.</p>` : ''}
-    <p class="aviso">Viabilidade e orçamento passam pelo nosso time, que negocia com o palestrante e volta com a proposta formal. A checagem de data depende da agenda do palestrante e pode levar até 24h. Contrato, pagamento e logística seguem pela PSA.</p>
-    ${resumoDoBriefing(d)}`;
+    <p class="aviso">Viabilidade e orçamento passam pelo nosso time, que negocia com o palestrante e volta com a proposta formal. A checagem de data depende da agenda do palestrante e pode levar até 24h. Contrato, pagamento e logística seguem pela PSA.</p>`;
 
   $('#resultado').querySelectorAll('[data-acao]').forEach(b => b.addEventListener('click', async () => {
     // o prazo entra aqui, no momento em que a pessoa decide pedir: quem só lê o aviso
