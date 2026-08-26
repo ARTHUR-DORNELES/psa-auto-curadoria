@@ -365,6 +365,41 @@ export function escolherIndicacoes(lista, n = N_INDICACOES) {
   return out;
 }
 
+/**
+ * Anexa a foto de cada palestrante (por id_contato). Ordem: a propriedade
+ * `mande_uma_foto_bem_bonita_pra_gente_` (URL limpa) e, se não houver, a 1ª imagem
+ * da wiki do palestrante (a foto de perfil). Sem foto -> `foto` fica vazio (o front
+ * mostra uma silhueta). Nunca lança: foto é enfeite, não pode derrubar o resultado.
+ */
+const _ehImagem = u => /^https?:\/\//i.test(u) && !/favicons|google\.com\/s2|\.svg(\?|$)/i.test(u);
+export async function anexarFotos(indicacoes) {
+  const ids = [...new Set((indicacoes || []).map(i => String(i.id_contato || '').trim()).filter(x => /^\d+$/.test(x)))];
+  if (!ids.length) return indicacoes;
+
+  const byId = {};
+  try {
+    const r = await hs('/crm/v3/objects/contacts/batch/read', 'POST', {
+      properties: ['mande_uma_foto_bem_bonita_pra_gente_', 'palestrante_wiki_url'],
+      inputs: ids.map(id => ({ id })),
+    });
+    for (const c of (r.results || [])) byId[c.id] = c.properties || {};
+  } catch (e) { console.error('batch de contatos p/ foto falhou:', e.message); }
+
+  await Promise.all((indicacoes || []).map(async (ind) => {
+    const p = byId[String(ind.id_contato || '')] || {};
+    const direta = String(p.mande_uma_foto_bem_bonita_pra_gente_ || '').trim();
+    if (_ehImagem(direta)) { ind.foto = direta; return; }
+    const wiki = String(p.palestrante_wiki_url || '').trim();
+    if (!/^https?:\/\//i.test(wiki)) return;
+    try {
+      const html = await fetch(wiki, { signal: AbortSignal.timeout(4000) }).then(r => (r.ok ? r.text() : ''));
+      const img = [...html.matchAll(/<img[^>]+src="([^"]+)"/gi)].map(m => m[1]).find(_ehImagem);
+      if (img) ind.foto = img;
+    } catch (e) { /* sem foto: segue com a silhueta */ }
+  }));
+  return indicacoes;
+}
+
 // Propriedade de negócio onde a automação grava os 5 nomes da IA Curadoria.
 // Nome configurável para não travar o produto numa escolha minha.
 export const PROP_NOMES = process.env.PROP_CURADORIA_NOMES || 'ia_curadoria_nomes';

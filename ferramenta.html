@@ -94,7 +94,14 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 
 /* resultado */
 .leitura{border-left:2px solid var(--psa-orange);padding-left:var(--s-5);margin-bottom:var(--s-7);color:var(--fg-2);font-size:18px}
-.ind{border:1px solid var(--border);border-radius:var(--r-md);padding:var(--s-6);margin-bottom:var(--s-5);background:#ffffff05;position:relative;overflow:hidden}
+.ind{border:1px solid var(--border);border-radius:var(--r-md);padding:var(--s-6);margin-bottom:var(--s-5);background:#ffffff05;position:relative;overflow:hidden;display:flex;gap:var(--s-5);align-items:stretch}
+.ind__corpo{flex:1;min-width:0}
+.ind__foto{flex:none;width:132px;position:relative;border-radius:12px;overflow:hidden;background:#ffffff0d;border:1px solid var(--border)}
+.ind__foto::before{content:"";display:block;padding-top:122%}
+.ind__silhueta{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--fg-4)}
+.ind__silhueta svg{width:54%;height:auto}
+.ind__img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top center}
+@media(max-width:560px){.ind{flex-direction:column-reverse}.ind__foto{width:132px;align-self:flex-start}}
 .ind__top{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;margin-bottom:var(--s-4)}
 .ind__rank{font-family:var(--font-mono);font-size:var(--t-caption);color:var(--psa-orange)}
 .ind__nome{font-family:var(--font-display-wide);font-weight:800;text-transform:uppercase;font-size:clamp(18px,3vw,24px)}
@@ -196,6 +203,8 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
       #resultado .ind__nome { color:#0E1B3D !important }
       #resultado .ind ul li::marker { color:#F85000 !important }
       #resultado .ind__faixa { color:#F85000 !important }
+      #resultado .ind__foto { border:1px solid #dcdfe4 !important; background:#f2f1ec !important }
+      #resultado .ind__silhueta { color:#b8bcc4 !important }
     }
 </style>
 </head>
@@ -1005,6 +1014,10 @@ const PDF_API = 'https://psa-ia-board.vercel.app/api/curadoria-cliente-pdf';
 const reais = c => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 });
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 
+// silhueta (quando o palestrante não tem foto acessível) + card da foto
+const SILHUETA = '<svg viewBox="0 0 64 74" fill="currentColor" aria-hidden="true"><circle cx="32" cy="22" r="15"/><path d="M32 41C17.6 41 6 51.4 6 64.3V74h52v-9.7C58 51.4 46.4 41 32 41z"/></svg>';
+const fotoCard = ind => `<div class="ind__foto"><div class="ind__silhueta">${SILHUETA}</div>${ind.foto ? `<img class="ind__img" src="${esc(ind.foto)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</div>`;
+
 function renderTeaser(j) {
   const t = j.teaser;
   $('#resultado').innerHTML = `
@@ -1120,21 +1133,24 @@ function renderCompleto(d) {
     ${r.incompleto ? `<p class="aviso">Adiantamos ${r.indicacoes.length} nome${r.indicacoes.length > 1 ? 's' : ''} de alta aderência. Um curador vai completar sua indicação e te avisar — sem custo extra.</p>` : ''}
     ${r.indicacoes.map((ind, n) => `
       <article class="ind">
-        <div class="ind__top">
-          <span class="ind__rank">INDICAÇÃO 0${n + 1}</span>
-          <span class="ind__nome">${esc(ind.nome)}</span>
-          <span class="ind__fit">aderência ${esc(ind.aderencia)}</span>
+        <div class="ind__corpo">
+          <div class="ind__top">
+            <span class="ind__rank">INDICAÇÃO 0${n + 1}</span>
+            <span class="ind__nome">${esc(ind.nome)}</span>
+            <span class="ind__fit">aderência ${esc(ind.aderencia)}</span>
+          </div>
+          <div class="ind__meta">
+            ${ind.perfil ? `<strong>${esc(ind.perfil)}</strong>` : ''}
+            ${ind.faixa ? `<span class="ind__faixa">investimento ${esc(ind.faixa)}</span>` : ''}
+          </div>
+          <ul>${ind.porque.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
+          <div class="acoes-pos">
+            ${(d.disponibilidade?.palestrantes || []).includes(ind.nome)
+              ? `<span class="chip chip--feito">✓ Disponibilidade e orçamento solicitados</span>`
+              : `<button class="btn btn--primary btn-disp" data-nome="${esc(ind.nome)}">Solicitar disponibilidade e orçamento</button>`}
+          </div>
         </div>
-        <div class="ind__meta">
-          ${ind.perfil ? `<strong>${esc(ind.perfil)}</strong>` : ''}
-          ${ind.faixa ? `<span class="ind__faixa">investimento ${esc(ind.faixa)}</span>` : ''}
-        </div>
-        <ul>${ind.porque.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
-        <div class="acoes-pos">
-          ${(d.disponibilidade?.palestrantes || []).includes(ind.nome)
-            ? `<span class="chip chip--feito">✓ Disponibilidade e orçamento solicitados</span>`
-            : `<button class="btn btn--primary btn-disp" data-nome="${esc(ind.nome)}">Solicitar disponibilidade e orçamento</button>`}
-        </div>
+        ${fotoCard(ind)}
       </article>`).join('')}
     <p class="ou">Nenhum dos três serviu?</p>
     <div class="acoes" style="justify-content:center">
@@ -1209,7 +1225,7 @@ function renderCompleto(d) {
         motivacao: b.motivacao, sentimento: b.sentimento, contexto: b.briefing,
       },
       indicacoes: (d.resultado?.indicacoes || []).map(i => ({
-        nome: i.nome, perfil: i.perfil, aderencia: i.aderencia, porque: i.porque, faixa: i.faixa,
+        nome: i.nome, perfil: i.perfil, aderencia: i.aderencia, porque: i.porque, faixa: i.faixa, foto: i.foto,
       })),
     };
     const antes = btnPdf.textContent;

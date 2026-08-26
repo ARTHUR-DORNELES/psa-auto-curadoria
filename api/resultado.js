@@ -1,4 +1,4 @@
-import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, PROP_NOMES, nota, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, consumirCredito } from './_lib.js';
+import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, consumirCredito } from './_lib.js';
 
 const ACOES = {
   curador: 'CLIENTE PEDIU ATENDIMENTO DE CURADOR — assumir o processo pelo caminho tradicional.',
@@ -55,6 +55,7 @@ export default async function handler(req, res) {
 
       // até N nomes, com a mistura mínima por categoria. Menos de N só após o timeout.
       const escolhidos = escolherIndicacoes(nomes);
+      await anexarFotos(escolhidos);   // foto de cada palestrante (ou nada -> silhueta no front)
       const incompleto = escolhidos.length < N_INDICACOES;
       reg.linkCuradoria = curadoria.link;
       reg.resultado = {
