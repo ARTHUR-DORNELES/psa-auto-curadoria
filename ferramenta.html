@@ -135,8 +135,9 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .aviso{margin-top:var(--s-7);font-size:var(--t-caption);color:var(--fg-3);border-top:1px solid var(--border-section);padding-top:var(--s-5)}
 
 /* registro do briefing, abaixo do resultado */
-.resumo{margin-top:var(--s-8);border:1px solid var(--border-subtle);border-radius:var(--r-md);padding:var(--s-6);background:#ffffff05}
-.resumo__topo{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;margin-bottom:var(--s-5)}
+.resumo{margin:var(--s-5) 0 var(--s-9);border:1px solid var(--border-subtle);border-radius:var(--r-md);padding:var(--s-6);background:#ffffff05}
+.resumo__topo{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;margin-bottom:var(--s-6)}
+.resumo__titulo{font-family:var(--font-display-wide);font-weight:800;text-transform:uppercase;font-size:var(--t-h2);letter-spacing:.01em;line-height:1}
 .resumo__data{margin-left:auto;font-family:var(--font-mono);font-size:var(--t-caption);color:var(--fg-3)}
 .eyebrow--mute{color:var(--fg-3)}
 .resumo__lista{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--s-5) var(--s-6)}
@@ -1066,7 +1067,10 @@ function resumoDoBriefing(d) {
   return `
     <section class="resumo">
       <div class="resumo__topo">
-        <span class="eyebrow eyebrow--mute">O briefing que gerou esta curadoria</span>
+        <div>
+          <span class="eyebrow">Ponto de partida</span>
+          <h2 class="resumo__titulo">O briefing que gerou esta curadoria</h2>
+        </div>
         ${criada ? `<span class="resumo__data">gerada em ${criada}</span>` : ''}
       </div>
       <dl class="resumo__lista">
