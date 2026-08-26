@@ -145,16 +145,28 @@ a{color:inherit;text-decoration:none}
 .chip--solid{background:var(--psa-orange);border-color:var(--psa-orange)}
 
 /* ---------- comparativo ---------- */
-.cmp{width:100%;border-collapse:collapse;font-size:var(--t-body-sm);border:1px solid var(--border-light)}
-.cmp th,.cmp td{text-align:left;padding:16px 18px;border-bottom:1px solid var(--border-light)}
-.cmp thead th{font-family:var(--font-display-wide);font-weight:800;text-transform:uppercase;font-size:var(--t-caption);letter-spacing:.1em;color:var(--fg-bone-3)}
-.cmp td:first-child{font-weight:700}
-.cmp .yes{color:var(--psa-blue);font-weight:700}
-/* contorno separando as 3 colunas + azul fraquinho na coluna Auto Curadoria */
-.cmp th:not(:first-child),.cmp td:not(:first-child){border-left:1px solid var(--border-light)}
-.cmp th:nth-child(2),.cmp td:nth-child(2){background:#0038b00f}
-.cmp thead th:nth-child(2){color:var(--psa-blue)}
-.cmp__scroll{overflow-x:auto}
+/* comparativo: dois cards lado a lado */
+.ccards{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:stretch}
+@media(max-width:680px){.ccards{grid-template-columns:1fr}}
+.ccard{background:#fff;border:1px solid var(--border-light);border-radius:16px;padding:30px 28px;position:relative;display:flex;flex-direction:column}
+.ccard--auto{background:#edf1fb;border:1.5px solid #0038b030;box-shadow:0 18px 40px #0038b016}
+.ccard__badge{position:absolute;top:-13px;left:28px;background:var(--psa-orange);color:#fff;font-family:var(--font-mono);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:6px 14px;border-radius:var(--r-pill)}
+.ccard__k{font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--fg-bone-3)}
+.ccard--auto .ccard__k{color:var(--psa-blue)}
+.ccard__title{font-family:var(--font-display-wide);font-weight:800;text-transform:uppercase;font-size:30px;line-height:.95;margin:6px 0 6px;color:var(--fg-bone-1)}
+.ccard__tag{font-size:13.5px;color:var(--fg-bone-2);min-height:40px}
+.ccard .rows{list-style:none;margin:20px 0 24px;border-top:1px solid var(--border-light);flex:1}
+.ccard--auto .rows{border-top-color:#0038b030}
+.ccard .row{display:flex;gap:12px;padding:13px 0;border-bottom:1px solid var(--border-light);align-items:flex-start}
+.ccard--auto .row{border-bottom-color:#0038b030}
+.ccard .row__ic{flex:none;margin-top:1px}
+.ccard .chk{width:18px;height:18px;color:var(--psa-blue)}
+.ccard .dot{width:16px;height:16px;color:var(--fg-bone-3)}
+.ccard .row__lbl{display:block;font-family:var(--font-mono);font-size:9.5px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--fg-bone-3);margin-bottom:3px}
+.ccard .row__v{font-size:14px;color:var(--fg-bone-1);font-weight:500}
+.ccard:not(.ccard--auto) .row__v{font-weight:400;color:var(--fg-bone-2)}
+.ccard .btn{width:100%;justify-content:center}
+.ccard .btn--ghost{border-color:var(--fg-bone-1);color:var(--fg-bone-1)}
 
 /* ---------- preço ---------- */
 /* um plano só: "Prioridade" era redundante, a Auto Curadoria já É o caminho rápido */
@@ -374,21 +386,39 @@ a{color:inherit;text-decoration:none}
       <h2>Auto Curadoria ou<br>curadoria com o time?</h2>
       <p class="lead">As duas entregam curadoria PSA. Muda o tempo, a autonomia e quanto você quer participar do processo.</p>
     </div>
-    <div class="cmp__scroll">
-      <table class="cmp">
-        <thead>
-          <tr><th></th><th>Auto Curadoria</th><th>Curadoria com o time</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>Início do processo</td><td class="yes">Você mesmo, na hora</td><td>Após contato com nosso time</td></tr>
-          <tr><td>Briefing</td><td class="yes">Formulário guiado</td><td>Reunião com especialista</td></tr>
-          <tr><td>Indicações</td><td class="yes">5 nomes com justificativa escrita</td><td>Até 5 perfis apresentados pelo consultor</td></tr>
-          <tr><td>Viabilidade de data</td><td class="yes">Solicitada pela ferramenta</td><td>Conduzida pelo consultor</td></tr>
-          <tr><td>Orçamento</td><td class="yes">Solicitado pela ferramenta, conduzido pela PSA</td><td>Conduzido pela PSA</td></tr>
-          <tr><td>Contratação, contrato e logística</td><td class="yes">PSA</td><td>PSA</td></tr>
-          <tr><td>Melhor para</td><td class="yes">Quem tem pressa e quer autonomia</td><td>Eventos complexos, multi-palestrante ou com curadoria de programação</td></tr>
-        </tbody>
-      </table>
+    <div class="ccards">
+      <article class="ccard ccard--auto">
+        <span class="ccard__badge">Mais rápido · autonomia</span>
+        <span class="ccard__k">Auto Curadoria</span>
+        <h3 class="ccard__title">Você conduz</h3>
+        <p class="ccard__tag">Pra quem tem pressa e quer resolver na hora, com autonomia.</p>
+        <ul class="rows">
+          <li class="row"><span class="row__ic"><svg class="chk" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="10" cy="10" r="8.5" stroke-opacity=".35"/><path d="M6 10.3l2.6 2.6L14 7.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="row__txt"><span class="row__lbl">Início do processo</span><span class="row__v">Você mesmo, na hora</span></span></li>
+          <li class="row"><span class="row__ic"><svg class="chk" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="10" cy="10" r="8.5" stroke-opacity=".35"/><path d="M6 10.3l2.6 2.6L14 7.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="row__txt"><span class="row__lbl">Briefing</span><span class="row__v">Formulário guiado</span></span></li>
+          <li class="row"><span class="row__ic"><svg class="chk" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="10" cy="10" r="8.5" stroke-opacity=".35"/><path d="M6 10.3l2.6 2.6L14 7.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="row__txt"><span class="row__lbl">Indicações</span><span class="row__v">5 nomes com justificativa escrita</span></span></li>
+          <li class="row"><span class="row__ic"><svg class="chk" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="10" cy="10" r="8.5" stroke-opacity=".35"/><path d="M6 10.3l2.6 2.6L14 7.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="row__txt"><span class="row__lbl">Viabilidade de data</span><span class="row__v">Solicitada pela ferramenta</span></span></li>
+          <li class="row"><span class="row__ic"><svg class="chk" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="10" cy="10" r="8.5" stroke-opacity=".35"/><path d="M6 10.3l2.6 2.6L14 7.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="row__txt"><span class="row__lbl">Orçamento</span><span class="row__v">Solicitado pela ferramenta, conduzido pela PSA</span></span></li>
+          <li class="row"><span class="row__ic"><svg class="chk" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="10" cy="10" r="8.5" stroke-opacity=".35"/><path d="M6 10.3l2.6 2.6L14 7.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="row__txt"><span class="row__lbl">Contratação, contrato e logística</span><span class="row__v">PSA</span></span></li>
+          <li class="row"><span class="row__ic"><svg class="chk" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="10" cy="10" r="8.5" stroke-opacity=".35"/><path d="M6 10.3l2.6 2.6L14 7.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="row__txt"><span class="row__lbl">Melhor para</span><span class="row__v">Quem tem pressa e quer autonomia</span></span></li>
+        </ul>
+        <a class="btn btn--primary" href="/ferramenta">Fazer agora →</a>
+      </article>
+
+      <article class="ccard">
+        <span class="ccard__k">Curadoria com o time</span>
+        <h3 class="ccard__title">A PSA conduz</h3>
+        <p class="ccard__tag">Pra eventos complexos, com vários palestrantes ou curadoria de programação.</p>
+        <ul class="rows">
+          <li class="row"><span class="row__ic"><svg class="dot" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="3"/></svg></span><span class="row__txt"><span class="row__lbl">Início do processo</span><span class="row__v">Após contato com nosso time</span></span></li>
+          <li class="row"><span class="row__ic"><svg class="dot" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="3"/></svg></span><span class="row__txt"><span class="row__lbl">Briefing</span><span class="row__v">Reunião com especialista</span></span></li>
+          <li class="row"><span class="row__ic"><svg class="dot" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="3"/></svg></span><span class="row__txt"><span class="row__lbl">Indicações</span><span class="row__v">Até 5 perfis apresentados pelo consultor</span></span></li>
+          <li class="row"><span class="row__ic"><svg class="dot" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="3"/></svg></span><span class="row__txt"><span class="row__lbl">Viabilidade de data</span><span class="row__v">Conduzida pelo consultor</span></span></li>
+          <li class="row"><span class="row__ic"><svg class="dot" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="3"/></svg></span><span class="row__txt"><span class="row__lbl">Orçamento</span><span class="row__v">Conduzido pela PSA</span></span></li>
+          <li class="row"><span class="row__ic"><svg class="dot" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="3"/></svg></span><span class="row__txt"><span class="row__lbl">Contratação, contrato e logística</span><span class="row__v">PSA</span></span></li>
+          <li class="row"><span class="row__ic"><svg class="dot" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="3"/></svg></span><span class="row__txt"><span class="row__lbl">Melhor para</span><span class="row__v">Eventos complexos, multi-palestrante ou com curadoria de programação</span></span></li>
+        </ul>
+        <a class="btn btn--ghost" href="https://psasite.vercel.app/contato">Falar com a equipe →</a>
+      </article>
     </div>
   </div>
 </section>
