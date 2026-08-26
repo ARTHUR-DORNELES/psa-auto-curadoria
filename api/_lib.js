@@ -371,7 +371,20 @@ export function escolherIndicacoes(lista, n = N_INDICACOES) {
  * da wiki do palestrante (a foto de perfil). Sem foto -> `foto` fica vazio (o front
  * mostra uma silhueta). Nunca lança: foto é enfeite, não pode derrubar o resultado.
  */
-const _ehImagem = u => /^https?:\/\//i.test(u) && !/favicons|google\.com\/s2|\.svg(\?|$)/i.test(u);
+// URL que serve imagem direta. Exclui favicons, SVG e os redirects do HubSpot
+// (signed-url-redirect/form-integrations devolvem HTML, não a imagem).
+const _ehImagem = u => /^https?:\/\//i.test(u)
+  && !/favicons|google\.com\/s2|\.svg(\?|$)|signed-url-redirect|form-integrations/i.test(u);
+
+// pega a 1ª imagem de verdade do HTML da wiki (a foto de perfil do verbete)
+async function _fotoDaWiki(url) {
+  if (!/^https?:\/\//i.test(url)) return '';
+  try {
+    const html = await fetch(url, { signal: AbortSignal.timeout(4500) }).then(r => (r.ok ? r.text() : ''));
+    return [...html.matchAll(/<img[^>]+src="([^"]+)"/gi)].map(m => m[1]).find(_ehImagem) || '';
+  } catch (e) { return ''; }
+}
+
 export async function anexarFotos(indicacoes) {
   const ids = [...new Set((indicacoes || []).map(i => String(i.id_contato || '').trim()).filter(x => /^\d+$/.test(x)))];
   if (!ids.length) return indicacoes;
@@ -387,15 +400,12 @@ export async function anexarFotos(indicacoes) {
 
   await Promise.all((indicacoes || []).map(async (ind) => {
     const p = byId[String(ind.id_contato || '')] || {};
+    // 1) foto da WIKI (é a que aparece no verbete, curada e confiável)
+    const daWiki = await _fotoDaWiki(String(p.palestrante_wiki_url || '').trim());
+    if (daWiki) { ind.foto = daWiki; return; }
+    // 2) fallback: foto do cadastro, só se for URL de imagem direta
     const direta = String(p.mande_uma_foto_bem_bonita_pra_gente_ || '').trim();
-    if (_ehImagem(direta)) { ind.foto = direta; return; }
-    const wiki = String(p.palestrante_wiki_url || '').trim();
-    if (!/^https?:\/\//i.test(wiki)) return;
-    try {
-      const html = await fetch(wiki, { signal: AbortSignal.timeout(4000) }).then(r => (r.ok ? r.text() : ''));
-      const img = [...html.matchAll(/<img[^>]+src="([^"]+)"/gi)].map(m => m[1]).find(_ehImagem);
-      if (img) ind.foto = img;
-    } catch (e) { /* sem foto: segue com a silhueta */ }
+    if (_ehImagem(direta)) ind.foto = direta;
   }));
   return indicacoes;
 }

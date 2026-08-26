@@ -66,6 +66,7 @@ export default async function handler(req, res) {
         // `categoria` (permuta!) é comercial interno: paraCliente() a remove
         indicacoes: escolhidos.map(n => ({ ...n, aderencia: n.aderencia || 'alta' })),
       };
+      reg.fotosBuscadas = true;   // já rodou o anexarFotos acima
       if (!CHECKOUT_URL) reg.pago = true;   // sem checkout, entrega direto
       // consome o crédito: move o negócio "Pago" -> "Utilizado" na PRIMEIRA geração.
       // Guardado em reg.creditoConsumido para não reconsumir numa refação (a mesma
@@ -73,6 +74,13 @@ export default async function handler(req, res) {
       if (reg.creditoDealId && !reg.creditoConsumido) {
         reg.creditoConsumido = await consumirCredito(reg.creditoDealId);
       }
+      await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
+    }
+
+    // enriquecimento tardio: resultado gerado antes das fotos existirem -> busca uma vez.
+    if (reg.resultado && !reg.fotosBuscadas) {
+      try { await anexarFotos(reg.resultado.indicacoes || []); } catch (e) { console.error('anexarFotos tardio falhou:', e.message); }
+      reg.fotosBuscadas = true;
       await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
     }
 
