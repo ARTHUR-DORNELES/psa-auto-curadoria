@@ -124,31 +124,32 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, refacoes: reg.refacoes, restantes: MAX_REFACOES - reg.refacoes });
     }
 
-    // Pedido em lote e único: o cliente marca quais dos 3 quer e confirma uma vez. Vale
-    // por disponibilidade E orçamento juntos — são a mesma decisão para quem está do
-    // outro lado, e separar em dois botões só fazia o cliente pedir metade.
-    // Cria um item de linha por selecionado no negócio, o que faz os nomes aparecerem na
-    // consulta de palestrantes para o time disparar a pesquisa.
+    // Disponibilidade + orçamento: um botão POR nome. Vale pelos dois juntos (é a mesma
+    // decisão pra quem está do outro lado). Cada envio cria um item de linha no negócio,
+    // o que faz o nome aparecer na consulta de palestrantes pro time disparar a pesquisa.
     //
-    // Uma vez só por curadoria, de propósito: um segundo envio duplicaria item de linha
-    // no negócio, e item de linha duplicado dobra o valor do negócio e faz o time
-    // pesquisar o mesmo palestrante duas vezes. Reenvio devolve o que já foi pedido.
+    // ACUMULATIVO e idempotente por nome: cada palestrante só é processado UMA vez (um
+    // segundo pedido do mesmo nome duplicaria item de linha e re-disparia o WhatsApp).
+    // Nomes já pedidos são ignorados; só os inéditos entram.
     if (acao === 'disponibilidade') {
       if (!reg.pago) return res.status(402).json({ erro: 'disponível após a liberação da curadoria' });
-      if (reg.disponibilidade) {
-        return res.status(200).json({ ok: true, jaEnviado: true, ...reg.disponibilidade });
-      }
 
-      const escolhidos = [...new Set((Array.isArray(palestrantes) ? palestrantes : [])
+      const pedidos = [...new Set((Array.isArray(palestrantes) ? palestrantes : [])
         .map(n => String(n || '').trim()).filter(Boolean))];
-      if (!escolhidos.length) return res.status(400).json({ erro: 'selecione ao menos um palestrante' });
+      if (!pedidos.length) return res.status(400).json({ erro: 'selecione ao menos um palestrante' });
+
+      const jaFeitos = new Set((reg.disponibilidade?.palestrantes) || []);
+      const novos = pedidos.filter(n => !jaFeitos.has(n));
 
       // só nomes que esta curadoria realmente indicou — a lista vem do cliente.
       // Usamos os OBJETOS das indicações (não só o nome) porque é neles que viaja o
       // id_contato que a IA Curadoria gravou (Caminho A) — é o que o disparo precisa.
-      const indicacoesEscolhidas = (reg.resultado?.indicacoes || []).filter(i => escolhidos.includes(i.nome));
+      const indicacoesEscolhidas = (reg.resultado?.indicacoes || []).filter(i => novos.includes(i.nome));
       const validos = indicacoesEscolhidas.map(i => i.nome);
-      if (!validos.length) return res.status(400).json({ erro: 'palestrante fora desta curadoria' });
+      if (!validos.length) {
+        // nada novo (nome já pedido, ou fora da curadoria): devolve o estado atual
+        return res.status(200).json({ ok: true, jaEnviado: true, palestrantes: [...jaFeitos] });
+      }
 
       let itens = { vinculados: [], semProduto: validos };
       let disparo = { disparados: [], semContato: [], semTelefone: [], jaDisparado: [], falhas: [] };
@@ -164,7 +165,12 @@ export default async function handler(req, res) {
         }
       }
 
-      reg.disponibilidade = { palestrantes: validos, datas: datas || null, em: new Date().toISOString(), ...itens, disparo };
+      reg.disponibilidade = {
+        palestrantes: [...jaFeitos, ...validos],   // acumula todos os já pedidos
+        datas: datas || reg.disponibilidade?.datas || null,
+        em: new Date().toISOString(),
+        ...itens, disparo,
+      };
       reg.acoes.push({ acao, palestrantes: validos, datas, em: reg.disponibilidade.em });
       await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
 

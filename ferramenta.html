@@ -1091,9 +1091,6 @@ function renderCompleto(d) {
         <span class="eyebrow">Curadoria liberada</span>
         <h1>Seu${r.indicacoes.length > 1 ? 's' : ''}<br>${r.indicacoes.length} nome${r.indicacoes.length > 1 ? 's' : ''}.</h1>
       </div>
-      ${d.disponibilidade
-        ? `<p class="res__enviado">✓ Disponibilidade e orçamento solicitados<br><span>${esc(d.disponibilidade.palestrantes.join(', '))} — resposta em até 24h</span></p>`
-        : `<button class="btn btn--primary" id="enviar-disp" disabled>Solicitar disponibilidade e orçamento</button>`}
     </div>
     <p class="leitura">${esc(r.leitura)}</p>
     ${r.incompleto ? `<p class="aviso">Adiantamos ${r.indicacoes.length} nome${r.indicacoes.length > 1 ? 's' : ''} de alta aderência. Um curador vai completar sua indicação e te avisar — sem custo extra.</p>` : ''}
@@ -1110,10 +1107,9 @@ function renderCompleto(d) {
         </div>
         <ul>${ind.porque.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
         <div class="acoes-pos">
-          ${d.disponibilidade
-            ? (d.disponibilidade.palestrantes.includes(ind.nome)
-                ? `<span class="chip chip--feito">✓ Disponibilidade e orçamento solicitados</span>` : '')
-            : `<label class="escolha"><input type="checkbox" class="chk-disp" value="${esc(ind.nome)}"> Quero disponibilidade e orçamento deste nome</label>`}
+          ${(d.disponibilidade?.palestrantes || []).includes(ind.nome)
+            ? `<span class="chip chip--feito">✓ Disponibilidade e orçamento solicitados</span>`
+            : `<button class="btn btn--primary btn-disp" data-nome="${esc(ind.nome)}">Solicitar disponibilidade e orçamento</button>`}
         </div>
       </article>`).join('')}
     <p class="ou">Nenhum dos três serviu?</p>
@@ -1141,46 +1137,34 @@ function renderCompleto(d) {
     b.textContent = b.dataset.acao === 'viabilidade' ? '✓ Solicitado · até 24h' : '✓ Solicitado';
   }));
 
-  // Disponibilidade é pedido em lote: o cliente marca quais dos 3 quer checar e confirma
-  // uma vez, no botão do topo. Envio único porque cada envio cria item de linha no
-  // negócio — repetir dobraria o valor do negócio e a pesquisa do mesmo palestrante.
-  const caixas = () => [...$('#resultado').querySelectorAll('.chk-disp')];
-  const botaoDisp = $('#enviar-disp');
-  if (botaoDisp) {
-    const atualiza = () => {
-      const n = caixas().filter(c => c.checked).length;
-      botaoDisp.disabled = !n;
-      botaoDisp.textContent = n ? `Solicitar disponibilidade e orçamento (${n})` : 'Solicitar disponibilidade e orçamento';
-    };
-    caixas().forEach(c => c.addEventListener('change', atualiza));
-    atualiza();
-
-    botaoDisp.addEventListener('click', async () => {
-      const nomes = caixas().filter(c => c.checked).map(c => c.value);
-      if (!nomes.length) return;
+  // Disponibilidade + orçamento: um botão POR nome. Cada clique pede só aquele
+  // palestrante (o servidor acumula — não repete quem já foi pedido).
+  $('#resultado').querySelectorAll('.btn-disp').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const nome = btn.dataset.nome;
       const datas = prompt(
-        `Quais datas checar com ${nomes.length > 1 ? 'os nomes escolhidos' : nomes[0]}?\n\nA resposta depende da agenda do palestrante e pode levar até 24h.`,
+        `Quais datas checar com ${nome}?\n\nA resposta depende da agenda do palestrante e pode levar até 24h.`,
         d.briefing?.data || '');
       if (!datas) return;
-      botaoDisp.disabled = true;
-      botaoDisp.textContent = 'Enviando…';
+      btn.disabled = true;
+      const antes = btn.textContent;
+      btn.textContent = 'Enviando…';
       try {
         const r = await fetch(`/api/resultado?id=${d.id}`, {
           method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ acao: 'disponibilidade', palestrantes: nomes, datas }),
+          body: JSON.stringify({ acao: 'disponibilidade', palestrantes: [nome], datas }),
         });
         if (!r.ok) throw new Error(await r.text());
-        const j = await r.json();
-        // redesenha no estado travado; o servidor é quem decide, então reenvio de quem
-        // recarregou a página volta o que já foi pedido em vez de pedir de novo
-        renderCompleto({ ...d, disponibilidade: { palestrantes: j.palestrantes || nomes } });
+        await r.json();
+        // troca só este botão pelo ✓; os demais seguem disponíveis
+        btn.outerHTML = `<span class="chip chip--feito">✓ Disponibilidade e orçamento solicitados</span>`;
       } catch (e) {
-        botaoDisp.disabled = false;
-        atualiza();
+        btn.disabled = false;
+        btn.textContent = antes;
         alert('Não conseguimos registrar o pedido agora. Tente de novo em instantes.');
       }
     });
-  }
+  });
 
   $('#quero-curador').addEventListener('click', async e => {
     e.target.disabled = true;
