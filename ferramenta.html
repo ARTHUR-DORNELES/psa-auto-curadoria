@@ -1066,13 +1066,7 @@ function resumoDoBriefing(d) {
 
   return `
     <section class="resumo">
-      <div class="resumo__topo">
-        <div>
-          <span class="eyebrow">Ponto de partida</span>
-          <h2 class="resumo__titulo">O briefing que gerou esta curadoria</h2>
-        </div>
-        ${criada ? `<span class="resumo__data">gerada em ${criada}</span>` : ''}
-      </div>
+      ${criada ? `<div class="resumo__topo"><span class="resumo__data">gerada em ${criada}</span></div>` : ''}
       <dl class="resumo__lista">
         ${linhas.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}
       </dl>
@@ -1085,6 +1079,8 @@ function resumoDoBriefing(d) {
 function renderCompleto(d) {
   const r = d.resultado;
   $('#resultado').innerHTML = `
+    <span class="eyebrow">Ponto de partida</span>
+    <h1>Seu<br>briefing.</h1>
     ${resumoDoBriefing(d)}
     <div class="res__topo">
       <div>
