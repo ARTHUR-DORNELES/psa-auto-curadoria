@@ -42,12 +42,16 @@ const semTravessao = s => String(s || '')
   .replace(/\s{2,}/g, ' ')
   .trim();
 
+// data do evento não pode ser retroativa (o evento é sempre no futuro)
+const hojeISO = () => new Date().toISOString().slice(0, 10);   // YYYY-MM-DD (UTC, perto o bastante)
+const dataNoPassado = iso => /^\d{4}-\d{2}-\d{2}$/.test(iso) && iso < hojeISO();
+
 // widget que o front renderiza para captar o próximo campo
 function widgetPara(campo, slots) {
   if (ENUM[campo]) return { campo, tipo: 'chips', opcoes: ENUM[campo] };
   if (campo === 'cidade') return { campo, tipo: 'busca', opcoes: CIDADES[slots.estado] || [] };   // autocomplete (lista grande)
   if (campo === 'microTema') return { campo, tipo: 'chips', opcoes: subtemasDe(slots.macroTema) };
-  if (campo === 'data') return { campo, tipo: 'data' };
+  if (campo === 'data') return { campo, tipo: 'data', min: hojeISO() };   // trava datas passadas no seletor
   if (campo === 'horario') return { campo, tipo: 'hora' };
   return { campo, tipo: 'texto' };
 }
@@ -57,7 +61,7 @@ function aceitaBackstop(campo, val, slots) {
   if (ENUM[campo]) return ENUM[campo].includes(val);
   if (campo === 'cidade') return (CIDADES[slots.estado] || []).includes(val);
   if (campo === 'microTema') return subtemasDe(slots.macroTema).includes(val);
-  if (campo === 'data') return /^\d{4}-\d{2}-\d{2}$/.test(val);
+  if (campo === 'data') return /^\d{4}-\d{2}-\d{2}$/.test(val) && !dataNoPassado(val);
   if (campo === 'horario') return /^\d{1,2}:\d{2}$/.test(val);
   if (campo === 'email') return /\S+@\S+\.\S+/.test(val);
   if (campo === 'telefone') return val.replace(/\D/g, '').length >= 10;
@@ -182,6 +186,7 @@ export default async function handler(req, res) {
       if (k === 'cidade' && !(CIDADES[est] || []).includes(val)) continue;
       if (k === 'microTema' && !subtemasDe(out.campos?.macroTema || slots.macroTema).includes(val)) continue;
       if (k === 'data' && !/^\d{4}-\d{2}-\d{2}$/.test(val)) continue;
+      if (k === 'data' && dataNoPassado(val)) continue;   // não captura data retroativa
       novos[k] = val;
     }
     const slots2 = { ...slots, ...novos };
@@ -201,6 +206,21 @@ export default async function handler(req, res) {
       const v = ultUser();
       if (v && aceitaBackstop(campoRespondido, v, slots2)) slots2[campoRespondido] = v;
     }
+
+    // data retroativa: o evento é sempre no futuro. Se o cliente ofereceu uma data que já
+    // passou (pelo seletor ou no texto), NÃO captura, sinaliza e pede uma data futura.
+    const dataOferecida = dataNoPassado(String(out.campos?.data || '').trim())
+      ? String(out.campos.data).trim()
+      : (campoRespondido === 'data' && dataNoPassado(ultUser()) ? ultUser() : '');
+    if (dataOferecida && !slots2.data) {
+      return res.status(200).json({
+        mensagem: `Opa, essa data (${dataOferecida.split('-').reverse().join('/')}) já passou. O evento é pra frente, então me confirma uma data futura, por favor.`,
+        slots: slots2,
+        widget: widgetPara('data', slots2),
+        completo: false,
+      });
+    }
+
     const faltando2 = OBRIGATORIOS.filter(c => !slots2[c]);
     const completo = faltando2.length === 0;
 

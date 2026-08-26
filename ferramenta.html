@@ -625,6 +625,7 @@ function chatWidget(widget) {
     const inp = document.createElement(widget.multilinha ? 'textarea' : 'input');
     if (widget.multilinha) inp.rows = 4;
     else inp.type = widget.tipo === 'data' ? 'date' : widget.tipo === 'hora' ? 'time' : 'text';
+    if (widget.tipo === 'data' && widget.min) inp.min = widget.min;   // não deixa escolher data passada
     if (widget.tipo === 'texto') inp.placeholder = widget.placeholder || 'Digite sua resposta…';
     const enviar = () => {
       const v = inp.value.trim();
