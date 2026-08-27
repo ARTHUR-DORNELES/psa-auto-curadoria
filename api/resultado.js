@@ -1,4 +1,4 @@
-import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, consumirCredito, chaveDeNome } from './_lib.js';
+import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, consumirCredito, chaveDeNome } from './_lib.js';
 
 const ACOES = {
   curador: 'CLIENTE PEDIU ATENDIMENTO DE CURADOR — assumir o processo pelo caminho tradicional.',
@@ -143,14 +143,18 @@ export default async function handler(req, res) {
 
       if (reg.hubspot?.negocioId) {
         try {
+          // A automação da IA Curadoria enrola o negócio ao ver uma observação NOVA e lê
+          // o briefing dela. Por isso a refação re-emite a MESMA nota de briefing da geração
+          // inicial (o gatilho que funciona) e acrescenta os nomes que ela NÃO pode repetir —
+          // assim a automação regenera o mesmo briefing com indicações diferentes.
           await nota(reg.hubspot.negocioId, [
-            `CLIENTE PEDIU NOVA CURADORIA (refação ${reg.refacoes} de ${MAX_REFACOES}).`,
+            notaDoBriefing(reg.briefing || {}, null, id),
             '',
-            'Nomes já apresentados e recusados — NÃO repetir:',
+            `— REFAÇÃO ${reg.refacoes} de ${MAX_REFACOES} —`,
+            'Gere nomes DIFERENTES para o mesmo briefing. NÃO repita os palestrantes já apresentados:',
             ...reg.descartados.map(n => `- ${n}`),
             '',
-            `Gerar novas indicações para o mesmo briefing e regravar a propriedade ${PROP_NOMES}.`,
-            `Curadoria: ${id}`,
+            `Regravar a propriedade ${PROP_NOMES} com as novas indicações. Curadoria: ${id}`,
           ].join('\n'));
         } catch (e) {
           console.error('nota de refação falhou:', e.message);
