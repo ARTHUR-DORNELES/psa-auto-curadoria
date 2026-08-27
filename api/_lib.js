@@ -835,7 +835,21 @@ export async function dispararDisponibilidade(negocioId, indicacoes, briefing, d
       if (phone) props.phone = phone;
       if (dealOwner) props.pesq_deal_owner = dealOwner;
 
-      await hs(`/crm/v3/objects/contacts/${contatoId}`, 'PATCH', { properties: props });
+      // PATCH tolerante: se o HubSpot recusar alguma propriedade (ex.: pesq_deal_owner é
+      // um select SEM opções e rejeita qualquer valor -> 400 derrubava o disparo inteiro
+      // em negócios com dono), descarta a recusada e reenvia. NUNCA dropa o gatilho.
+      for (let tentativa = 0; tentativa < 6; tentativa++) {
+        try {
+          await hs(`/crm/v3/objects/contacts/${contatoId}`, 'PATCH', { properties: props });
+          break;
+        } catch (err) {
+          const recusadas = [...err.message.matchAll(/"name\\?":\\?"([a-z0-9_]+)\\?"/g)].map(m => m[1])
+            .filter(p => p in props && p !== CONTACT_TRIGGER);
+          if (!recusadas.length) throw err;
+          for (const p of recusadas) delete props[p];
+          console.error('PESQ_PROP_RECUSADA', recusadas.join(','), '— disparo segue sem ela');
+        }
+      }
       disparados.push(ind.nome);
     } catch (e) {
       console.error(`disparo de disponibilidade de ${ind.nome} (${contatoId}) falhou:`, e.message);
