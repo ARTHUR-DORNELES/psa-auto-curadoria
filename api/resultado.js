@@ -118,8 +118,11 @@ export default async function handler(req, res) {
     if (reg.disponibilidade?.palestrantes?.length && reg.hubspot?.negocioId) {
       try {
         const respostas = await respostasDisponibilidade(reg.hubspot.negocioId);
+        // casa por id_contato (o mesmo que a IA Curadoria gravou em cada indicação)
+        const idPorNome = {};
+        for (const i of reg.resultado.indicacoes) idPorNome[i.nome] = String(i.id_contato || '');
         for (const ind of cliente.indicacoes) {
-          const r = respostas[chaveDeNome(ind.nome)];
+          const r = respostas[idPorNome[ind.nome]];
           if (r) ind.resposta = r;
         }
       } catch (e) { console.error('merge respostas disponibilidade:', e.message); }

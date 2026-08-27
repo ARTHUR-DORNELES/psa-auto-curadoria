@@ -856,32 +856,35 @@ const _valorBRL = v => { const n = Math.round(Number(v)); return (!n || isNaN(n)
  * a resposta é enfeite do card, não pode derrubar o resultado. Precisa de escopo
  * de leitura de tickets no app privado (HUBSPOT_TOKEN). */
 export async function respostasDisponibilidade(negocioId) {
-  const out = {};
+  const out = {};   // { <id_contato>: { disponivel, valor, obs } }
   if (!negocioId) return out;
   try {
     const as = await hs(`/crm/v4/objects/deals/${negocioId}/associations/tickets?limit=100`, 'GET');
     const ids = (as.results || []).map(r => String(r.toObjectId)).filter(Boolean);
     if (!ids.length) return out;
     const rd = await hs('/crm/v3/objects/tickets/batch/read', 'POST', {
-      properties: ['subject', 'disponibilidade', 'valor_total', 'observacao_da_resposta'],
+      properties: ['disponibilidade', 'valor_total', 'observacao_da_resposta'],
       inputs: ids.map(id => ({ id })),
     });
-    for (const t of (rd.results || [])) {
+    await Promise.all((rd.results || []).map(async (t) => {
       const p = t.properties || {};
-      // "Disponibilidade - <Nome do palestrante> - <Cliente>"
-      const m = String(p.subject || '').match(/^\s*disponibilidade\s*-\s*(.+?)\s*-\s*/i);
-      if (!m) continue;
-      const chave = chaveDeNome(m[1]);
-      if (!chave) continue;
       const disp = String(p.disponibilidade || '').trim().toLowerCase();
       const obs = String(p.observacao_da_resposta || '').trim();
-      if (!disp && !obs) continue;   // ainda sem resposta do palestrante
-      out[chave] = {
+      if (!disp && !obs) return;   // ainda sem resposta do palestrante
+      // casa pelo CONTATO do palestrante associado ao tíquete (id_contato) — robusto,
+      // não depende do nome do assunto (contato pode ter nome diferente da curadoria)
+      let cid = '';
+      try {
+        const ca = await hs(`/crm/v4/objects/tickets/${t.id}/associations/contacts?limit=1`, 'GET');
+        cid = String(((ca.results || [])[0] || {}).toObjectId || '');
+      } catch (e) { console.error(`contato do tíquete ${t.id} falhou:`, e.message); }
+      if (!cid) return;
+      out[cid] = {
         disponivel: disp === 'disponivel' ? true : (disp === 'indisponivel' ? false : null),
         valor: _valorBRL(p.valor_total),
         obs,
       };
-    }
+    }));
   } catch (e) { console.error('respostasDisponibilidade falhou:', e.message); }
   return out;
 }
