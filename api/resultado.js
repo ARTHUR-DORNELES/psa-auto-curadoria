@@ -151,6 +151,9 @@ export default async function handler(req, res) {
             `— REFAÇÃO ${reg.refacoes} de ${MAX_REFACOES} —`,
             'Gere nomes DIFERENTES para o mesmo briefing. NÃO repita os palestrantes já apresentados:',
             ...reg.descartados.map(n => `- ${n}`),
+            // marcador legível por máquina: a automação (node "Unifica 6") lê os nomes
+            // entre colchetes p/ excluir os já apresentados. Sobrevive ao strip de HTML/espaços.
+            `NAO_REPETIR: [${reg.descartados.join(' | ')}]`,
             '',
             `Regravar a propriedade ${PROP_NOMES} com as novas indicações. Curadoria: ${id}`,
           ].join('\n'));
