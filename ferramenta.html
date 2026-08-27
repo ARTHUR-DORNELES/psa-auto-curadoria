@@ -1042,7 +1042,8 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt
 
 // silhueta (quando o palestrante não tem foto acessível) + card da foto
 const SILHUETA = '<svg viewBox="0 0 64 74" fill="currentColor" aria-hidden="true"><circle cx="32" cy="22" r="15"/><path d="M32 41C17.6 41 6 51.4 6 64.3V74h52v-9.7C58 51.4 46.4 41 32 41z"/></svg>';
-const fotoCard = ind => `<div class="ind__foto"><div class="ind__silhueta">${SILHUETA}</div>${ind.foto ? `<img class="ind__img" src="${esc(ind.foto)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</div>`;
+// onload: descarta imagem larga demais (banner/screenshot, não retrato) -> mostra silhueta
+const fotoCard = ind => `<div class="ind__foto"><div class="ind__silhueta">${SILHUETA}</div>${ind.foto ? `<img class="ind__img" src="${esc(ind.foto)}" alt="" loading="lazy" onerror="this.remove()" onload="if(this.naturalWidth/this.naturalHeight>1.7)this.remove()">` : ''}</div>`;
 
 function renderTeaser(j) {
   const t = j.teaser;
