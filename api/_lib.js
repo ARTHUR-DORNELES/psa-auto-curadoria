@@ -448,6 +448,10 @@ export function lerNomes(bruto) {
       categoria: categoriaCanonica(n.categoria || n.tipo || n.origem || ''),
       // extraído ANTES de limpar: o filtro de cifras apagaria o número
       faixa: faixaDeValor(valorEmReais(cru)),
+      // valor de venda EXATO da automação (mostrado ao cliente por decisão do time).
+      // Não passa pelo semNumerosInternos; troca o traço do intervalo por "a".
+      valorVenda: String(n.valor_venda ?? n.valorVenda ?? n.valor_de_venda ?? '')
+        .replace(/\s*[–—-]\s*/, ' a ').replace(/\s{2,}/g, ' ').trim(),
       perfil: limpar(n.perfil),
       porque: comFaixa(
         (Array.isArray(n.porque) ? n.porque.filter(Boolean).map(String)
@@ -501,6 +505,9 @@ function lerTextoDaAutomacao(texto, normalizar) {
       atual = { categoria: cab[1], nome: cab[2], id_contato: idContato, porque: [] };
       continue;
     }
+    // linha "Valor de venda: R$ X – R$ Y" (vem logo abaixo do cabeçalho)
+    const vv = linha.match(/^\s*valor\s+de\s+venda\s*[:\-]\s*(.+?)\s*$/i);
+    if (vv && atual) { atual.valor_venda = vv[1]; continue; }
     const motivo = linha.match(RE_MOTIVO);
     if (motivo && atual) atual.porque.push(motivo[1]);
   }
