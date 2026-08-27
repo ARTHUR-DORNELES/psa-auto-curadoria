@@ -140,7 +140,8 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .resp__campo--sim .resp__val{color:#37c07a}
 .resp__campo--nao{border-color:#f8500055;background:#f8500012}
 .resp__campo--nao .resp__val{color:var(--psa-orange)}
-.resp__obs{flex:1 1 100%;color:var(--fg-2);font-size:14px;line-height:1.5}
+.resp__campo--full{flex:1 1 100%}
+.resp__val--txt{font-weight:400;font-size:14px;line-height:1.5;color:var(--fg-1)}
 /* topo do resultado: título à esquerda, pedido de disponibilidade à direita */
 .res__topo{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s-5);flex-wrap:wrap}
 .res__enviado{font-size:var(--t-body-sm);font-weight:700;color:var(--psa-orange);text-align:right;line-height:1.4}
@@ -1184,7 +1185,10 @@ function renderCompleto(d) {
                      <span class="resp__rot">Valor solicitado pelo palestrante</span>
                      <span class="resp__val">${esc(ind.resposta.valor)}</span>
                    </div>` : ''}
-                   ${ind.resposta.obs ? `<div class="resp__obs">📝 ${esc(ind.resposta.obs)}</div>` : ''}
+                   ${ind.resposta.obs ? `<div class="resp__campo resp__campo--full">
+                     <span class="resp__rot">Observação da resposta</span>
+                     <span class="resp__val resp__val--txt">${esc(ind.resposta.obs)}</span>
+                   </div>` : ''}
                  </div>`
               : ((d.disponibilidade?.palestrantes || []).includes(ind.nome)
                 ? `<span class="chip chip--feito">✓ Disponibilidade e orçamento solicitados</span>`
