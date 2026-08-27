@@ -933,16 +933,14 @@ export async function decidirAcesso(bruto) {
   const util = await _negocioAutoCuradoriaPorDoc(bruto, STAGE_UTILIZADO, 'DESCENDING');
   if (!util) return { modo: 'nenhum' };
 
-  // tem negócio "Utilizado": a curadoria ainda pode ter refação sobrando -> retomar
+  // tem negócio "Utilizado": se ainda existe a sessão daquela compra, sempre deixa
+  // RETOMAR — ver a curadoria não pode depender de poder refazê-la. Antes exigíamos
+  // reg.resultado presente E refação sobrando; isso trancava o cliente pra fora logo
+  // depois de pedir refação (o resultado é apagado até a automação republicar) e também
+  // quando a última refação já tinha sido usada. O limite de refação é aplicado à parte,
+  // no POST de resultado. Só cai em 'esgotado' se a sessão sumiu de vez (Redis expirou).
   const uuid = await redis().get(chaveDeal(util.dealId));
-  if (uuid) {
-    const bruto2 = await redis().get(chave(uuid));
-    if (bruto2) {
-      const reg = JSON.parse(bruto2);
-      const max = Number(process.env.MAX_REFACOES || 1);
-      if (reg.resultado && (reg.refacoes || 0) < max) return { modo: 'retomar', id: uuid };
-    }
-  }
+  if (uuid && (await redis().get(chave(uuid)))) return { modo: 'retomar', id: uuid };
   return { modo: 'esgotado' };
 }
 
