@@ -1,4 +1,4 @@
-import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, consumirCredito } from './_lib.js';
+import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, consumirCredito, chaveDeNome } from './_lib.js';
 
 const ACOES = {
   curador: 'CLIENTE PEDIU ATENDIMENTO DE CURADOR — assumir o processo pelo caminho tradicional.',
@@ -82,6 +82,32 @@ export default async function handler(req, res) {
       try { await anexarFotos(reg.resultado.indicacoes || []); } catch (e) { console.error('anexarFotos tardio falhou:', e.message); }
       reg.fotosBuscadas = true;
       await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
+    }
+
+    // enriquecimento tardio do valor de venda: resultados gerados antes de o parser
+    // capturar a linha "Valor de venda:" ficaram sem o campo. Relê o texto do negócio
+    // e preenche por nome — sem refazer a curadoria (mantém os mesmos nomes).
+    if (reg.resultado && !reg.valorVendaBackfill) {
+      const faltando = (reg.resultado.indicacoes || []).some(i => !i.valorVenda);
+      if (!faltando) {
+        reg.valorVendaBackfill = true;
+        await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
+      } else if (reg.hubspot?.negocioId) {
+        try {
+          const { nomesBruto } = await curadoriaDoNegocio(reg.hubspot.negocioId);
+          const porNome = new Map(
+            lerNomes(nomesBruto).map(n => [chaveDeNome(n.nome), n.valorVenda]).filter(([, v]) => v)
+          );
+          for (const ind of reg.resultado.indicacoes) {
+            if (!ind.valorVenda) {
+              const vv = porNome.get(chaveDeNome(ind.nome));
+              if (vv) ind.valorVenda = vv;
+            }
+          }
+          reg.valorVendaBackfill = true;   // leitura ok: não repete (só resta o que a automação não gravou)
+          await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
+        } catch (e) { console.error('backfill valorVenda falhou:', e.message); }  // sem flag -> tenta de novo
+      }
     }
 
     return res.status(200).json(
