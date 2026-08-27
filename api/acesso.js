@@ -2,7 +2,8 @@ import { decidirAcesso, dadosContato, normalizaDocumento, lerCorpo, cors } from 
 
 // Gate de acesso: o CPF/CNPJ é a chave da curadoria. Decide o que a ferramenta faz:
 //  - modo 'novo'    (ok)  : tem compra "Pago" -> briefing novo
-//  - modo 'retomar' (ok)  : só "Utilizado" com refação sobrando -> retomar (devolve id)
+//  - modo 'retomar' (ok)  : só "Utilizado" com sessão viva -> retomar (devolve id)
+//  - modo 'escolher'(ok)  : tem "Pago" E "Utilizado" visível -> cliente escolhe (id + contato)
 //  - motivo 'nao_encontrado' (!ok): sem compra usável (nada, ou já utilizada) -> checkout
 //  - motivo 'invalido'/'erro' (!ok): documento inválido / falha transitória -> tenta de novo
 export default async function handler(req, res) {
@@ -23,6 +24,10 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, modo: 'novo', contato: await dadosContato(dec.contatoId) });
       case 'retomar':
         return res.status(200).json({ ok: true, modo: 'retomar', id: dec.id });
+      case 'escolher':
+        // tem curadoria anterior (id) E uma compra nova: manda os dois, o front deixa
+        // escolher entre retomar a antiga ou começar um briefing novo (com o contato)
+        return res.status(200).json({ ok: true, modo: 'escolher', id: dec.id, contato: await dadosContato(dec.contatoId) });
       case 'esgotado':
         return res.status(200).json({ ok: false, motivo: 'nao_encontrado', erro: 'Sua curadoria já foi utilizada. Adquira uma nova para começar de novo.' });
       case 'nenhum':

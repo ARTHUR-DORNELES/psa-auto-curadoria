@@ -928,20 +928,27 @@ export async function dadosContato(contatoId) {
 export async function decidirAcesso(bruto) {
   if (!normalizaDocumento(bruto)) return { modo: 'invalido' };
   const pago = await creditoPagoPorDocumento(bruto);
-  if (pago) return { modo: 'novo', contatoId: pago.contatoId };
 
+  // Curadoria anterior ainda visível? (negócio "Utilizado" com a sessão viva no Redis.)
+  // Ver a curadoria não pode depender de poder refazê-la: antes exigíamos reg.resultado
+  // presente E refação sobrando, o que trancava o cliente pra fora logo depois de pedir
+  // refação (o resultado é apagado até a automação republicar) e também quando a última
+  // refação já tinha sido usada. O limite de refação é aplicado à parte, no POST de resultado.
+  let retomarId = null;
   const util = await _negocioAutoCuradoriaPorDoc(bruto, STAGE_UTILIZADO, 'DESCENDING');
-  if (!util) return { modo: 'nenhum' };
+  if (util) {
+    const uuid = await redis().get(chaveDeal(util.dealId));
+    if (uuid && (await redis().get(chave(uuid)))) retomarId = uuid;
+  }
 
-  // tem negócio "Utilizado": se ainda existe a sessão daquela compra, sempre deixa
-  // RETOMAR — ver a curadoria não pode depender de poder refazê-la. Antes exigíamos
-  // reg.resultado presente E refação sobrando; isso trancava o cliente pra fora logo
-  // depois de pedir refação (o resultado é apagado até a automação republicar) e também
-  // quando a última refação já tinha sido usada. O limite de refação é aplicado à parte,
-  // no POST de resultado. Só cai em 'esgotado' se a sessão sumiu de vez (Redis expirou).
-  const uuid = await redis().get(chaveDeal(util.dealId));
-  if (uuid && (await redis().get(chave(uuid)))) return { modo: 'retomar', id: uuid };
-  return { modo: 'esgotado' };
+  // Tem os dois — uma compra nova "Pago" E uma curadoria anterior visível: deixa o
+  // cliente ESCOLHER (ver a antiga ou começar uma nova). Sem isso, a compra nova
+  // curto-circuitava direto pro briefing e a antiga ficava inacessível pelo CPF.
+  if (pago && retomarId) return { modo: 'escolher', contatoId: pago.contatoId, id: retomarId };
+  if (pago) return { modo: 'novo', contatoId: pago.contatoId };
+  if (retomarId) return { modo: 'retomar', id: retomarId };
+  if (util) return { modo: 'esgotado' };   // Utilizado mas sem sessão viva (Redis expirou)
+  return { modo: 'nenhum' };
 }
 
 /**

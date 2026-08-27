@@ -234,11 +234,14 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
       <!-- aparece só quando NÃO há compra liberada: leva ao checkout -->
       <a class="btn" id="btnComprar" href="https://checkout.profissionaissa.com.br/curadoria/checkout/4fbc7e0d-c39c-4241-9334-ef62c2326b55" style="display:none;background:#16a34a;color:#fff;box-shadow:0 0 40px #16a34a55">Adquirir Curadoria →</a>
     </div>
-    <!-- aparece quando já existe curadoria com este CPF e ainda há refação: escolher -->
+    <!-- aparece quando já existe curadoria com este CPF: escolher entre ver a anterior
+         ou começar outra. "Começar uma nova" só aparece quando há uma compra nova sem
+         uso (modo 'escolher'); senão fica só o caminho de comprar outra ('retomar'). -->
     <div id="escolha" style="display:none">
-      <p class="sub" style="margin-top:var(--s-6)">Você já tem uma curadoria com este CPF/CNPJ. O que você prefere?</p>
+      <p class="sub" id="escolhaSub" style="margin-top:var(--s-6)">Você já tem uma curadoria com este CPF/CNPJ. O que você prefere?</p>
       <div class="acoes">
-        <button class="btn btn--primary" id="btnRetomar">Retomar minha curadoria →</button>
+        <button class="btn btn--primary" id="btnRetomar">Ver minha curadoria anterior →</button>
+        <button class="btn btn--primary" id="btnNovaBriefing" style="display:none">Começar uma nova →</button>
         <a class="btn" id="btnCriarNova" href="https://checkout.profissionaissa.com.br/curadoria/checkout/4fbc7e0d-c39c-4241-9334-ef62c2326b55" style="background:#16a34a;color:#fff;box-shadow:0 0 40px #16a34a55">Criar nova curadoria →</a>
       </div>
     </div>
@@ -489,7 +492,7 @@ document.querySelectorAll('[data-vai]').forEach(b => b.addEventListener('click',
 // ── gate de acesso (paywall por CPF/CNPJ) ──────────────────
 // Só entra quem tem uma compra "Pago" na pipeline Auto Curadoria, casada pelo documento.
 // O servidor revalida em /api/curar — este gate é a porta, não a fechadura.
-let documentoValidado = '', retomarId = '';
+let documentoValidado = '', retomarId = '', contatoNovo = {};
 $('#btnAcesso').addEventListener('click', async () => {
   const doc = $('#documento').value.replace(/\D/g, '');
   $('#eGate').textContent = '';
@@ -517,9 +520,17 @@ $('#btnAcesso').addEventListener('click', async () => {
       }
       return;
     }
-    if (j.modo === 'retomar') {
-      // já existe curadoria com este CPF e ainda há refação: mostra a escolha
+    if (j.modo === 'retomar' || j.modo === 'escolher') {
+      // já existe curadoria com este CPF: mostra a escolha
       retomarId = j.id;
+      const temNova = j.modo === 'escolher';   // há também uma compra nova, ainda sem uso
+      $('#btnNovaBriefing').style.display = temNova ? '' : 'none';
+      $('#btnCriarNova').style.display = temNova ? 'none' : '';   // já tem uma nova: não precisa comprar
+      if (temNova) {
+        documentoValidado = doc;               // "Começar uma nova" usa o Pago existente (fluxo novo)
+        contatoNovo = j.contato || {};
+        $('#escolhaSub').textContent = 'Você tem uma curadoria anterior e uma compra nova neste CPF/CNPJ. O que você prefere?';
+      }
       $('#btnAcesso').style.display = 'none';
       $('#escolha').style.display = '';
       return;
@@ -552,6 +563,10 @@ $('#documento').addEventListener('keydown', (e) => {
 // Retomar: recarrega a ferramenta com ?id=<curadoria>, que a IIFE do fim carrega sozinha.
 $('#btnRetomar').addEventListener('click', () => {
   if (retomarId) location.search = 'id=' + retomarId;
+});
+// Começar uma nova: usa a compra "Pago" que ainda não foi usada -> abre o briefing.
+$('#btnNovaBriefing').addEventListener('click', () => {
+  iniciarChat(contatoNovo);
 });
 
 // ── conversa com o Santiago (curador) ──────────────────────
