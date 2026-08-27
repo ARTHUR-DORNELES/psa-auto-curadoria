@@ -1270,7 +1270,7 @@ function renderCompleto(d) {
         motivacao: b.motivacao, sentimento: b.sentimento, contexto: b.briefing,
       },
       indicacoes: (d.resultado?.indicacoes || []).map(i => ({
-        nome: i.nome, perfil: i.perfil, aderencia: i.aderencia, porque: i.porque, faixa: i.faixa, valorVenda: i.valorVenda, foto: i.foto,
+        nome: i.nome, perfil: i.perfil, aderencia: i.aderencia, porque: i.porque, faixa: i.faixa, valorVenda: i.valorVenda, resposta: i.resposta, foto: i.foto,
       })),
     };
     const antes = btnPdf.textContent;
