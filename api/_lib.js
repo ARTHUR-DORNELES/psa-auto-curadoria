@@ -864,41 +864,30 @@ export async function dispararDisponibilidade(negocioId, indicacoes, briefing, d
 const _valorBRL = v => { const n = Math.round(Number(v)); return (!n || isNaN(n)) ? '' : 'R$ ' + n.toLocaleString('pt-BR'); };
 
 /* Respostas de disponibilidade dos palestrantes, para mostrar no card do cliente.
- * Lê os tíquetes associados ao negócio (o custom code do workflow "disparo whats
- * palestrante" associa cada tíquete ao negócio) e devolve, por nome (chaveDeNome),
- * o que o palestrante respondeu: disponível? + valor + observação. Nunca lança:
- * a resposta é enfeite do card, não pode derrubar o resultado. Precisa de escopo
- * de leitura de tickets no app privado (HUBSPOT_TOKEN). */
+ * Lê a propriedade `respostas_disponibilidade` do PRÓPRIO negócio (o tool já lê
+ * negócio — sem depender de escopo de tickets). A automação do HubSpot, quando o
+ * palestrante responde no tíquete, grava lá um JSON { <id_contato>: {d,v,o} }
+ * (d=disponibilidade, v=valor_total, o=observação). Por-negócio: sem staleness.
+ * Nunca lança — a resposta é enfeite do card, não pode derrubar o resultado. */
 export async function respostasDisponibilidade(negocioId) {
   const out = {};   // { <id_contato>: { disponivel, valor, obs } }
   if (!negocioId) return out;
   try {
-    const as = await hs(`/crm/v4/objects/deals/${negocioId}/associations/tickets?limit=100`, 'GET');
-    const ids = (as.results || []).map(r => String(r.toObjectId)).filter(Boolean);
-    if (!ids.length) return out;
-    const rd = await hs('/crm/v3/objects/tickets/batch/read', 'POST', {
-      properties: ['disponibilidade', 'valor_total', 'observacao_da_resposta'],
-      inputs: ids.map(id => ({ id })),
-    });
-    await Promise.all((rd.results || []).map(async (t) => {
-      const p = t.properties || {};
-      const disp = String(p.disponibilidade || '').trim().toLowerCase();
-      const obs = String(p.observacao_da_resposta || '').trim();
-      if (!disp && !obs) return;   // ainda sem resposta do palestrante
-      // casa pelo CONTATO do palestrante associado ao tíquete (id_contato) — robusto,
-      // não depende do nome do assunto (contato pode ter nome diferente da curadoria)
-      let cid = '';
-      try {
-        const ca = await hs(`/crm/v4/objects/tickets/${t.id}/associations/contacts?limit=1`, 'GET');
-        cid = String(((ca.results || [])[0] || {}).toObjectId || '');
-      } catch (e) { console.error(`contato do tíquete ${t.id} falhou:`, e.message); }
-      if (!cid) return;
-      out[cid] = {
+    const d = await hs(`/crm/v3/objects/deals/${negocioId}?properties=respostas_disponibilidade`, 'GET');
+    const raw = String(d.properties?.respostas_disponibilidade || '').trim();
+    if (!raw) return out;
+    let mapa;
+    try { mapa = JSON.parse(raw); } catch (e) { return out; }
+    for (const [cid, r] of Object.entries(mapa || {})) {
+      const disp = String(r?.d || '').trim().toLowerCase();
+      const obs = String(r?.o || '').trim();
+      if (!disp && !obs) continue;
+      out[String(cid)] = {
         disponivel: disp === 'disponivel' ? true : (disp === 'indisponivel' ? false : null),
-        valor: _valorBRL(p.valor_total),
+        valor: _valorBRL(r?.v),
         obs,
       };
-    }));
+    }
   } catch (e) { console.error('respostasDisponibilidade falhou:', e.message); }
   return out;
 }
