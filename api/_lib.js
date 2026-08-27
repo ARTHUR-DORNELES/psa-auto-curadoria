@@ -846,6 +846,46 @@ export async function dispararDisponibilidade(negocioId, indicacoes, briefing, d
   return { disparados, semContato, semTelefone, jaDisparado, falhas };
 }
 
+// valor numérico do tíquete -> "R$ 15.000" (0/inválido -> vazio)
+const _valorBRL = v => { const n = Math.round(Number(v)); return (!n || isNaN(n)) ? '' : 'R$ ' + n.toLocaleString('pt-BR'); };
+
+/* Respostas de disponibilidade dos palestrantes, para mostrar no card do cliente.
+ * Lê os tíquetes associados ao negócio (o custom code do workflow "disparo whats
+ * palestrante" associa cada tíquete ao negócio) e devolve, por nome (chaveDeNome),
+ * o que o palestrante respondeu: disponível? + valor + observação. Nunca lança:
+ * a resposta é enfeite do card, não pode derrubar o resultado. Precisa de escopo
+ * de leitura de tickets no app privado (HUBSPOT_TOKEN). */
+export async function respostasDisponibilidade(negocioId) {
+  const out = {};
+  if (!negocioId) return out;
+  try {
+    const as = await hs(`/crm/v4/objects/deals/${negocioId}/associations/tickets?limit=100`, 'GET');
+    const ids = (as.results || []).map(r => String(r.toObjectId)).filter(Boolean);
+    if (!ids.length) return out;
+    const rd = await hs('/crm/v3/objects/tickets/batch/read', 'POST', {
+      properties: ['subject', 'disponibilidade', 'valor_total', 'observacao_da_resposta'],
+      inputs: ids.map(id => ({ id })),
+    });
+    for (const t of (rd.results || [])) {
+      const p = t.properties || {};
+      // "Disponibilidade - <Nome do palestrante> - <Cliente>"
+      const m = String(p.subject || '').match(/^\s*disponibilidade\s*-\s*(.+?)\s*-\s*/i);
+      if (!m) continue;
+      const chave = chaveDeNome(m[1]);
+      if (!chave) continue;
+      const disp = String(p.disponibilidade || '').trim().toLowerCase();
+      const obs = String(p.observacao_da_resposta || '').trim();
+      if (!disp && !obs) continue;   // ainda sem resposta do palestrante
+      out[chave] = {
+        disponivel: disp === 'disponivel' ? true : (disp === 'indisponivel' ? false : null),
+        valor: _valorBRL(p.valor_total),
+        obs,
+      };
+    }
+  } catch (e) { console.error('respostasDisponibilidade falhou:', e.message); }
+  return out;
+}
+
 /* ── Paywall por CPF/CNPJ ────────────────────────────────────────────────────
  * Acesso à Auto Curadoria é liberado só para quem tem um negócio "Pago" na pipeline
  * Auto Curadoria. O CPF/CNPJ (informado na entrada) casa com o contato comprador

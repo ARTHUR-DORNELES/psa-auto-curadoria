@@ -1,4 +1,4 @@
-import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, consumirCredito, chaveDeNome } from './_lib.js';
+import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, consumirCredito, chaveDeNome, respostasDisponibilidade } from './_lib.js';
 
 const ACOES = {
   curador: 'CLIENTE PEDIU ATENDIMENTO DE CURADOR — assumir o processo pelo caminho tradicional.',
@@ -108,13 +108,31 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json(
-      reg.pago
-        // `disponibilidade` vai para o cliente porque quem recarrega o link precisa ver
-        // que já pediu; sem isso a tela volta destravada e o pedido parece não ter saído
-        ? { id, pronto: true, pago: true, criadoEm: reg.criadoEm, briefing: reg.briefing, resultado: paraCliente(reg.resultado), refacoesRestantes: MAX_REFACOES - (reg.refacoes || 0), disponibilidade: reg.disponibilidade ? { palestrantes: reg.disponibilidade.palestrantes, em: reg.disponibilidade.em } : null }
-        : { id, pronto: true, pago: false, teaser: teaser(reg.resultado) }
-    );
+    if (!reg.pago) {
+      return res.status(200).json({ id, pronto: true, pago: false, teaser: teaser(reg.resultado) });
+    }
+
+    const cliente = paraCliente(reg.resultado);
+    // resposta do palestrante (disponível? + valor) no card — só depois que o cliente
+    // pediu disponibilidade e o palestrante respondeu no tíquete (disponibilidade/valor_total).
+    if (reg.disponibilidade?.palestrantes?.length && reg.hubspot?.negocioId) {
+      try {
+        const respostas = await respostasDisponibilidade(reg.hubspot.negocioId);
+        for (const ind of cliente.indicacoes) {
+          const r = respostas[chaveDeNome(ind.nome)];
+          if (r) ind.resposta = r;
+        }
+      } catch (e) { console.error('merge respostas disponibilidade:', e.message); }
+    }
+
+    // `disponibilidade` vai para o cliente porque quem recarrega o link precisa ver
+    // que já pediu; sem isso a tela volta destravada e o pedido parece não ter saído
+    return res.status(200).json({
+      id, pronto: true, pago: true, criadoEm: reg.criadoEm, briefing: reg.briefing,
+      resultado: cliente,
+      refacoesRestantes: MAX_REFACOES - (reg.refacoes || 0),
+      disponibilidade: reg.disponibilidade ? { palestrantes: reg.disponibilidade.palestrantes, em: reg.disponibilidade.em } : null,
+    });
   }
 
   if (req.method === 'POST') {

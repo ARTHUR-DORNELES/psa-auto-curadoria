@@ -131,6 +131,16 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .chip:disabled{opacity:.45;cursor:default}
 .chip--solid{background:var(--psa-orange);border-color:var(--psa-orange)}
 .chip--feito{border-color:var(--psa-orange);color:var(--psa-orange);cursor:default}
+/* resposta do palestrante no card: disponibilidade + valor solicitado */
+.resp{display:flex;flex-wrap:wrap;gap:10px;width:100%}
+.resp__campo{flex:1 1 180px;display:flex;flex-direction:column;gap:4px;border:1px solid var(--border-strong);border-radius:12px;padding:10px 14px}
+.resp__rot{font-family:var(--font-mono);font-size:var(--t-caption);letter-spacing:.04em;color:var(--fg-2);text-transform:uppercase}
+.resp__val{font-weight:700;font-size:16px;color:var(--fg-1)}
+.resp__campo--sim{border-color:#37c07a55;background:#37c07a14}
+.resp__campo--sim .resp__val{color:#37c07a}
+.resp__campo--nao{border-color:#f8500055;background:#f8500012}
+.resp__campo--nao .resp__val{color:var(--psa-orange)}
+.resp__obs{flex:1 1 100%;color:var(--fg-2);font-size:14px;line-height:1.5}
 /* topo do resultado: título à esquerda, pedido de disponibilidade à direita */
 .res__topo{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s-5);flex-wrap:wrap}
 .res__enviado{font-size:var(--t-body-sm);font-weight:700;color:var(--psa-orange);text-align:right;line-height:1.4}
@@ -1163,9 +1173,22 @@ function renderCompleto(d) {
           </div>
           <ul>${ind.porque.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
           <div class="acoes-pos">
-            ${(d.disponibilidade?.palestrantes || []).includes(ind.nome)
-              ? `<span class="chip chip--feito">✓ Disponibilidade e orçamento solicitados</span>`
-              : `<button class="btn btn--primary btn-disp" data-nome="${esc(ind.nome)}">Solicitar disponibilidade e orçamento</button>`}
+            ${ind.resposta
+              // palestrante já respondeu: mostra disponível/indisponível + valor solicitado
+              ? `<div class="resp">
+                   <div class="resp__campo resp__campo--${ind.resposta.disponivel === false ? 'nao' : (ind.resposta.disponivel === true ? 'sim' : 'neutro')}">
+                     <span class="resp__rot">Disponibilidade</span>
+                     <span class="resp__val">${ind.resposta.disponivel === false ? 'Indisponível' : (ind.resposta.disponivel === true ? 'Disponível' : 'Respondido')}</span>
+                   </div>
+                   ${ind.resposta.valor ? `<div class="resp__campo">
+                     <span class="resp__rot">Valor solicitado pelo palestrante</span>
+                     <span class="resp__val">${esc(ind.resposta.valor)}</span>
+                   </div>` : ''}
+                   ${ind.resposta.obs ? `<div class="resp__obs">📝 ${esc(ind.resposta.obs)}</div>` : ''}
+                 </div>`
+              : ((d.disponibilidade?.palestrantes || []).includes(ind.nome)
+                ? `<span class="chip chip--feito">✓ Disponibilidade e orçamento solicitados</span>`
+                : `<button class="btn btn--primary btn-disp" data-nome="${esc(ind.nome)}">Solicitar disponibilidade e orçamento</button>`)}
           </div>
         </div>
         ${fotoCard(ind)}
