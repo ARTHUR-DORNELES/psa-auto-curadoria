@@ -1037,7 +1037,7 @@ function renderTeaser(j) {
   const t = j.teaser;
   $('#resultado').innerHTML = `
     <span class="eyebrow">Sua curadoria está pronta</span>
-    <h1>3 nomes.<br>Um caminho.</h1>
+    <h1>${t.indicacoes.length} nome${t.indicacoes.length > 1 ? 's' : ''}.<br>Um caminho.</h1>
     <p class="leitura">${esc(t.leitura)}</p>
     ${t.indicacoes.map((ind, n) => `
       <article class="ind">
@@ -1130,6 +1130,7 @@ function resumoDoBriefing(d) {
 
 function renderCompleto(d) {
   const r = d.resultado;
+  const nInd = r.indicacoes.length;   // quantos nomes vieram (varia: 4, 5…) — textos dinâmicos
   $('#resultado').innerHTML = `
     <span class="eyebrow">Ponto de partida</span>
     <h1>Seu<br>briefing.</h1>
@@ -1169,14 +1170,14 @@ function renderCompleto(d) {
         </div>
         ${fotoCard(ind)}
       </article>`).join('')}
-    <p class="ou">Nenhum dos três serviu?</p>
+    <p class="ou">${nInd > 1 ? `Nenhum dos ${nInd} serviu?` : 'Esse nome não serviu?'}</p>
     <div class="acoes" style="justify-content:center">
       ${d.refacoesRestantes > 0
-        ? `<button class="btn btn--ghost" id="refazer">Refazer curadoria com outros 3 nomes</button>`
+        ? `<button class="btn btn--ghost" id="refazer">Refazer curadoria com outros nomes</button>`
         : `<p class="dica" style="text-align:center;max-width:46ch">Você já refez esta curadoria. Daqui em diante, um curador consegue ir além do que a ferramenta cobre.</p>`}
       <button class="btn btn--ghost" id="quero-curador">Falar com um curador da PSA</button>
     </div>
-    ${d.refacoesRestantes > 0 ? `<p class="dica" style="text-align:center">Você pode refazer uma única vez — os 3 nomes atuais saem e não voltam.</p>` : ''}
+    ${d.refacoesRestantes > 0 ? `<p class="dica" style="text-align:center">Você pode refazer uma única vez — ${nInd > 1 ? `os ${nInd} nomes atuais saem e não voltam` : 'o nome atual sai e não volta'}.</p>` : ''}
     <p class="aviso">Viabilidade e orçamento passam pelo nosso time, que negocia com o palestrante e volta com a proposta formal. A checagem de data depende da agenda do palestrante e pode levar até 24h. Contrato, pagamento e logística seguem pela PSA.</p>`;
 
   $('#resultado').querySelectorAll('[data-acao]').forEach(b => b.addEventListener('click', async () => {
@@ -1274,7 +1275,7 @@ function renderCompleto(d) {
   });
 
   $('#refazer')?.addEventListener('click', async e => {
-    if (!confirm('Você pode refazer uma única vez. Os 3 nomes atuais saem e não voltam. Confirma?')) return;
+    if (!confirm(`Você pode refazer uma única vez. ${nInd > 1 ? `Os ${nInd} nomes atuais saem e não voltam` : 'O nome atual sai e não volta'}. Confirma?`)) return;
     e.target.disabled = true;
     e.target.textContent = 'Pedindo novos nomes…';
     const r = await fetch(`/api/resultado?id=${d.id}`, {
