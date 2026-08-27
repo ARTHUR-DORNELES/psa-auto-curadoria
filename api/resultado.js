@@ -35,25 +35,23 @@ export default async function handler(req, res) {
       const descartados = new Set((reg.descartados || []).map(n => n.toLowerCase()));
       const nomes = lerNomes(curadoria.nomesBruto).filter(n => !descartados.has(n.nome.toLowerCase()));
 
-      // Esperamos N_INDICACOES nomes. Mas a automação às vezes devolve menos (típico na
-      // refação: os nomes já mostrados saem do bolo e sobra pouco inédito). Para o cliente
-      // NÃO ficar preso em "sendo montada" pra sempre: exigimos N até estourar o tempo; daí
-      // entregamos o que veio (>=1) marcado como incompleto — um curador completa depois.
-      const TIMEOUT_MIN = Number(process.env.CURADORIA_TIMEOUT_MIN || 8);
-      const clock = reg.refeitoEm || reg.criadoEm;
-      const idadeMin = clock ? (Date.now() - Date.parse(clock)) / 60000 : 0;
-      const estourou = idadeMin >= TIMEOUT_MIN;
-
-      // dentro do tempo e sem os N: segue esperando a automação publicar mais nomes
-      if (nomes.length < N_INDICACOES && !estourou) {
-        return res.status(200).json({ id, pronto: false, linkCuradoria: curadoria.link || undefined });
-      }
-      // estourou o tempo e não veio NENHUM nome: handoff pro curador (não fabrica resultado)
+      // A automação grava a lista de uma vez só (um PATCH com o texto final). Então a
+      // presença de nomes é o sinal de "terminou": qualquer nome publicado JÁ é o resultado
+      // final — entregamos na hora, mesmo com menos de N_INDICACOES (marcado como incompleto,
+      // um curador completa depois). Esperar chegar aos N só atrasava: quando a automação
+      // devolve 4, os 4 já são o fim (ela não vai acrescentar um 5º depois).
+      // O tempo de espera vale só enquanto a propriedade está VAZIA (automação ainda rodando
+      // ou refação sem nomes inéditos); estourado e ainda vazio -> handoff pro curador.
       if (nomes.length === 0) {
-        return res.status(200).json({ id, pronto: false, timeout: true, linkCuradoria: curadoria.link || undefined });
+        const TIMEOUT_MIN = Number(process.env.CURADORIA_TIMEOUT_MIN || 8);
+        const clock = reg.refeitoEm || reg.criadoEm;
+        const idadeMin = clock ? (Date.now() - Date.parse(clock)) / 60000 : 0;
+        const estourou = idadeMin >= TIMEOUT_MIN;
+        return res.status(200).json({ id, pronto: false, timeout: estourou || undefined, linkCuradoria: curadoria.link || undefined });
       }
 
-      // até N nomes, com a mistura mínima por categoria. Menos de N só após o timeout.
+      // até N nomes, com a mistura mínima por categoria (pode vir menos, se a automação
+      // publicou menos — o front marca como incompleto).
       const escolhidos = escolherIndicacoes(nomes);
       await anexarFotos(escolhidos);   // foto de cada palestrante (ou nada -> silhueta no front)
       const incompleto = escolhidos.length < N_INDICACOES;
