@@ -778,12 +778,15 @@ export async function dispararDisponibilidade(negocioId, indicacoes, briefing, d
     `Solicitado pelo cliente ${briefing.empresa || ''} via Auto Curadoria.`.replace(/\s+/g, ' ').trim(),
   ].filter(Boolean).join(' ');
 
+  // a data do evento pode não estar no briefing ("a definir"); nesse caso usamos a data
+  // que o cliente informou ao solicitar disponibilidade (datas, já em DD/MM/AAAA).
+  const _dataEvento = _fmtDataBR(briefing.data);
   const ev = {
     pesq_cliente: briefing.empresa || '-',
     pesq_formato: briefing.formato || '-',
     pesq_tema: tema || '-',
     pesq_publico: briefing.publicoAlvo || '-',
-    pesq_data: _fmtDataBR(briefing.data),
+    pesq_data: (_dataEvento && _dataEvento !== '-') ? _dataEvento : (String(datas || '').trim() || '-'),
     pesq_horario: briefing.horario || '-',
     pesq_local: local || '-',
     pesq_duracao: briefing.duracao || '-',

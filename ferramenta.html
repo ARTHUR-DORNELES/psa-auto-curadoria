@@ -318,7 +318,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
         <div><label for="formato">Formato <span>*</span></label><select id="formato"><option value="">Selecione</option></select></div>
       </div>
       <div class="dupla">
-        <div><label for="data">Qual a data? <span>*</span></label><input id="data" type="date"></div>
+        <div><label for="data">Qual a data? <small style="opacity:.6">(opcional — pode ser a definir)</small></label><input id="data" type="date"></div>
         <div><label for="horario">Horário <span>*</span></label><input id="horario" type="time"></div>
       </div>
       <div class="dupla">
@@ -778,7 +778,7 @@ $('#chat-para-form').addEventListener('click', () => mostra('p1', 1));
 // ── validação ──────────────────────────────────────────────
 // Todos os campos são obrigatórios, menos os descritivos: o recorte do tema
 // (7 macro temas não têm recorte cadastrado) e o contexto livre.
-const OPCIONAIS = ['microTema', 'briefing'];
+const OPCIONAIS = ['microTema', 'briefing', 'data'];   // data pode ser "a definir"
 
 const DDDS = new Set([11,12,13,14,15,16,17,18,19,21,22,24,27,28,31,32,33,34,35,37,38,41,42,43,44,45,46,
   47,48,49,51,53,54,55,61,62,63,64,65,66,67,68,69,71,73,74,75,77,79,81,82,83,84,85,86,87,88,89,
@@ -827,7 +827,7 @@ function valida2() {
   // o atributo min do input barra a escolha no calendário, mas não digitação nem
   // navegador antigo; o envio passa por aqui, então esta é a trava que vale
   const hoje = new Date().toLocaleDateString('sv');
-  if ($('#data').value < hoje) {
+  if ($('#data').value && $('#data').value < hoje) {   // data é opcional; só valida se preenchida
     $('#e2').textContent = 'A data do evento não pode ser no passado.';
     return false;
   }
@@ -1240,13 +1240,44 @@ function renderCompleto(d) {
 
   // Disponibilidade + orçamento: um botão POR nome. Cada clique pede só aquele
   // palestrante (o servidor acumula — não repete quem já foi pedido).
+  // modal pra escolher a data do evento (obrigatória p/ solicitar disponibilidade).
+  // Usa <input type="date"> nativo: no navegador pt-BR o calendário/valor sai em DD/MM/AAAA.
+  function pedirDataDisponibilidade(nome, dataPadrao) {
+    return new Promise((resolve) => {
+      const ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#000000b3;backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px';
+      ov.innerHTML = `
+        <div role="dialog" aria-modal="true" style="background:#0e1420;border:1px solid var(--border-strong);border-radius:16px;padding:24px;max-width:420px;width:100%;box-shadow:0 24px 60px #000000a6">
+          <div style="font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--psa-orange)">Disponibilidade e orçamento</div>
+          <h3 style="font-family:var(--font-display-wide);text-transform:uppercase;font-size:22px;line-height:1;margin:8px 0 6px;color:var(--fg-1)">${(nome || '').replace(/</g, '&lt;')}</h3>
+          <p style="color:var(--fg-2);font-size:14px;line-height:1.5;margin:0 0 16px">Para qual <strong>data do evento</strong> devemos checar a disponibilidade? A resposta depende da agenda do palestrante e pode levar até 1 dia útil.</p>
+          <label for="pdData" style="display:block;font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--fg-2);margin-bottom:6px">Data do evento</label>
+          <input type="date" id="pdData" value="${dataPadrao || ''}" min="${new Date().toLocaleDateString('sv')}" style="width:100%;padding:12px 14px;border:1px solid var(--border-strong);border-radius:10px;background:#ffffff0f;color:var(--fg-1);font-size:16px;font-family:var(--font-body);color-scheme:dark">
+          <p id="pdErro" style="color:var(--psa-orange);font-size:13px;min-height:18px;margin:8px 0 0"></p>
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px">
+            <button type="button" class="btn btn--ghost" id="pdCancel">Cancelar</button>
+            <button type="button" class="btn btn--primary" id="pdOk">Solicitar →</button>
+          </div>
+        </div>`;
+      document.body.appendChild(ov);
+      const inp = ov.querySelector('#pdData');
+      const fim = (v) => { ov.remove(); resolve(v); };
+      ov.querySelector('#pdCancel').addEventListener('click', () => fim(null));
+      ov.addEventListener('click', (e) => { if (e.target === ov) fim(null); });
+      ov.querySelector('#pdOk').addEventListener('click', () => {
+        if (!inp.value) { ov.querySelector('#pdErro').textContent = 'Escolha a data do evento.'; return; }
+        fim(inp.value);   // ISO YYYY-MM-DD
+      });
+      setTimeout(() => { try { inp.focus(); } catch (e) {} }, 60);
+    });
+  }
+
   $('#resultado').querySelectorAll('.btn-disp').forEach(btn => {
     btn.addEventListener('click', async () => {
       const nome = btn.dataset.nome;
-      const datas = prompt(
-        `Quais datas checar com ${nome}?\n\nA resposta depende da agenda do palestrante e pode levar até 1 dia útil.`,
-        d.briefing?.data || '');
-      if (!datas) return;
+      const iso = await pedirDataDisponibilidade(nome, d.briefing?.data || '');
+      if (!iso) return;
+      const datas = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.split('-').reverse().join('/') : iso;   // BR DD/MM/AAAA
       btn.disabled = true;
       const antes = btn.textContent;
       btn.textContent = 'Enviando…';

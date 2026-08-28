@@ -5,9 +5,10 @@ import { anexarBriefingAoNegocio, redis, chave, chaveDeal, lerCorpo, cors, credi
 // automação da PSA (disparada pela observação) produz o arquivo da IA Curadoria
 // e escreve o link em `ia_curadoria_link`. Quem lê e escolhe os 3 é /api/resultado.
 // Tudo obrigatório menos os descritivos (microTema, que 7 macro temas não têm,
-// e o contexto livre). Espelha a validação do formulário — o servidor não confia nela.
+// e o contexto livre) e a DATA (pode ser "a definir"; só vira obrigatória ao solicitar
+// disponibilidade). Espelha a validação do formulário — o servidor não confia nela.
 const OBRIGATORIOS = ['nome', 'empresa', 'email', 'telefone', 'macroTema', 'publicoAlvo',
-  'formato', 'data', 'horario', 'duracao', 'localEvento', 'cidade', 'local', 'orcamento', 'vendaIngresso',
+  'formato', 'horario', 'duracao', 'localEvento', 'cidade', 'local', 'orcamento', 'vendaIngresso',
   'motivacao', 'sentimento'];
 
 export default async function handler(req, res) {

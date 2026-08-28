@@ -9,9 +9,10 @@ import {
 // o SERVIDOR é a autoridade dos enums (só aceita valor válido) e da completude.
 const MODEL = 'claude-sonnet-5';
 
-// espelha os obrigatórios do curar.js (+ estado, que lá é briefing.local)
+// espelha os obrigatórios do curar.js (+ estado, que lá é briefing.local). A DATA é
+// opcional (pode ser "a definir"; só obrigatória ao solicitar disponibilidade).
 const OBRIGATORIOS = ['nome', 'empresa', 'email', 'telefone', 'macroTema', 'publicoAlvo',
-  'formato', 'data', 'horario', 'duracao', 'localEvento', 'estado', 'cidade', 'orcamento',
+  'formato', 'horario', 'duracao', 'localEvento', 'estado', 'cidade', 'orcamento',
   'vendaIngresso', 'motivacao', 'sentimento'];
 
 // campos de valor fechado -> validados contra a lista e travados no schema de saída
@@ -128,6 +129,8 @@ function sistema(faltando, slots) {
     enumTxt,
     subs.length ? `- Recortes do tema escolhido (microTema, opcional): ${subs.join(' | ')}` : '',
     '- data no formato YYYY-MM-DD; horario no formato HH:MM.',
+    '- A DATA do evento é OPCIONAL: pergunte, mas se o cliente disser que ainda não tem/"a definir",',
+    '  deixe "data" vazia e siga em frente (a data será pedida depois, se ele solicitar disponibilidade).',
     '- Pergunte UM assunto por vez. Em "proximoCampo" devolva a chave do próximo campo a captar.',
     '- "microTema" e "contexto" são opcionais — pode pular se o cliente não quiser detalhar.',
     '- Quando TODOS os obrigatórios estiverem captados, mande uma mensagem de fechamento curta',
