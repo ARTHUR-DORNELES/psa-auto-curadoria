@@ -1,4 +1,14 @@
 import Redis from 'ioredis';
+import { MACRO } from './_enums.js';
+
+// canoniza o macro tema pela lista oficial, casando pelo número ("19." -> "19. LIDERANÇA").
+// Conserta mojibake gravado (ex.: "19. LIDERAN�A") sem depender do texto corrompido.
+const _canonMacro = (v) => {
+  const s = String(v || '').trim();
+  const n = (s.match(/^\s*(\d+)\s*\./) || [])[1];
+  if (n) { const hit = MACRO.find((m) => (String(m).match(/^\s*(\d+)\s*\./) || [])[1] === n); if (hit) return hit; }
+  return s;
+};
 
 // R$ 197, 100% creditável no cachê. Escolhido para ficar ≤4% do cachê em todas as
 // faixas onde está 80% do casting (cachê mediano R$ 6.186). Ainda não validado —
@@ -1008,7 +1018,7 @@ export async function listarCuradorias(bruto) {
       let reg; try { reg = JSON.parse(bruto2); } catch (e) { continue; }
       vistos.add(uuid);
       const b = reg.briefing || {};
-      const tema = [b.macroTema, b.microTema].filter(Boolean).join(' · ');
+      const tema = [_canonMacro(b.macroTema), b.microTema].filter(Boolean).join(' · ');
       const label = [b.empresa, tema, dataBR(b.data)].filter(Boolean).join(' · ')
         || String(d.properties?.dealname || 'Curadoria');
       out.push({ id: uuid, label, criadoEm: reg.criadoEm || null });
