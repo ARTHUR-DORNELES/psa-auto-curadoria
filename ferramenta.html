@@ -1255,8 +1255,8 @@ function renderCompleto(d) {
           <input type="date" id="pdData" value="${dataPadrao || ''}" min="${new Date().toLocaleDateString('sv')}" style="width:100%;padding:12px 14px;border:1px solid var(--border-strong);border-radius:10px;background:#ffffff0f;color:var(--fg-1);font-size:16px;font-family:var(--font-body);color-scheme:dark">
           <p id="pdErro" style="color:var(--psa-orange);font-size:13px;min-height:18px;margin:8px 0 0"></p>
           <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px">
-            <button type="button" class="btn btn--ghost" id="pdCancel">Cancelar</button>
-            <button type="button" class="btn btn--primary" id="pdOk">Solicitar →</button>
+            <button type="button" id="pdCancel" style="background:transparent;border:1px solid var(--border-strong);color:var(--fg-1);border-radius:999px;padding:11px 20px;font-family:var(--font-body);font-size:14px;font-weight:600;cursor:pointer">Cancelar</button>
+            <button type="button" id="pdOk" style="background:var(--psa-orange);border:1px solid var(--psa-orange);color:#fff;border-radius:999px;padding:11px 22px;font-family:var(--font-body);font-size:14px;font-weight:700;cursor:pointer">Solicitar →</button>
           </div>
         </div>`;
       document.body.appendChild(ov);
