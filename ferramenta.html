@@ -1210,13 +1210,13 @@ function renderCompleto(d) {
       <button class="btn btn--ghost" id="quero-curador">Falar com um curador da PSA</button>
     </div>
     ${d.refacoesRestantes > 0 ? `<p class="dica" style="text-align:center">Você pode refazer uma única vez — ${nInd > 1 ? `os ${nInd} nomes atuais saem e não voltam` : 'o nome atual sai e não volta'}.</p>` : ''}
-    <p class="aviso">Viabilidade e orçamento passam pelo nosso time, que negocia com o palestrante e volta com a proposta formal. A checagem de data depende da agenda do palestrante e pode levar até 24h. Contratação, contrato, pagamento e logística você pode conduzir direto com o palestrante ou, se preferir, contratar a PSA para cuidar de tudo. É opcional, você não é obrigado.</p>`;
+    <p class="aviso">Viabilidade e orçamento passam pelo nosso time, que negocia com o palestrante e volta com a proposta formal. A checagem de data depende da agenda do palestrante e pode levar até 1 dia útil. Contratação, contrato, pagamento e logística você pode conduzir direto com o palestrante ou, se preferir, contratar a PSA para cuidar de tudo. É opcional, você não é obrigado.</p>`;
 
   $('#resultado').querySelectorAll('[data-acao]').forEach(b => b.addEventListener('click', async () => {
     // o prazo entra aqui, no momento em que a pessoa decide pedir: quem só lê o aviso
     // no fim da página chega ao pedido sem saber que a resposta não é na hora
     const datas = b.dataset.acao === 'viabilidade'
-      ? prompt(`Quais datas você quer checar com ${b.dataset.nome}?\n\nA resposta depende da agenda do palestrante e pode levar até 24h.`, d.briefing?.data || '')
+      ? prompt(`Quais datas você quer checar com ${b.dataset.nome}?\n\nA resposta depende da agenda do palestrante e pode levar até 1 dia útil.`, d.briefing?.data || '')
       : null;
     if (b.dataset.acao === 'viabilidade' && !datas) return;
     b.disabled = true;
@@ -1224,7 +1224,7 @@ function renderCompleto(d) {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ acao: b.dataset.acao, palestrante: b.dataset.nome, datas }),
     });
-    b.textContent = b.dataset.acao === 'viabilidade' ? '✓ Solicitado · até 24h' : '✓ Solicitado';
+    b.textContent = b.dataset.acao === 'viabilidade' ? '✓ Solicitado · até 1 dia útil' : '✓ Solicitado';
   }));
 
   // Disponibilidade + orçamento: um botão POR nome. Cada clique pede só aquele
@@ -1233,7 +1233,7 @@ function renderCompleto(d) {
     btn.addEventListener('click', async () => {
       const nome = btn.dataset.nome;
       const datas = prompt(
-        `Quais datas checar com ${nome}?\n\nA resposta depende da agenda do palestrante e pode levar até 24h.`,
+        `Quais datas checar com ${nome}?\n\nA resposta depende da agenda do palestrante e pode levar até 1 dia útil.`,
         d.briefing?.data || '');
       if (!datas) return;
       btn.disabled = true;
