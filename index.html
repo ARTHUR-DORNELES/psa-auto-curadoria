@@ -53,6 +53,7 @@ a{color:inherit;text-decoration:none}
 /* ---------- nav ---------- */
 .header{position:sticky;top:0;z-index:50;background:#02060fd9;backdrop-filter:blur(14px);border-bottom:1px solid var(--border-subtle)}
 .nav{display:flex;align-items:center;gap:var(--s-6);height:64px;width:min(1200px,92vw);margin-inline:auto}
+.sec,.cta{scroll-margin-top:80px}
 .nav__logo img{height:28px;width:auto}
 .nav__links{display:flex;gap:var(--s-5);margin-left:auto;font-size:var(--t-body-sm);color:var(--fg-2)}
 .nav__links a:hover{color:var(--fg-1)}
@@ -212,11 +213,11 @@ a{color:inherit;text-decoration:none}
   <div class="nav">
     <a class="nav__logo" href="https://psasite.vercel.app/"><img src="https://psasite.vercel.app/_next/image?url=%2Fbrand%2Flogos%2Flogo-01.png&w=256&q=75" alt="PSA Palestras" width="80" height="32"></a>
     <nav class="nav__links">
-      <a href="https://psasite.vercel.app/palestrantes">Buscar palestrante</a>
-      <a href="https://psasite.vercel.app/palestrantes-e-especialistas">Curadoria</a>
-      <a href="/auto-curadoria" aria-current="page">Auto Curadoria</a>
-      <a href="https://psasite.vercel.app/temas">Temas</a>
-      <a href="https://psasite.vercel.app/tendencias">Tendências</a>
+      <a href="#o-que-e">O que é</a>
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#comparativo">Comparativo</a>
+      <a href="#planos">Investimento</a>
+      <a href="#faq">Dúvidas</a>
     </nav>
     <a class="nav__cta" href="/ferramenta">Começar</a>
   </div>
@@ -393,7 +394,7 @@ a{color:inherit;text-decoration:none}
 
 <!-- COMPARATIVO -->
 <!-- primeira seção clara depois de uma escura: sem linha, o contraste já separa -->
-<section class="sec sec--bone">
+<section class="sec sec--bone" id="comparativo">
   <div class="wrap">
     <div class="sechead">
       <span class="eyebrow">Comparativo</span>
