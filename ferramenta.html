@@ -96,10 +96,10 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .leitura{border-left:2px solid var(--psa-orange);padding-left:var(--s-5);margin-bottom:var(--s-7);color:var(--fg-2);font-size:18px}
 .ind{border:1px solid var(--border);border-radius:var(--r-md);padding:var(--s-6);margin-bottom:var(--s-5);background:#ffffff05;position:relative;overflow:hidden;display:flex;gap:var(--s-5);align-items:stretch}
 .ind__corpo{flex:1;min-width:0}
-.ind__foto{flex:none;width:132px;position:relative;border-radius:12px;overflow:hidden;background:#ffffff0d;border:1px solid var(--border)}
+.ind__foto{flex:none;width:132px;position:relative;border-radius:12px;overflow:hidden;background:radial-gradient(120% 85% at 50% 12%, rgba(255,120,60,.5), rgba(255,150,40,.16) 45%, #241a1c 78%);border:1px solid var(--border)}
 .ind__foto::before{content:"";display:block;padding-top:122%}
-.ind__silhueta{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--fg-4)}
-.ind__silhueta svg{width:54%;height:auto}
+.ind__silhueta{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;color:rgba(20,12,14,.5)}
+.ind__silhueta svg{width:92%;height:auto}
 .ind__img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top center}
 @media(max-width:560px){.ind{flex-direction:column-reverse}.ind__foto{width:132px;align-self:flex-start}}
 .ind__top{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;margin-bottom:var(--s-4)}
@@ -1058,7 +1058,7 @@ const reais = c => (c / 100).toLocaleString('pt-BR', { style: 'currency', curren
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 
 // silhueta (quando o palestrante não tem foto acessível) + card da foto
-const SILHUETA = '<svg viewBox="0 0 64 74" fill="currentColor" aria-hidden="true"><circle cx="32" cy="22" r="15"/><path d="M32 41C17.6 41 6 51.4 6 64.3V74h52v-9.7C58 51.4 46.4 41 32 41z"/></svg>';
+const SILHUETA = '<svg viewBox="0 0 64 74" fill="currentColor" aria-hidden="true"><circle cx="32" cy="24" r="16"/><path d="M32 44C16.5 44 4 55 4 68.8V74h56v-5.2C60 55 47.5 44 32 44z"/></svg>';
 // onload: descarta imagem larga demais (banner/screenshot, não retrato) -> mostra silhueta
 const fotoCard = ind => `<div class="ind__foto"><div class="ind__silhueta">${SILHUETA}</div>${ind.foto ? `<img class="ind__img" src="${esc(ind.foto)}" alt="" loading="lazy" onerror="this.remove()" onload="if(this.naturalWidth/this.naturalHeight>1.7)this.remove()">` : ''}</div>`;
 
