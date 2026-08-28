@@ -979,12 +979,14 @@ function renderEmProducao(id) {
   }, 15000);
 
   $('#quero-curador').addEventListener('click', async e => {
+    // híbrido: abre o WhatsApp na hora (dentro do clique, p/ não bloquear popup) E registra a nota no HubSpot
+    window.open('https://api.whatsapp.com/send/?phone=5511941650531&text=Ol%C3%A1%2C+gostaria+de+mais+informa%C3%A7%C3%B5es&type=phone_number&app_absent=0', '_blank');
     e.target.disabled = true;
     await fetch(`/api/resultado?id=${id}`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ acao: 'curador' }),
     });
-    e.target.textContent = '✓ Um curador vai te procurar';
+    e.target.textContent = '✓ Chamando a PSA no WhatsApp';
   });
 
   mostra('resultado', 0);
@@ -1090,12 +1092,14 @@ function renderTeaser(j) {
     location.href = j.checkoutUrl;
   });
   $('#quero-curador').addEventListener('click', async e => {
+    // híbrido: abre o WhatsApp na hora (dentro do clique, p/ não bloquear popup) E registra a nota no HubSpot
+    window.open('https://api.whatsapp.com/send/?phone=5511941650531&text=Ol%C3%A1%2C+gostaria+de+mais+informa%C3%A7%C3%B5es&type=phone_number&app_absent=0', '_blank');
     e.target.disabled = true;
     await fetch(`/api/resultado?id=${j.id}`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ acao: 'curador' }),
     });
-    e.target.textContent = '✓ Um curador vai te procurar';
+    e.target.textContent = '✓ Chamando a PSA no WhatsApp';
   });
 
   mostra('resultado', 0);
@@ -1294,12 +1298,14 @@ function renderCompleto(d) {
   });
 
   $('#quero-curador').addEventListener('click', async e => {
+    // híbrido: abre o WhatsApp na hora (dentro do clique, p/ não bloquear popup) E registra a nota no HubSpot
+    window.open('https://api.whatsapp.com/send/?phone=5511941650531&text=Ol%C3%A1%2C+gostaria+de+mais+informa%C3%A7%C3%B5es&type=phone_number&app_absent=0', '_blank');
     e.target.disabled = true;
     await fetch(`/api/resultado?id=${d.id}`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ acao: 'curador' }),
     });
-    e.target.textContent = '✓ Um curador vai te procurar';
+    e.target.textContent = '✓ Chamando a PSA no WhatsApp';
   });
 
   $('#refazer')?.addEventListener('click', async e => {
