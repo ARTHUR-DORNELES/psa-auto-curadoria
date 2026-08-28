@@ -106,14 +106,10 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .ind__rank{font-family:var(--font-mono);font-size:var(--t-caption);color:var(--psa-orange)}
 .ind__nome{font-family:var(--font-display-wide);font-weight:800;text-transform:uppercase;font-size:clamp(18px,3vw,24px)}
 .ind__fit{margin-left:auto;font-family:var(--font-mono);font-size:var(--t-caption);color:var(--fg-2);border:1px solid var(--border);border-radius:var(--r-pill);padding:4px 12px}
-.ind__redes{display:inline-flex;align-items:center;gap:10px;align-self:center}
-.ind__rede{display:inline-flex;color:var(--fg-2);transition:filter .15s,transform .15s}
-.ind__rede:hover{filter:brightness(1.15);transform:translateY(-1px)}
-.ind__rede svg{width:18px;height:18px;display:block}
-.ind__rede--linkedin{color:#0A66C2}
-.ind__rede--youtube{color:#FF0000}
-.ind__rede--facebook{color:#1877F2}
-.ind__rede--tiktok{color:#fff}
+.ind__redes{display:inline-flex;align-items:center;gap:8px;align-self:center}
+.ind__rede{display:inline-flex;transition:filter .15s,transform .15s}
+.ind__rede:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.ind__rede svg{width:20px;height:20px;display:block}
 .ind ul{list-style:none;display:grid;gap:10px;margin-bottom:var(--s-4)}
 .ind li{font-size:var(--t-body-sm);color:var(--fg-2);padding-left:20px;position:relative}
 .ind li::before{content:"";position:absolute;left:0;top:9px;width:8px;height:2px;background:var(--psa-orange)}
@@ -1067,12 +1063,13 @@ const SILHUETA = '<svg viewBox="0 0 64 74" fill="currentColor" aria-hidden="true
 const fotoCard = ind => `<div class="ind__foto"><div class="ind__silhueta">${SILHUETA}</div>${ind.foto ? `<img class="ind__img" src="${esc(ind.foto)}" alt="" loading="lazy" onerror="this.remove()" onload="if(this.naturalWidth/this.naturalHeight>1.7)this.remove()">` : ''}</div>`;
 
 // redes sociais do palestrante (só o símbolo, clicável) — apenas as que o verbete tem
+// logos oficiais (badge com fundo da marca + glifo branco)
 const REDE_ICON = {
-  instagram: '<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="igGrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FFD776"/><stop offset=".25" stop-color="#F3A11E"/><stop offset=".5" stop-color="#E1306C"/><stop offset=".75" stop-color="#C13584"/><stop offset="1" stop-color="#5B51D8"/></linearGradient></defs><path fill="url(#igGrad)" d="M12 2.2c3.2 0 3.6 0 4.9.07 1.2.05 1.8.25 2.2.42.6.22 1 .48 1.4.9.4.4.7.8.9 1.4.2.4.4 1 .4 2.2.1 1.3.1 1.7.1 4.9s0 3.6-.1 4.9c0 1.2-.2 1.8-.4 2.2-.2.6-.5 1-.9 1.4-.4.4-.8.7-1.4.9-.4.2-1 .4-2.2.4-1.3.1-1.7.1-4.9.1s-3.6 0-4.9-.1c-1.2 0-1.8-.2-2.2-.4-.6-.2-1-.5-1.4-.9-.4-.4-.7-.8-.9-1.4-.2-.4-.4-1-.4-2.2C2.2 15.6 2.2 15.2 2.2 12s0-3.6.1-4.9c0-1.2.2-1.8.4-2.2.2-.6.5-1 .9-1.4.4-.4.8-.7 1.4-.9.4-.2 1-.4 2.2-.4C8.4 2.2 8.8 2.2 12 2.2zm0 1.8c-3.1 0-3.5 0-4.7.07-1.1.05-1.7.24-2.1.4-.5.2-.9.44-1.3.84-.4.4-.64.8-.84 1.3-.16.4-.35 1-.4 2.1C2.6 9.9 2.6 10.3 2.6 12s0 2.1.06 3.3c.05 1.1.24 1.7.4 2.1.2.5.44.9.84 1.3.4.4.8.64 1.3.84.4.16 1 .35 2.1.4 1.2.06 1.6.07 4.7.07s3.5 0 4.7-.07c1.1-.05 1.7-.24 2.1-.4.5-.2.9-.44 1.3-.84.4-.4.64-.8.84-1.3.16-.4.35-1 .4-2.1.06-1.2.07-1.6.07-3.3s0-2.1-.07-3.3c-.05-1.1-.24-1.7-.4-2.1-.2-.5-.44-.9-.84-1.3-.4-.4-.8-.64-1.3-.84-.4-.16-1-.35-2.1-.4C15.5 4 15.1 4 12 4zm0 3.06A4.94 4.94 0 1 0 12 17a4.94 4.94 0 0 0 0-9.88zm0 8.15A3.2 3.2 0 1 1 12 8.8a3.2 3.2 0 0 1 0 6.4zm6.3-8.35a1.15 1.15 0 1 1-2.3 0 1.15 1.15 0 0 1 2.3 0z"/></svg>',
-  linkedin: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.55V9h3.57v11.45zM22.22 0H1.77C.8 0 0 .78 0 1.75v20.5C0 23.2.8 24 1.77 24h20.45c.98 0 1.78-.8 1.78-1.75V1.75C24 .78 23.2 0 22.22 0z"/></svg>',
-  youtube: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1c.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.6 15.6V8.4l6.2 3.6-6.2 3.6z"/></svg>',
-  facebook: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.25h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z"/></svg>',
-  tiktok: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.6 5.82a4.28 4.28 0 0 1-1.06-2.82h-3.3v13.16a2.6 2.6 0 0 1-2.6 2.5 2.6 2.6 0 1 1 .78-5.08V10.2a5.9 5.9 0 0 0-.78-.05 5.9 5.9 0 1 0 5.9 5.9V9.01a7.56 7.56 0 0 0 4.4 1.41V7.12a4.28 4.28 0 0 1-3.34-1.3z"/></svg>',
+  instagram: '<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="igGrad" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#FEDA75"/><stop offset=".25" stop-color="#FA7E1E"/><stop offset=".5" stop-color="#D62976"/><stop offset=".75" stop-color="#962FBF"/><stop offset="1" stop-color="#4F5BD5"/></linearGradient></defs><rect x="1" y="1" width="22" height="22" rx="6" fill="url(#igGrad)"/><rect x="6.3" y="6.3" width="11.4" height="11.4" rx="3.6" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="16.4" cy="7.6" r="1.05" fill="#fff"/></svg>',
+  linkedin: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="5" fill="#0A66C2"/><path fill="#fff" d="M6.94 8.5H4.2V18h2.74V8.5zM5.57 7.3a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2zM19.8 18h-2.73v-4.64c0-1.11-.02-2.53-1.54-2.53-1.54 0-1.78 1.2-1.78 2.45V18h-2.73V8.5h2.62v1.3h.04c.37-.69 1.26-1.42 2.58-1.42 2.76 0 3.27 1.82 3.27 4.18V18z"/></svg>',
+  youtube: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="5" width="22" height="14" rx="4.2" fill="#FF0000"/><path fill="#fff" d="M10.2 8.6l5.6 3.4-5.6 3.4z"/></svg>',
+  facebook: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#1877F2"/><path fill="#fff" d="M15.4 12.5l.42-2.72h-2.6V8.01c0-.74.36-1.47 1.53-1.47h1.19V4.23s-1.08-.18-2.11-.18c-2.15 0-3.56 1.3-3.56 3.67v2.06H7.88v2.72h2.38V19h2.96v-6.5z"/></svg>',
+  tiktok: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="5" fill="#000"/><g transform="translate(2 2) scale(.83)"><path fill="#25F4EE" d="M15.3 5.06a4.28 4.28 0 0 0 .93 1.9 4.28 4.28 0 0 0 1.6 1.13v.94a5.9 5.9 0 0 1-2.9-1.06v6.5a5.5 5.5 0 1 1-5.5-5.5c.16 0 .32.01.48.03v3.1a2.4 2.4 0 1 0 1.68 2.29V3h2.9c0 .25.02.5.06.74z"/><path fill="#FE2C55" d="M16.9 6.2a4.28 4.28 0 0 0 1.6 1.13v.94a5.9 5.9 0 0 1-2.9-1.06v6.5a5.5 5.5 0 0 1-8.6 4.53 5.5 5.5 0 0 0 9.24-4V7.74a5.9 5.9 0 0 0 2.9 1.06v-.94a4.28 4.28 0 0 1-2.24-.66z"/><path fill="#fff" d="M8.5 9.04a5.5 5.5 0 0 0-1.5 10.2 5.5 5.5 0 0 1 3.98-9.17c.16 0 .32.01.48.03v3.1a2.4 2.4 0 0 0-.48-.05 2.4 2.4 0 0 0-.98 4.59 2.4 2.4 0 0 1-1.5-2.22V9.07a5.6 5.6 0 0 0-.48-.03z"/><path fill="#fff" d="M15.3 5.06c.04.24.06.49.06.74h-2.9v10.4a2.4 2.4 0 0 1-3.88 1.88 2.4 2.4 0 0 0 4.18-1.62V6.06h2.6c-.03-.33-.06-.66-.06-1z"/></g></svg>',
 };
 const REDE_ROTULO = { instagram: 'Instagram', linkedin: 'LinkedIn', youtube: 'YouTube', facebook: 'Facebook', tiktok: 'TikTok' };
 function redesIcones(redes) {
