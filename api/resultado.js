@@ -115,13 +115,18 @@ export default async function handler(req, res) {
     const cliente = paraCliente(reg.resultado);
     // resposta do palestrante (disponível? + valor) no card — só depois que o cliente
     // pediu disponibilidade e o palestrante respondeu no tíquete (disponibilidade/valor_total).
+    // IMPORTANTE: só mostra a resposta de quem o cliente pediu NESTA curadoria. O negócio
+    // pode ter respostas de outras demandas do mesmo palestrante gravadas na propriedade;
+    // sem esse filtro, elas vazavam pra indicações que o cliente nem chegou a solicitar.
     if (reg.disponibilidade?.palestrantes?.length && reg.hubspot?.negocioId) {
       try {
+        const pedidos = new Set(reg.disponibilidade.palestrantes || []);
         const respostas = await respostasDisponibilidade(reg.hubspot.negocioId);
         // casa por id_contato (o mesmo que a IA Curadoria gravou em cada indicação)
         const idPorNome = {};
         for (const i of reg.resultado.indicacoes) idPorNome[i.nome] = String(i.id_contato || '');
         for (const ind of cliente.indicacoes) {
+          if (!pedidos.has(ind.nome)) continue;   // só quem o cliente solicitou nesta curadoria
           const r = respostas[idPorNome[ind.nome]];
           if (r) ind.resposta = r;
         }
