@@ -1,9 +1,9 @@
 import { decidirAcesso, dadosContato, normalizaDocumento, lerCorpo, cors } from './_lib.js';
 
 // Gate de acesso: o CPF/CNPJ é a chave da curadoria. Decide o que a ferramenta faz:
-//  - modo 'novo'    (ok)  : tem compra "Pago" -> briefing novo
-//  - modo 'retomar' (ok)  : só "Utilizado" com sessão viva -> retomar (devolve id)
-//  - modo 'escolher'(ok)  : tem "Pago" E "Utilizado" visível -> cliente escolhe (id + contato)
+//  - modo 'novo'    (ok)  : tem compra "Pago" e nenhuma curadoria anterior -> briefing novo
+//  - modo 'escolher'(ok)  : tem 1+ curadoria(s) visível(is) -> cliente escolhe qual ver
+//                           (manda a lista; podeNova/contato quando há compra "Pago")
 //  - motivo 'nao_encontrado' (!ok): sem compra usável (nada, ou já utilizada) -> checkout
 //  - motivo 'invalido'/'erro' (!ok): documento inválido / falha transitória -> tenta de novo
 export default async function handler(req, res) {
@@ -22,12 +22,15 @@ export default async function handler(req, res) {
         // já sabemos quem é o comprador (casado pelo CPF/CNPJ) -> manda nome/empresa/
         // email/telefone p/ o chat pré-preencher e o Santiago cumprimentar pelo nome
         return res.status(200).json({ ok: true, modo: 'novo', contato: await dadosContato(dec.contatoId) });
-      case 'retomar':
-        return res.status(200).json({ ok: true, modo: 'retomar', id: dec.id });
       case 'escolher':
-        // tem curadoria anterior (id) E uma compra nova: manda os dois, o front deixa
-        // escolher entre retomar a antiga ou começar um briefing novo (com o contato)
-        return res.status(200).json({ ok: true, modo: 'escolher', id: dec.id, contato: await dadosContato(dec.contatoId) });
+        // lista de curadorias pra escolher qual ver; se há compra "Pago" (podeNova),
+        // manda o contato pra também poder começar uma nova pelo briefing
+        return res.status(200).json({
+          ok: true, modo: 'escolher',
+          curadorias: dec.curadorias,
+          podeNova: dec.podeNova,
+          contato: dec.podeNova ? await dadosContato(dec.contatoId) : null,
+        });
       case 'esgotado':
         return res.status(200).json({ ok: false, motivo: 'nao_encontrado', erro: 'Sua curadoria já foi utilizada. Adquira uma nova para começar de novo.' });
       case 'nenhum':

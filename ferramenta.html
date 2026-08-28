@@ -249,9 +249,9 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
          ou começar outra. "Começar uma nova" só aparece quando há uma compra nova sem
          uso (modo 'escolher'); senão fica só o caminho de comprar outra ('retomar'). -->
     <div id="escolha" style="display:none">
-      <p class="sub" id="escolhaSub" style="margin-top:var(--s-6)">Você já tem uma curadoria com este CPF/CNPJ. O que você prefere?</p>
+      <p class="sub" id="escolhaSub" style="margin-top:var(--s-6)">Você já tem curadorias com este CPF/CNPJ. Escolha qual quer ver:</p>
+      <div id="escolhaLista" style="display:grid;gap:10px;margin:var(--s-4) 0"></div>
       <div class="acoes">
-        <button class="btn btn--primary" id="btnRetomar">Ver minha curadoria anterior →</button>
         <button class="btn btn--primary" id="btnNovaBriefing" style="display:none">Começar uma nova →</button>
         <a class="btn" id="btnCriarNova" href="https://checkout.profissionaissa.com.br/curadoria/checkout/4fbc7e0d-c39c-4241-9334-ef62c2326b55" style="background:#16a34a;color:#fff;box-shadow:0 0 40px #16a34a55">Criar nova curadoria →</a>
       </div>
@@ -503,7 +503,7 @@ document.querySelectorAll('[data-vai]').forEach(b => b.addEventListener('click',
 // ── gate de acesso (paywall por CPF/CNPJ) ──────────────────
 // Só entra quem tem uma compra "Pago" na pipeline Auto Curadoria, casada pelo documento.
 // O servidor revalida em /api/curar — este gate é a porta, não a fechadura.
-let documentoValidado = '', retomarId = '', contatoNovo = {};
+let documentoValidado = '', contatoNovo = {};
 $('#btnAcesso').addEventListener('click', async () => {
   const doc = $('#documento').value.replace(/\D/g, '');
   $('#eGate').textContent = '';
@@ -531,17 +531,29 @@ $('#btnAcesso').addEventListener('click', async () => {
       }
       return;
     }
-    if (j.modo === 'retomar' || j.modo === 'escolher') {
-      // já existe curadoria com este CPF: mostra a escolha
-      retomarId = j.id;
-      const temNova = j.modo === 'escolher';   // há também uma compra nova, ainda sem uso
-      $('#btnNovaBriefing').style.display = temNova ? '' : 'none';
-      $('#btnCriarNova').style.display = temNova ? 'none' : '';   // já tem uma nova: não precisa comprar
-      if (temNova) {
-        documentoValidado = doc;               // "Começar uma nova" usa o Pago existente (fluxo novo)
+    if (j.modo === 'escolher') {
+      // uma ou mais curadorias: monta a lista pra escolher qual ver
+      const lista = $('#escolhaLista');
+      lista.innerHTML = '';
+      (j.curadorias || []).forEach((c) => {
+        const b = document.createElement('button');
+        b.className = 'btn btn--primary';
+        b.style.cssText = 'justify-content:space-between;text-align:left;width:100%';
+        b.innerHTML = `<span>${(c.label || 'Curadoria').replace(/</g, '&lt;')}</span><span>Ver →</span>`;
+        b.addEventListener('click', () => { location.search = 'id=' + c.id; });
+        lista.appendChild(b);
+      });
+      const podeNova = !!j.podeNova;   // há compra "Pago" -> pode começar uma nova pelo briefing
+      $('#btnNovaBriefing').style.display = podeNova ? '' : 'none';
+      $('#btnCriarNova').style.display = podeNova ? 'none' : '';   // sem compra nova -> caminho do checkout
+      if (podeNova) {
+        documentoValidado = doc;
         contatoNovo = j.contato || {};
-        $('#escolhaSub').textContent = 'Você tem uma curadoria anterior e uma compra nova neste CPF/CNPJ. O que você prefere?';
       }
+      const n = (j.curadorias || []).length;
+      $('#escolhaSub').textContent = n > 1
+        ? 'Você tem curadorias com este CPF/CNPJ. Escolha qual quer ver:'
+        : 'Você já tem uma curadoria com este CPF/CNPJ. Veja ela ou comece outra:';
       $('#btnAcesso').style.display = 'none';
       $('#escolha').style.display = '';
       return;
@@ -571,10 +583,8 @@ $('#documento').addEventListener('keydown', (e) => {
     $('#btnAcesso').click();
   }
 });
-// Retomar: recarrega a ferramenta com ?id=<curadoria>, que a IIFE do fim carrega sozinha.
-$('#btnRetomar').addEventListener('click', () => {
-  if (retomarId) location.search = 'id=' + retomarId;
-});
+// (a lista de curadorias é montada dinamicamente em #escolhaLista; cada botão recarrega
+// a ferramenta com ?id=<curadoria>, que a IIFE do fim carrega sozinha.)
 // Começar uma nova: usa a compra "Pago" que ainda não foi usada -> abre o briefing.
 $('#btnNovaBriefing').addEventListener('click', () => {
   iniciarChat(contatoNovo);

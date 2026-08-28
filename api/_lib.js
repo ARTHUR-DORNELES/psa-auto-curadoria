@@ -971,30 +971,66 @@ export async function dadosContato(contatoId) {
   }
 }
 
+/**
+ * Lista TODAS as curadorias visíveis de um CPF/CNPJ (negócios "Utilizado" da pipeline
+ * Auto Curadoria com a sessão viva no Redis), da mais recente pra mais antiga. Cada item
+ * traz { id, label } para o cliente escolher qual ver. Nunca lança.
+ */
+export async function listarCuradorias(bruto) {
+  const doc = normalizaDocumento(bruto);
+  if (!doc) return [];
+  try {
+    const contatos = await hs('/crm/v3/objects/contacts/search', 'POST', {
+      filterGroups: [{ filters: [{ propertyName: doc.tipo, operator: 'EQ', value: doc.valor }] }],
+      properties: [doc.tipo], limit: 100,
+    });
+    const ids = (contatos.results || []).map((c) => c.id);
+    if (!ids.length) return [];
+    const deals = await hs('/crm/v3/objects/deals/search', 'POST', {
+      filterGroups: ids.slice(0, 5).map((cid) => ({
+        filters: [
+          { propertyName: 'pipeline', operator: 'EQ', value: PIPE_AUTOCURADORIA },
+          { propertyName: 'dealstage', operator: 'EQ', value: STAGE_UTILIZADO },
+          { propertyName: 'associations.contact', operator: 'EQ', value: cid },
+        ],
+      })),
+      sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }],
+      properties: ['dealname', 'createdate'],
+      limit: 100,
+    });
+    const out = [];
+    const vistos = new Set();
+    for (const d of (deals.results || [])) {
+      const uuid = await redis().get(chaveDeal(d.id));
+      if (!uuid || vistos.has(uuid)) continue;
+      const bruto2 = await redis().get(chave(uuid));
+      if (!bruto2) continue;
+      let reg; try { reg = JSON.parse(bruto2); } catch (e) { continue; }
+      vistos.add(uuid);
+      const b = reg.briefing || {};
+      const tema = [b.macroTema, b.microTema].filter(Boolean).join(' · ');
+      const label = [b.empresa, tema, dataBR(b.data)].filter(Boolean).join(' · ')
+        || String(d.properties?.dealname || 'Curadoria');
+      out.push({ id: uuid, label, criadoEm: reg.criadoEm || null });
+    }
+    return out;
+  } catch (e) { console.error('listarCuradorias falhou:', e.message); return []; }
+}
+
 export async function decidirAcesso(bruto) {
   if (!normalizaDocumento(bruto)) return { modo: 'invalido' };
   const pago = await creditoPagoPorDocumento(bruto);
+  const curadorias = await listarCuradorias(bruto);
 
-  // Curadoria anterior ainda visível? (negócio "Utilizado" com a sessão viva no Redis.)
-  // Ver a curadoria não pode depender de poder refazê-la: antes exigíamos reg.resultado
-  // presente E refação sobrando, o que trancava o cliente pra fora logo depois de pedir
-  // refação (o resultado é apagado até a automação republicar) e também quando a última
-  // refação já tinha sido usada. O limite de refação é aplicado à parte, no POST de resultado.
-  let retomarId = null;
-  const util = await _negocioAutoCuradoriaPorDoc(bruto, STAGE_UTILIZADO, 'DESCENDING');
-  if (util) {
-    const uuid = await redis().get(chaveDeal(util.dealId));
-    if (uuid && (await redis().get(chave(uuid)))) retomarId = uuid;
+  // Tem curadoria(s) visível(is): o cliente ESCOLHE qual ver na lista; se também houver
+  // compra nova "Pago", pode começar uma nova (briefing) — senão, só via checkout.
+  if (curadorias.length) {
+    return { modo: 'escolher', curadorias, podeNova: !!pago, contatoId: pago ? pago.contatoId : '' };
   }
-
-  // Tem os dois — uma compra nova "Pago" E uma curadoria anterior visível: deixa o
-  // cliente ESCOLHER (ver a antiga ou começar uma nova). Sem isso, a compra nova
-  // curto-circuitava direto pro briefing e a antiga ficava inacessível pelo CPF.
-  if (pago && retomarId) return { modo: 'escolher', contatoId: pago.contatoId, id: retomarId };
   if (pago) return { modo: 'novo', contatoId: pago.contatoId };
-  if (retomarId) return { modo: 'retomar', id: retomarId };
-  if (util) return { modo: 'esgotado' };   // Utilizado mas sem sessão viva (Redis expirou)
-  return { modo: 'nenhum' };
+  // sem curadoria viva: se existe "Utilizado" (expirou) -> esgotado; senão -> nada
+  const util = await _negocioAutoCuradoriaPorDoc(bruto, STAGE_UTILIZADO, 'DESCENDING');
+  return { modo: util ? 'esgotado' : 'nenhum' };
 }
 
 /**
