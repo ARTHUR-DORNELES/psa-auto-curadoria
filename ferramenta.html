@@ -1252,7 +1252,7 @@ function renderCompleto(d) {
           <h3 style="font-family:var(--font-display-wide);text-transform:uppercase;font-size:22px;line-height:1;margin:8px 0 6px;color:var(--fg-1)">${(nome || '').replace(/</g, '&lt;')}</h3>
           <p style="color:var(--fg-2);font-size:14px;line-height:1.5;margin:0 0 16px">Para qual <strong>data do evento</strong> devemos checar a disponibilidade? A resposta depende da agenda do palestrante e pode levar até 1 dia útil.</p>
           <label for="pdData" style="display:block;font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--fg-2);margin-bottom:6px">Data do evento</label>
-          <input type="date" id="pdData" value="${dataPadrao || ''}" min="${new Date().toLocaleDateString('sv')}" style="width:100%;padding:12px 14px;border:1px solid var(--border-strong);border-radius:10px;background:#ffffff0f;color:var(--fg-1);font-size:16px;font-family:var(--font-body);color-scheme:dark">
+          <input type="date" id="pdData" value="${dataPadrao || ''}" min="${new Date().toLocaleDateString('sv')}" style="box-sizing:border-box;width:100%;padding:12px 14px;border:1px solid var(--border-strong);border-radius:10px;background:#ffffff0f;color:var(--fg-1);font-size:16px;font-family:var(--font-body);color-scheme:dark">
           <p id="pdErro" style="color:var(--psa-orange);font-size:13px;min-height:18px;margin:8px 0 0"></p>
           <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px">
             <button type="button" id="pdCancel" style="background:transparent;border:1px solid var(--border-strong);color:var(--fg-1);border-radius:999px;padding:11px 20px;font-family:var(--font-body);font-size:14px;font-weight:600;cursor:pointer">Cancelar</button>
