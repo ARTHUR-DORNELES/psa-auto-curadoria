@@ -386,13 +386,30 @@ export function escolherIndicacoes(lista, n = N_INDICACOES) {
 const _ehImagem = u => /^https?:\/\//i.test(u)
   && !/favicons|google\.com\/s2|\.svg(\?|$)|signed-url-redirect|form-integrations/i.test(u);
 
-// pega a 1ª imagem de verdade do HTML da wiki (a foto de perfil do verbete)
-async function _fotoDaWiki(url) {
-  if (!/^https?:\/\//i.test(url)) return '';
+// redes sociais que extraímos do verbete (ordem de exibição no card fica no front)
+const _REDES = [
+  ['instagram', /https?:\/\/(?:www\.)?instagram\.com\/[^"'\s?<>]+/ig],
+  ['linkedin', /https?:\/\/(?:[a-z]{2,3}\.)?linkedin\.com\/[^"'\s?<>]+/ig],
+  ['youtube', /https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^"'\s?<>]+/ig],
+  ['facebook', /https?:\/\/(?:www\.)?facebook\.com\/[^"'\s?<>]+/ig],
+  ['tiktok', /https?:\/\/(?:www\.)?tiktok\.com\/[^"'\s?<>]+/ig],
+];
+// exclui as redes da PRÓPRIA PSA (se aparecerem em header/footer do verbete)
+const _ehRedePSA = u => /psa\.talk|profissionais-sa|profissionaissa|thebestspeaker/i.test(u);
+
+// lê o verbete UMA vez: foto de perfil (1ª imagem) + redes sociais do palestrante
+async function _dadosDaWiki(url) {
+  const out = { foto: '', redes: {} };
+  if (!/^https?:\/\//i.test(url)) return out;
   try {
     const html = await fetch(url, { signal: AbortSignal.timeout(4500) }).then(r => (r.ok ? r.text() : ''));
-    return [...html.matchAll(/<img[^>]+src="([^"]+)"/gi)].map(m => m[1]).find(_ehImagem) || '';
-  } catch (e) { return ''; }
+    out.foto = [...html.matchAll(/<img[^>]+src="([^"]+)"/gi)].map(m => m[1]).find(_ehImagem) || '';
+    for (const [rede, re] of _REDES) {
+      const hit = (html.match(re) || []).find(u => !_ehRedePSA(u));
+      if (hit) out.redes[rede] = hit;
+    }
+  } catch (e) { /* verbete off/erro -> sem foto/redes */ }
+  return out;
 }
 
 export async function anexarFotos(indicacoes) {
@@ -410,12 +427,13 @@ export async function anexarFotos(indicacoes) {
 
   await Promise.all((indicacoes || []).map(async (ind) => {
     const p = byId[String(ind.id_contato || '')] || {};
-    // 1) foto da WIKI (é a que aparece no verbete, curada e confiável)
-    const daWiki = await _fotoDaWiki(String(p.palestrante_wiki_url || '').trim());
-    if (daWiki) { ind.foto = daWiki; return; }
-    // 2) fallback: foto do cadastro, só se for URL de imagem direta
-    const direta = String(p.mande_uma_foto_bem_bonita_pra_gente_ || '').trim();
-    if (_ehImagem(direta)) ind.foto = direta;
+    // verbete: foto de perfil + redes sociais (uma busca só)
+    const wiki = await _dadosDaWiki(String(p.palestrante_wiki_url || '').trim());
+    // 1) foto da WIKI (curada e confiável); 2) fallback: foto do cadastro (URL de imagem direta)
+    if (wiki.foto) ind.foto = wiki.foto;
+    else { const direta = String(p.mande_uma_foto_bem_bonita_pra_gente_ || '').trim(); if (_ehImagem(direta)) ind.foto = direta; }
+    // redes sociais do palestrante (só as que o verbete tem)
+    if (wiki.redes && Object.keys(wiki.redes).length) ind.redes = wiki.redes;
   }));
   return indicacoes;
 }

@@ -106,6 +106,10 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .ind__rank{font-family:var(--font-mono);font-size:var(--t-caption);color:var(--psa-orange)}
 .ind__nome{font-family:var(--font-display-wide);font-weight:800;text-transform:uppercase;font-size:clamp(18px,3vw,24px)}
 .ind__fit{margin-left:auto;font-family:var(--font-mono);font-size:var(--t-caption);color:var(--fg-2);border:1px solid var(--border);border-radius:var(--r-pill);padding:4px 12px}
+.ind__redes{display:inline-flex;align-items:center;gap:10px;align-self:center}
+.ind__rede{display:inline-flex;color:var(--fg-2);transition:color .15s}
+.ind__rede:hover{color:var(--psa-orange)}
+.ind__rede svg{width:18px;height:18px;display:block}
 .ind ul{list-style:none;display:grid;gap:10px;margin-bottom:var(--s-4)}
 .ind li{font-size:var(--t-body-sm);color:var(--fg-2);padding-left:20px;position:relative}
 .ind li::before{content:"";position:absolute;left:0;top:9px;width:8px;height:2px;background:var(--psa-orange)}
@@ -1058,6 +1062,22 @@ const SILHUETA = '<svg viewBox="0 0 64 74" fill="currentColor" aria-hidden="true
 // onload: descarta imagem larga demais (banner/screenshot, não retrato) -> mostra silhueta
 const fotoCard = ind => `<div class="ind__foto"><div class="ind__silhueta">${SILHUETA}</div>${ind.foto ? `<img class="ind__img" src="${esc(ind.foto)}" alt="" loading="lazy" onerror="this.remove()" onload="if(this.naturalWidth/this.naturalHeight>1.7)this.remove()">` : ''}</div>`;
 
+// redes sociais do palestrante (só o símbolo, clicável) — apenas as que o verbete tem
+const REDE_ICON = {
+  instagram: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.2c3.2 0 3.6 0 4.9.07 1.2.05 1.8.25 2.2.42.6.22 1 .48 1.4.9.4.4.7.8.9 1.4.2.4.4 1 .4 2.2.1 1.3.1 1.7.1 4.9s0 3.6-.1 4.9c0 1.2-.2 1.8-.4 2.2-.2.6-.5 1-.9 1.4-.4.4-.8.7-1.4.9-.4.2-1 .4-2.2.4-1.3.1-1.7.1-4.9.1s-3.6 0-4.9-.1c-1.2 0-1.8-.2-2.2-.4-.6-.2-1-.5-1.4-.9-.4-.4-.7-.8-.9-1.4-.2-.4-.4-1-.4-2.2C2.2 15.6 2.2 15.2 2.2 12s0-3.6.1-4.9c0-1.2.2-1.8.4-2.2.2-.6.5-1 .9-1.4.4-.4.8-.7 1.4-.9.4-.2 1-.4 2.2-.4C8.4 2.2 8.8 2.2 12 2.2zm0 1.8c-3.1 0-3.5 0-4.7.07-1.1.05-1.7.24-2.1.4-.5.2-.9.44-1.3.84-.4.4-.64.8-.84 1.3-.16.4-.35 1-.4 2.1C2.6 9.9 2.6 10.3 2.6 12s0 2.1.06 3.3c.05 1.1.24 1.7.4 2.1.2.5.44.9.84 1.3.4.4.8.64 1.3.84.4.16 1 .35 2.1.4 1.2.06 1.6.07 4.7.07s3.5 0 4.7-.07c1.1-.05 1.7-.24 2.1-.4.5-.2.9-.44 1.3-.84.4-.4.64-.8.84-1.3.16-.4.35-1 .4-2.1.06-1.2.07-1.6.07-3.3s0-2.1-.07-3.3c-.05-1.1-.24-1.7-.4-2.1-.2-.5-.44-.9-.84-1.3-.4-.4-.8-.64-1.3-.84-.4-.16-1-.35-2.1-.4C15.5 4 15.1 4 12 4zm0 3.06A4.94 4.94 0 1 0 12 17a4.94 4.94 0 0 0 0-9.88zm0 8.15A3.2 3.2 0 1 1 12 8.8a3.2 3.2 0 0 1 0 6.4zm6.3-8.35a1.15 1.15 0 1 1-2.3 0 1.15 1.15 0 0 1 2.3 0z"/></svg>',
+  linkedin: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.55V9h3.57v11.45zM22.22 0H1.77C.8 0 0 .78 0 1.75v20.5C0 23.2.8 24 1.77 24h20.45c.98 0 1.78-.8 1.78-1.75V1.75C24 .78 23.2 0 22.22 0z"/></svg>',
+  youtube: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1c.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.6 15.6V8.4l6.2 3.6-6.2 3.6z"/></svg>',
+  facebook: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.25h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z"/></svg>',
+  tiktok: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.6 5.82a4.28 4.28 0 0 1-1.06-2.82h-3.3v13.16a2.6 2.6 0 0 1-2.6 2.5 2.6 2.6 0 1 1 .78-5.08V10.2a5.9 5.9 0 0 0-.78-.05 5.9 5.9 0 1 0 5.9 5.9V9.01a7.56 7.56 0 0 0 4.4 1.41V7.12a4.28 4.28 0 0 1-3.34-1.3z"/></svg>',
+};
+const REDE_ROTULO = { instagram: 'Instagram', linkedin: 'LinkedIn', youtube: 'YouTube', facebook: 'Facebook', tiktok: 'TikTok' };
+function redesIcones(redes) {
+  if (!redes) return '';
+  const itens = Object.keys(REDE_ICON).filter(k => redes[k]).map(k =>
+    `<a class="ind__rede" href="${esc(redes[k])}" target="_blank" rel="noopener noreferrer" title="${REDE_ROTULO[k]}" aria-label="${REDE_ROTULO[k]}">${REDE_ICON[k]}</a>`);
+  return itens.length ? `<span class="ind__redes">${itens.join('')}</span>` : '';
+}
+
 function renderTeaser(j) {
   const t = j.teaser;
   $('#resultado').innerHTML = `
@@ -1180,6 +1200,7 @@ function renderCompleto(d) {
           <div class="ind__top">
             <span class="ind__rank">INDICAÇÃO 0${n + 1}</span>
             <span class="ind__nome">${esc(ind.nome)}</span>
+            ${redesIcones(ind.redes)}
             <span class="ind__fit">aderência ${esc(ind.aderencia)}</span>
           </div>
           <div class="ind__meta">
