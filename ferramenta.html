@@ -1207,7 +1207,7 @@ function renderCompleto(d) {
           <div class="ind__meta">
             ${ind.perfil ? `<strong>${esc(ind.perfil)}</strong>` : ''}
             ${ind.valorVenda
-              ? `<span class="ind__faixa">Valor de venda: ${esc(ind.valorVenda)}</span>`
+              ? `<span class="ind__faixa">Valor da curadoria: ${esc(ind.valorVenda)}</span>`
               : (ind.faixa ? `<span class="ind__faixa">investimento ${esc(ind.faixa)}</span>` : '')}
           </div>
           <ul>${ind.porque.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
