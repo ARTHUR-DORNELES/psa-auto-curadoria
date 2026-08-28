@@ -268,6 +268,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
         <div class="santi-av" id="santiAv">
           <video class="santi-vid" data-estado="falando" autoplay loop muted playsinline preload="auto" poster="https://psa-auto-curadoria.vercel.app/santiago.png"><source src="https://psa-auto-curadoria.vercel.app/santiago-falando.mp4" type="video/mp4"></video>
           <video class="santi-vid" data-estado="pensando" loop muted playsinline preload="auto" hidden><source src="https://psa-auto-curadoria.vercel.app/santiago-pensando.mp4" type="video/mp4"></video>
+          <video class="santi-vid" data-estado="esperando" loop muted playsinline preload="auto" hidden><source src="https://psa-auto-curadoria.vercel.app/santiago-esperando.mp4" type="video/mp4"></video>
           <span class="santi-dot"></span>
           <div class="santi-legenda">Santiago<small>curador responsável</small></div>
         </div>
@@ -594,7 +595,7 @@ $('#btnNovaBriefing').addEventListener('click', () => {
 const chatHist = [];        // [{role:'santiago'|'user', content}]
 let chatSlots = {}, campoAtual = '';   // campoAtual = campo que o widget está pedindo
 
-// troca o vídeo do avatar: 'idle' | 'pensando' | 'falando' (mostra 1, pausa os outros)
+// troca o vídeo do avatar: 'falando' | 'pensando' | 'esperando' (mostra 1, pausa os outros)
 function santiEstado(estado) {
   document.querySelectorAll('#santiAv .santi-vid').forEach(v => {
     const on = v.dataset.estado === estado;
@@ -619,7 +620,7 @@ function digitarBolha(texto) {
     const timer = setInterval(() => {
       span.textContent = texto.slice(0, i += 1);
       chatScroll();
-      if (i >= texto.length) { clearInterval(timer); pausarSanti(); resolve(); }  // parou de escrever -> congela
+      if (i >= texto.length) { clearInterval(timer); santiEstado('esperando'); resolve(); }  // parou de falar -> vídeo de espera
     }, 35);
   });
 }
