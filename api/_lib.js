@@ -278,6 +278,24 @@ export async function criarNegocioCuradoria(contatoId, briefing, id, notaExtra =
   return { negocioId: deal.id };
 }
 
+// Aciona a automação da IA Curadoria DIRETO pelo webhook de produção do n8n, com o negócio.
+// Usado na REFAÇÃO: uma 2ª observação no mesmo negócio não re-dispara o gatilho do HubSpot,
+// então a ferramenta chama o webhook na mão (mesmo payload do gatilho: { hs_object_id }).
+// Assim a refação regenera no MESMO negócio, sem criar um segundo. Nunca lança.
+const N8N_WEBHOOK_CURADORIA = process.env.N8N_WEBHOOK_CURADORIA
+  || 'https://n8n.profissionaissa.tchat.telnet23.com.br/webhook/39000a02-7787-4f11-a722-93a3575c1667';
+export async function dispararWebhookCuradoria(dealId) {
+  if (!dealId) return false;
+  try {
+    await fetch(N8N_WEBHOOK_CURADORIA, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hs_object_id: String(dealId) }),
+    });
+    return true;
+  } catch (e) { console.error('dispararWebhookCuradoria falhou:', e.message); return false; }
+}
+
 // Move o negócio da curadoria para "Curadorias finalizadas" (após a refação). Nunca lança.
 export async function finalizarCuradoria(dealId) {
   if (!dealId) return false;

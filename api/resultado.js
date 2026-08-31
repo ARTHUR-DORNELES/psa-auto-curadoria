@@ -1,4 +1,4 @@
-import { redis, chave, chaveDeal, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, criarNegocioCuradoria, finalizarCuradoria, chaveDeNome, respostasDisponibilidade } from './_lib.js';
+import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, finalizarCuradoria, chaveDeNome, respostasDisponibilidade } from './_lib.js';
 
 const ACOES = {
   curador: 'CLIENTE PEDIU ATENDIMENTO DE CURADOR — assumir o processo pelo caminho tradicional.',
@@ -157,36 +157,34 @@ export default async function handler(req, res) {
       const recusados = reg.resultado.indicacoes.map(i => i.nome);
       reg.descartados = [...new Set([...(reg.descartados || []), ...recusados])];
       reg.refacoes = feitas + 1;
-      const negocioAnterior = reg.hubspot?.negocioId;
       delete reg.resultado;
       reg.refeitoEm = new Date().toISOString();   // reinicia o relógio do timeout p/ esta refação
       // NÃO zera reg.pago: quem passou pelo gate segue liberado a sessão inteira.
-
-      // A refação CRIA UM NEGÓCIO NOVO em "Curadorias criadas" (não re-emite nota no mesmo
-      // negócio: uma 2ª observação NÃO re-dispara o gatilho — só a criação dispara). O bloco
-      // NAO_REPETIR exclui os nomes já mostrados; a automação regenera com indicações
-      // diferentes. O negócio anterior vai para "Curadorias finalizadas".
-      const naoRepetir = [
-        `— REFAÇÃO ${reg.refacoes} de ${MAX_REFACOES} —`,
-        'Gere nomes DIFERENTES para o mesmo briefing. NÃO repita os palestrantes já apresentados:',
-        ...reg.descartados.map(n => `- ${n}`),
-        // marcador legível por máquina: o node "Unifica 6" lê os nomes entre colchetes p/ excluir.
-        `NAO_REPETIR: [${reg.descartados.join(' | ')}]`,
-        '',
-        `Regravar a propriedade ${PROP_NOMES} com as novas indicações. Curadoria: ${id}`,
-      ].join('\n');
-
-      try {
-        const nova = await criarNegocioCuradoria(reg.contatoId, reg.briefing || {}, id, naoRepetir);
-        reg.hubspot = nova;   // a curadoria passa a viver no negócio da refação
-        await redis().set(chaveDeal(nova.negocioId), id, 'EX', 60 * 60 * 24 * 90);
-        if (negocioAnterior) await finalizarCuradoria(negocioAnterior);   // anterior -> finalizadas
-      } catch (e) {
-        console.error('refação: criar novo negócio falhou:', e.message);
-        return res.status(502).json({ erro: 'não conseguimos iniciar a refação agora. Tente de novo em instantes.' });
-      }
-
       await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
+
+      // Refação no MESMO negócio (não cria um segundo): re-emite a nota do briefing +
+      // NAO_REPETIR e aciona o webhook do n8n na mão (a 2ª observação não re-dispara o gatilho
+      // do HubSpot). O negócio vai para "Curadorias finalizadas", onde fica o resultado da refação.
+      const dealId = reg.hubspot?.negocioId;
+      if (dealId) {
+        try {
+          await nota(dealId, [
+            notaDoBriefing(reg.briefing || {}, null, id),
+            '',
+            `— REFAÇÃO ${reg.refacoes} de ${MAX_REFACOES} —`,
+            'Gere nomes DIFERENTES para o mesmo briefing. NÃO repita os palestrantes já apresentados:',
+            ...reg.descartados.map(n => `- ${n}`),
+            // marcador legível por máquina: o node "Unifica 6" lê os nomes entre colchetes p/ excluir.
+            `NAO_REPETIR: [${reg.descartados.join(' | ')}]`,
+            '',
+            `Regravar a propriedade ${PROP_NOMES} com as novas indicações. Curadoria: ${id}`,
+          ].join('\n'));
+          await dispararWebhookCuradoria(dealId);   // regenera no mesmo negócio (sem depender do gatilho)
+          await finalizarCuradoria(dealId);          // negócio -> "Curadorias finalizadas"
+        } catch (e) {
+          console.error('nota/disparo de refação falhou:', e.message);
+        }
+      }
       return res.status(200).json({ ok: true, refacoes: reg.refacoes, restantes: MAX_REFACOES - reg.refacoes });
     }
 
