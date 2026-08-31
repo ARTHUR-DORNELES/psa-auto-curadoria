@@ -583,7 +583,11 @@ $('#btnAcesso').addEventListener('click', async () => {
         const b = document.createElement('button');
         b.className = 'btn btn--primary';
         b.style.cssText = 'justify-content:space-between;text-align:left;width:100%';
-        b.innerHTML = `<span>${(c.label || 'Curadoria').replace(/</g, '&lt;')}</span><span>Ver →</span>`;
+        // data de criação (sempre existe) ajuda a diferenciar curadorias com o mesmo tema/empresa
+        let criada = '';
+        try { if (c.criadoEm) criada = new Date(c.criadoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch (e) {}
+        const rot = (c.label || 'Curadoria').replace(/</g, '&lt;');
+        b.innerHTML = `<span style="display:flex;flex-direction:column;gap:3px;align-items:flex-start;min-width:0"><span>${rot}</span>${criada ? `<span style="font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;opacity:.85">criada em ${criada}</span>` : ''}</span><span style="flex:none">Ver →</span>`;
         b.addEventListener('click', () => { location.search = 'id=' + c.id; });
         lista.appendChild(b);
       });
