@@ -259,7 +259,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
   <div class="bar">
     <a href="/"><img src="https://psasite.vercel.app/_next/image?url=%2Fbrand%2Flogos%2Flogo-01.png&w=256&q=75" alt="PSA Palestras"></a>
     <span class="eyebrow">Auto Curadoria</span>
-    <a class="volta" href="/">← voltar</a>
+    <a class="volta" id="btnVoltar" href="/">← voltar</a>
   </div>
 </header>
 
@@ -554,6 +554,7 @@ $('#btnAcesso').addEventListener('click', async () => {
     $('#eGate').textContent = 'Informe um CPF (11 dígitos) ou CNPJ (14 dígitos), só números.';
     return;
   }
+  try { sessionStorage.setItem('ac_doc', doc); } catch (e) {}   // p/ o "voltar" reconstruir a escolha
   $('#btnAcesso').disabled = true;
   $('#btnAcesso').textContent = 'Validando…';
   try {
@@ -631,6 +632,19 @@ $('#documento').addEventListener('keydown', (e) => {
 // Começar uma nova: usa a compra "Pago" que ainda não foi usada -> abre o briefing.
 $('#btnNovaBriefing').addEventListener('click', () => {
   iniciarChat(contatoNovo);
+});
+
+// "← voltar": no gate, sai pra LP (href="/"). Nas demais telas, volta pra tela de ESCOLHA
+// (que fica dentro do #gate). Se a escolha não está montada (curadoria aberta por link ?id),
+// reconstrói a partir do CPF guardado.
+$('#btnVoltar').addEventListener('click', (e) => {
+  if ($('#gate').classList.contains('on')) return;   // já no gate -> deixa o link levar pra LP
+  e.preventDefault();
+  const temEscolha = $('#escolha') && $('#escolha').style.display !== 'none' && $('#escolhaLista').children.length;
+  if (temEscolha) { mostra('gate'); return; }
+  let cpf = ''; try { cpf = sessionStorage.getItem('ac_doc') || ''; } catch (err) {}
+  if (cpf) { $('#documento').value = cpf; mostra('gate'); $('#btnAcesso').click(); }   // reconstrói a escolha
+  else { mostra('gate'); }
 });
 
 // ── conversa com o Santiago (curador) ──────────────────────
