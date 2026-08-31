@@ -1039,7 +1039,9 @@ export async function assinaturaAtivaPorDocumento(bruto) {
   const found = await _negocioAutoCuradoriaPorDoc(bruto, STAGE_PAGO, 'DESCENDING', ['closedate']);
   if (!found) return null;
   const dataPag = found.props.closedate || found.props.createdate || '';
-  const ts = dataPag ? Date.parse(dataPag) : NaN;
+  // HubSpot devolve datas como epoch em ms (string só de dígitos); Date.parse disso dá NaN.
+  const raw = String(dataPag).trim();
+  const ts = /^\d{10,}$/.test(raw) ? Number(raw) : Date.parse(raw);
   // sem data legível -> considera ativa (não travar acesso por falta de campo)
   const ativa = Number.isFinite(ts) ? (Date.now() - ts) < ANO_MS : true;
   const vence = Number.isFinite(ts) ? new Date(ts + ANO_MS).toISOString() : null;
