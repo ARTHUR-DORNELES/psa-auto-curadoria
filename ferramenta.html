@@ -122,6 +122,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .ind--trocar .ind__stamp{background:#dc2626d9;color:#fff;border-color:#ef4444;transform:translateX(-50%) rotate(4deg)}
 .ind--dragM .ind__stamp{background:#16a34aee;color:#eafff1;border-color:#22c55e;transform:translateX(-50%) rotate(-4deg) scale(1.14)}
 .ind--dragT .ind__stamp{background:#dc2626ee;color:#fff;border-color:#ef4444;transform:translateX(-50%) rotate(4deg) scale(1.14)}
+.ind--travado .ind__stamp{cursor:default}
 .manter-cont{font-family:var(--font-mono);font-size:12px;color:var(--psa-orange);letter-spacing:.04em}
 /* explicador animado da dinâmica (antes dos nomes) */
 .tut{display:flex;gap:18px;align-items:center;background:#ffffff07;border:1px solid var(--border);border-radius:var(--r-md);padding:16px 44px 16px 18px;margin-bottom:var(--s-5);position:relative}
@@ -1244,8 +1245,8 @@ function renderCompleto(d) {
       <button class="tut__x" id="tutX" aria-label="Fechar">×</button>
     </div>` : ''}
     ${r.indicacoes.map((ind, n) => `
-      <article class="ind"${d.refacoesRestantes > 0 ? ` data-nome="${esc(ind.nome)}"` : ''}>
-        ${d.refacoesRestantes > 0 ? '<span class="ind__stamp">Trocar</span>' : ''}
+      <article class="ind"${d.refacoesRestantes > 0 ? ` data-nome="${esc(ind.nome)}"${(d.disponibilidade?.palestrantes || []).includes(ind.nome) ? ' data-solicitado="1"' : ''}${ind.resposta && ind.resposta.disponivel === false ? ' data-indisponivel="1"' : ''}` : ''}>
+        ${d.refacoesRestantes > 0 ? '<span class="ind__stamp">Manter</span>' : ''}
         <div class="ind__corpo">
           <div class="ind__top">
             <span class="ind__rank">INDICAÇÃO 0${n + 1}</span>
@@ -1359,6 +1360,16 @@ function renderCompleto(d) {
         });
         if (!r.ok) throw new Error(await r.text());
         await r.json();
+        // solicitou disponibilidade -> trava o card como MANTER na hora (não dá pra trocar quem
+        // você já mandou checar agenda). A resposta "indisponível" destrava depois.
+        const art = btn.closest('.ind');
+        if (art && art.dataset.nome) {
+          art.dataset.solicitado = '1';
+          art.classList.remove('ind--trocar', 'ind--arrastavel');
+          art.classList.add('ind--manter', 'ind--travado');
+          const sel = art.querySelector('.ind__stamp'); if (sel) sel.textContent = '🔒 Manter';
+          const cont = $('#manterContador'); if (cont) { const q = $('#resultado').querySelectorAll('.ind--manter').length; cont.textContent = q ? `${q} de 3 mantidos` : ''; }
+        }
         // troca só este botão pelo ✓; os demais seguem disponíveis
         btn.outerHTML = `<span class="chip chip--feito">✓ Disponibilidade e orçamento solicitados</span>`;
       } catch (e) {
@@ -1430,7 +1441,7 @@ function renderCompleto(d) {
   const contadorEl = $('#manterContador');
   const atualizaContador = () => { if (contadorEl) { const q = mantidosNomes().length; contadorEl.textContent = q ? `${q} de ${MAX_MANTER_F} mantidos` : ''; } };
   const estadoDe = art => art.classList.contains('ind--manter') ? 'manter' : (art.classList.contains('ind--trocar') ? 'trocar' : 'neutro');
-  const pintaSelo = art => { const s = art.querySelector('.ind__stamp'); if (!s) return; const e = estadoDe(art); s.textContent = e === 'manter' ? 'Manter' : (e === 'trocar' ? 'Trocar' : ''); };
+  const pintaSelo = art => { const s = art.querySelector('.ind__stamp'); if (!s) return; const e = estadoDe(art); s.textContent = e === 'manter' ? (art.classList.contains('ind--travado') ? '🔒 Manter' : 'Manter') : (e === 'trocar' ? 'Trocar' : ''); };
   const setEstado = (art, e) => {
     if (e === 'manter' && estadoDe(art) !== 'manter' && mantidosNomes().length >= MAX_MANTER_F) {
       art.classList.remove('ind--shake'); void art.offsetWidth; art.classList.add('ind--shake');
@@ -1442,13 +1453,18 @@ function renderCompleto(d) {
     pintaSelo(art); atualizaContador();
   };
   cards().forEach(art => {
-    art.classList.add('ind--arrastavel');
     const foto = art.querySelector('.ind__foto'); const stamp = art.querySelector('.ind__stamp');
     if (foto && stamp) foto.appendChild(stamp);   // selo vai pra base da foto
+    // Solicitou disponibilidade e ainda não veio "indisponível" -> auto MANTER e TRAVADO
+    // (não dá pra trocar quem você já mandou checar agenda). Indisponível destrava.
+    const travado = art.dataset.solicitado === '1' && art.dataset.indisponivel !== '1';
+    if (travado) { art.classList.add('ind--manter', 'ind--travado'); pintaSelo(art); return; }
+    art.classList.add('ind--arrastavel');
     pintaSelo(art);
-    stamp?.addEventListener('click', ev => { ev.stopPropagation(); setEstado(art, estadoDe(art) === 'manter' ? 'neutro' : 'manter'); });
+    stamp?.addEventListener('click', ev => { ev.stopPropagation(); if (art.classList.contains('ind--travado')) return; setEstado(art, estadoDe(art) === 'manter' ? 'neutro' : 'manter'); });
     let x0 = 0, dx = 0, drag = false, pid = null;
     art.addEventListener('pointerdown', ev => {
+      if (art.classList.contains('ind--travado')) return;   // solicitou disponibilidade: travado
       if (ev.target.closest('button,a,input,label,.acoes-pos,.resp,.ind__stamp')) return;   // não atrapalha ações/selo
       drag = true; x0 = ev.clientX; dx = 0; pid = ev.pointerId; try { art.setPointerCapture(pid); } catch (e) {} art.classList.add('ind--drag');
     });
