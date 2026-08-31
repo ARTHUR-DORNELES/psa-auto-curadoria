@@ -761,6 +761,7 @@ function chatFinaliza() {
     localEvento: s.localEvento, cidade: s.cidade, local: s.estado,   // curar: `local` = estado
     orcamento: s.orcamento, vendaIngresso: s.vendaIngresso,
     motivacao: s.motivacao, sentimento: s.sentimento,
+    palestranteDesejado: s.palestranteDesejado || '', empresaPalestra: s.empresaPalestra || '',
     briefing: s.contexto || '',                                      // curar: `briefing` = contexto
   }, (e) => {
     mostra('chat', 0);

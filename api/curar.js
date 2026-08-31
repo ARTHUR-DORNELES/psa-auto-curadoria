@@ -45,6 +45,8 @@ export default async function handler(req, res) {
       localEvento: b.localEvento, cidade: b.cidade, local: b.local,
       orcamento: b.orcamento, vendaIngresso: b.vendaIngresso,
       motivacao: b.motivacao, sentimento: b.sentimento,
+      palestranteDesejado: String(b.palestranteDesejado || '').slice(0, 300),
+      empresaPalestra: String(b.empresaPalestra || '').slice(0, 300),
       briefing: String(b.briefing || '').slice(0, 4000),
       utm: b.utm || {},
     };

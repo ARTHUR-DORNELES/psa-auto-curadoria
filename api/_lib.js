@@ -307,6 +307,7 @@ export function notaDoBriefing(b, resultado, id) {
     '— EVENTO —',
     `Tema: ${b.macroTema || 'não informado'}`,
     `Recorte do tema: ${b.microTema || 'não informado'}`,
+    `Empresa da palestra: ${b.empresaPalestra || 'não informado'}`,
     `Público-alvo: ${b.publicoAlvo || 'não informado'}`,
     `Formato: ${b.formato || 'não informado'}`,
     `Data: ${dataBR(b.data) || 'a definir'}`,
@@ -321,6 +322,7 @@ export function notaDoBriefing(b, resultado, id) {
     '— OBJETIVO —',
     `O que motivou a busca: ${b.motivacao || 'não informado'}`,
     `Como o público deve sair: ${b.sentimento || 'não informado'}`,
+    `Palestrante desejado pelo cliente: ${b.palestranteDesejado || 'sem preferência informada'}`,
     `Contexto adicional: ${b.briefing?.trim() || '(não preencheu)'}`,
   ];
 

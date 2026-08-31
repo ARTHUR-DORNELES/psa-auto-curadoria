@@ -13,7 +13,7 @@ const MODEL = 'claude-sonnet-5';
 // opcional (pode ser "a definir"; só obrigatória ao solicitar disponibilidade).
 const OBRIGATORIOS = ['nome', 'empresa', 'email', 'telefone', 'macroTema', 'publicoAlvo',
   'formato', 'horario', 'duracao', 'localEvento', 'estado', 'cidade', 'orcamento',
-  'vendaIngresso', 'motivacao', 'sentimento'];
+  'vendaIngresso', 'motivacao', 'sentimento', 'palestranteDesejado', 'empresaPalestra'];
 
 // campos de valor fechado -> validados contra a lista e travados no schema de saída
 const ENUM = {
@@ -29,6 +29,8 @@ const rotuloCampo = {
   localEvento: 'local do evento (nome do espaço)', estado: 'estado', cidade: 'cidade',
   orcamento: 'orçamento', vendaIngresso: 'evento com venda de ingresso?',
   motivacao: 'o que motivou a busca por esse tema', sentimento: 'como o público deve sair do evento',
+  palestranteDesejado: 'algum palestrante específico que já gostaria (se não tiver, tudo bem)',
+  empresaPalestra: 'para qual empresa é essa palestra',
   contexto: 'algum contexto extra (opcional)',
 };
 
@@ -73,6 +75,7 @@ function aceitaBackstop(campo, val, slots) {
 const propsCampos = {
   nome: { type: 'string' }, empresa: { type: 'string' }, email: { type: 'string' },
   telefone: { type: 'string' }, microTema: { type: 'string' },
+  palestranteDesejado: { type: 'string' }, empresaPalestra: { type: 'string' },
   localEvento: { type: 'string' }, cidade: { type: 'string' },
   data: { type: 'string', description: 'YYYY-MM-DD' }, horario: { type: 'string', description: 'HH:MM' },
   contexto: { type: 'string' },
@@ -132,14 +135,17 @@ function sistema(faltando, slots) {
     '- A DATA do evento é OPCIONAL: pergunte, mas se o cliente disser que ainda não tem/"a definir",',
     '  deixe "data" vazia e siga em frente (a data será pedida depois, se ele solicitar disponibilidade).',
     '- Pergunte UM assunto por vez. Em "proximoCampo" devolva a chave do próximo campo a captar.',
-    '- "microTema" e "contexto" são opcionais — pode pular se o cliente não quiser detalhar.',
+    '- "microTema" e "contexto" são opcionais, pode pular se o cliente não quiser detalhar.',
+    '- Perto do fim, faça também estas duas perguntas (uma por vez): (a) se o cliente já tem',
+    '  um palestrante específico em mente (campo palestranteDesejado); se ele não tiver, tudo bem,',
+    '  registre algo como "não tem preferência"; (b) para qual empresa é essa palestra (campo empresaPalestra).',
     '- Quando TODOS os obrigatórios estiverem captados, mande uma mensagem de fechamento curta',
     '  ("perfeito, é só isso que eu precisava — vou montar sua curadoria") e devolva completo=true.',
     '',
     '',
     'RESPONDA SEMPRE apenas com um JSON válido (nada antes nem depois), nesta forma exata:',
     '{"mensagem":"sua fala aqui","campos":{...só os campos captados nesta rodada...},"proximoCampo":"chave do próximo campo ou \\"\\"","completo":false}',
-    'Chaves possíveis em "campos": nome, empresa, email, telefone, macroTema, microTema, publicoAlvo, formato, data, horario, duracao, localEvento, estado, cidade, orcamento, vendaIngresso, motivacao, sentimento, contexto. Só inclua as que captou nesta rodada; use o valor EXATO das listas fechadas.',
+    'Chaves possíveis em "campos": nome, empresa, email, telefone, macroTema, microTema, publicoAlvo, formato, data, horario, duracao, localEvento, estado, cidade, orcamento, vendaIngresso, motivacao, sentimento, palestranteDesejado, empresaPalestra, contexto. Só inclua as que captou nesta rodada; use o valor EXATO das listas fechadas.',
     '',
     `Campos obrigatórios ainda faltando: ${faltando.length ? faltando.map(c => rotuloCampo[c] || c).join(', ') : '(nenhum — pode fechar)'}.`,
     `Já captado: ${Object.keys(slots).filter(k => slots[k]).map(k => `${k}=${slots[k]}`).join('; ') || '(nada ainda)'}.`,
