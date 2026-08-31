@@ -114,11 +114,31 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .ind--manter{box-shadow:0 0 0 2px #22c55e}
 .ind--shake{animation:indShake .4s}
 @keyframes indShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
-.ind__stamp{position:absolute;top:14px;right:14px;z-index:5;font-family:var(--font-display-wide);font-weight:800;text-transform:uppercase;letter-spacing:.05em;font-size:14px;padding:5px 12px;border-radius:8px;border:2px solid;cursor:pointer;user-select:none;transition:transform .15s ease,background .15s,color .15s,border-color .15s;background:#dc262622;color:#fca5a5;border-color:#ef444466;transform:rotate(6deg)}
-.ind--manter .ind__stamp{background:#16a34a2e;color:#86efac;border-color:#22c55e;transform:rotate(-6deg)}
-.ind--dragM .ind__stamp{background:#16a34ae6;color:#dcfce7;border-color:#22c55e;transform:rotate(-6deg) scale(1.18)}
-.ind--dragT .ind__stamp{background:#dc2626e6;color:#fee2e2;border-color:#ef4444;transform:rotate(6deg) scale(1.18)}
+/* selo na base da foto (fica dentro do .ind__foto) */
+.ind__stamp{position:absolute;left:50%;bottom:12px;z-index:5;font-family:var(--font-display-wide);font-weight:800;text-transform:uppercase;letter-spacing:.06em;font-size:clamp(16px,1.8vw,20px);padding:7px 15px;border-radius:10px;border:2.5px solid;cursor:pointer;user-select:none;white-space:nowrap;opacity:0;transition:opacity .15s,transform .15s,background .15s,color .15s,border-color .15s;transform:translateX(-50%) rotate(-4deg)}
+/* neutro (padrão) = sem status: selo escondido. Só aparece com decisão ou durante o arraste. */
+.ind--manter .ind__stamp,.ind--trocar .ind__stamp,.ind--dragM .ind__stamp,.ind--dragT .ind__stamp{opacity:1}
+.ind--manter .ind__stamp{background:#16a34aee;color:#eafff1;border-color:#22c55e;transform:translateX(-50%) rotate(-4deg)}
+.ind--trocar .ind__stamp{background:#dc2626d9;color:#fff;border-color:#ef4444;transform:translateX(-50%) rotate(4deg)}
+.ind--dragM .ind__stamp{background:#16a34aee;color:#eafff1;border-color:#22c55e;transform:translateX(-50%) rotate(-4deg) scale(1.14)}
+.ind--dragT .ind__stamp{background:#dc2626ee;color:#fff;border-color:#ef4444;transform:translateX(-50%) rotate(4deg) scale(1.14)}
 .manter-cont{font-family:var(--font-mono);font-size:12px;color:var(--psa-orange);letter-spacing:.04em}
+/* explicador animado da dinâmica (antes dos nomes) */
+.tut{display:flex;gap:18px;align-items:center;background:#ffffff07;border:1px solid var(--border);border-radius:var(--r-md);padding:16px 44px 16px 18px;margin-bottom:var(--s-5);position:relative}
+.tut__demo{flex:none;width:96px;height:78px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.tut__card{width:60px;height:60px;border-radius:10px;background:#ffffff14;border:1px solid var(--border-strong);position:relative;animation:tutSwipe 4.2s ease-in-out infinite}
+.tut__stamp{position:absolute;top:9px;left:50%;transform:translateX(-50%);font-family:var(--font-display-wide);font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:3px 7px;border-radius:6px;border:1.5px solid;opacity:0;white-space:nowrap}
+.tut__stamp--m{color:#eafff1;background:#16a34a;border-color:#22c55e;animation:tutM 4.2s ease-in-out infinite}
+.tut__stamp--t{color:#fff;background:#dc2626;border-color:#ef4444;animation:tutT 4.2s ease-in-out infinite}
+.tut__txt strong{font-family:var(--font-display-wide);text-transform:uppercase;font-size:15px}
+.tut__txt p{font-size:13px;color:var(--fg-2);margin-top:3px;line-height:1.45}
+.tut__ok{color:#4ade80}.tut__no{color:#f87171}
+.tut__x{position:absolute;top:6px;right:10px;background:none;border:0;color:var(--fg-3);font-size:22px;line-height:1;cursor:pointer;padding:2px 6px}
+.tut__x:hover{color:var(--fg-1)}
+@keyframes tutSwipe{0%,8%{transform:translateX(0) rotate(0)}22%,40%{transform:translateX(22px) rotate(9deg)}50%{transform:translateX(0) rotate(0)}64%,82%{transform:translateX(-22px) rotate(-9deg)}92%,100%{transform:translateX(0) rotate(0)}}
+@keyframes tutM{0%,14%{opacity:0}22%,40%{opacity:1}48%,100%{opacity:0}}
+@keyframes tutT{0%,56%{opacity:0}64%,82%{opacity:1}90%,100%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.tut__card,.tut__stamp{animation:none}.tut__stamp--m{opacity:1}}
 .ind__redes{display:inline-flex;align-items:center;gap:8px;align-self:center;font-size:clamp(18px,3vw,24px)}
 .ind__rede{display:inline-flex;transition:filter .15s,transform .15s}
 .ind__rede:hover{filter:brightness(1.1);transform:translateY(-1px)}
@@ -1218,6 +1238,15 @@ function renderCompleto(d) {
     </div>
     <p class="leitura">${esc(r.leitura)}</p>
     ${r.incompleto ? `<p class="aviso">Adiantamos ${r.indicacoes.length} nome${r.indicacoes.length > 1 ? 's' : ''} de alta aderência. Um curador vai completar sua indicação e te avisar — sem custo extra.</p>` : ''}
+    ${d.refacoesRestantes > 0 ? `
+    <div class="tut" id="tut">
+      <div class="tut__demo"><div class="tut__card"><span class="tut__stamp tut__stamp--m">Manter</span><span class="tut__stamp tut__stamp--t">Trocar</span></div></div>
+      <div class="tut__txt">
+        <strong>Não curtiu algum? Você troca.</strong>
+        <p>Arraste cada nome: <b class="tut__ok">→ pra direita mantém</b>, <b class="tut__no">← pra esquerda troca</b>. Guarde os que gostou (até 3) e refaça pra buscar outros.</p>
+      </div>
+      <button class="tut__x" id="tutX" aria-label="Fechar">×</button>
+    </div>` : ''}
     ${r.indicacoes.map((ind, n) => `
       <article class="ind"${d.refacoesRestantes > 0 ? ` data-nome="${esc(ind.nome)}"` : ''}>
         ${d.refacoesRestantes > 0 ? '<span class="ind__stamp">Trocar</span>' : ''}
@@ -1396,26 +1425,32 @@ function renderCompleto(d) {
     e.target.textContent = '✓ Chamando a PSA no WhatsApp';
   });
 
-  // Seleção de "manter" (até 3), gesto tipo Tinder: arrasta esquerda = manter (selo verde),
-  // direita = trocar (selo vermelho). O card FICA; o estado vive na classe .ind--manter e no selo
-  // do canto (também clicável). Sem checkbox.
+  // Seleção de "manter" (até 3), gesto tipo Tinder: DIREITA = manter, ESQUERDA = trocar.
+  // 3 estados: neutro (sem selo, padrão), manter (verde), trocar (vermelho). O selo fica na base
+  // da foto, também clicável; tap no card alterna manter. Sem checkbox.
   const MAX_MANTER_F = 3;
   const cards = () => [...$('#resultado').querySelectorAll('.ind[data-nome]')];
   const mantidosNomes = () => cards().filter(a => a.classList.contains('ind--manter')).map(a => a.dataset.nome);
   const contadorEl = $('#manterContador');
   const atualizaContador = () => { if (contadorEl) { const q = mantidosNomes().length; contadorEl.textContent = q ? `${q} de ${MAX_MANTER_F} mantidos` : ''; } };
-  const pintaSelo = art => { const s = art.querySelector('.ind__stamp'); if (s) s.textContent = art.classList.contains('ind--manter') ? 'Manter' : 'Trocar'; };
-  const setManter = (art, on) => {
-    if (on && !art.classList.contains('ind--manter') && mantidosNomes().length >= MAX_MANTER_F) {
+  const estadoDe = art => art.classList.contains('ind--manter') ? 'manter' : (art.classList.contains('ind--trocar') ? 'trocar' : 'neutro');
+  const pintaSelo = art => { const s = art.querySelector('.ind__stamp'); if (!s) return; const e = estadoDe(art); s.textContent = e === 'manter' ? 'Manter' : (e === 'trocar' ? 'Trocar' : ''); };
+  const setEstado = (art, e) => {
+    if (e === 'manter' && estadoDe(art) !== 'manter' && mantidosNomes().length >= MAX_MANTER_F) {
       art.classList.remove('ind--shake'); void art.offsetWidth; art.classList.add('ind--shake');
       if (contadorEl) contadorEl.textContent = 'máximo 3 mantidos';
       return;
     }
-    art.classList.toggle('ind--manter', on); pintaSelo(art); atualizaContador();
+    art.classList.toggle('ind--manter', e === 'manter');
+    art.classList.toggle('ind--trocar', e === 'trocar');
+    pintaSelo(art); atualizaContador();
   };
   cards().forEach(art => {
-    art.classList.add('ind--arrastavel'); pintaSelo(art);
-    art.querySelector('.ind__stamp')?.addEventListener('click', e => { e.stopPropagation(); setManter(art, !art.classList.contains('ind--manter')); });
+    art.classList.add('ind--arrastavel');
+    const foto = art.querySelector('.ind__foto'); const stamp = art.querySelector('.ind__stamp');
+    if (foto && stamp) foto.appendChild(stamp);   // selo vai pra base da foto
+    pintaSelo(art);
+    stamp?.addEventListener('click', ev => { ev.stopPropagation(); setEstado(art, estadoDe(art) === 'manter' ? 'neutro' : 'manter'); });
     let x0 = 0, dx = 0, drag = false, pid = null;
     art.addEventListener('pointerdown', ev => {
       if (ev.target.closest('button,a,input,label,.acoes-pos,.resp,.ind__stamp')) return;   // não atrapalha ações/selo
@@ -1426,20 +1461,22 @@ function renderCompleto(d) {
       art.style.transform = `translateX(${dx}px) rotate(${dx * 0.02}deg)`;
       art.classList.toggle('ind--dragM', dx >= 20);
       art.classList.toggle('ind--dragT', dx <= -20);
-      const s = art.querySelector('.ind__stamp');
-      if (s) s.textContent = dx >= 20 ? 'Manter' : (dx <= -20 ? 'Trocar' : (art.classList.contains('ind--manter') ? 'Manter' : 'Trocar'));
+      if (stamp) stamp.textContent = dx >= 20 ? 'Manter' : (dx <= -20 ? 'Trocar' : (estadoDe(art) === 'trocar' ? 'Trocar' : 'Manter'));
     });
     const fim = () => {
       if (!drag) return; drag = false;
       art.classList.remove('ind--drag', 'ind--dragM', 'ind--dragT');
       try { art.releasePointerCapture(pid); } catch (e) {}
-      if (dx >= 80) setManter(art, true); else if (dx <= -80) setManter(art, false);
+      if (dx >= 80) setEstado(art, 'manter');
+      else if (dx <= -80) setEstado(art, 'trocar');
+      else if (Math.abs(dx) < 8) setEstado(art, estadoDe(art) === 'manter' ? 'neutro' : 'manter');   // tap = alterna manter
       art.style.transform = ''; pintaSelo(art);
     };
     art.addEventListener('pointerup', fim);
     art.addEventListener('pointercancel', fim);
   });
   atualizaContador();
+  $('#tutX')?.addEventListener('click', () => $('#tut')?.remove());
   $('#refazer')?.addEventListener('click', async e => {
     const manter = mantidosNomes().slice(0, MAX_MANTER_F);
     const trocam = nInd - manter.length;
