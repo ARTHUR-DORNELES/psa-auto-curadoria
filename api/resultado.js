@@ -1,4 +1,4 @@
-import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, consumirCredito, chaveDeNome, respostasDisponibilidade } from './_lib.js';
+import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, finalizarCuradoria, chaveDeNome, respostasDisponibilidade } from './_lib.js';
 
 const ACOES = {
   curador: 'CLIENTE PEDIU ATENDIMENTO DE CURADOR — assumir o processo pelo caminho tradicional.',
@@ -67,11 +67,11 @@ export default async function handler(req, res) {
       reg.fotosBuscadas = true;   // já rodou o anexarFotos acima
       reg.redesBuscadas = true;   // anexarFotos também traz as redes sociais do verbete
       if (!CHECKOUT_URL) reg.pago = true;   // sem checkout, entrega direto
-      // consome o crédito: move o negócio "Pago" -> "Utilizado" na PRIMEIRA geração.
-      // Guardado em reg.creditoConsumido para não reconsumir numa refação (a mesma
-      // compra cobre 1 briefing + 1 refação).
-      if (reg.creditoDealId && !reg.creditoConsumido) {
-        reg.creditoConsumido = await consumirCredito(reg.creditoDealId);
+      // Modelo de assinatura: NÃO consome mais o acesso (curadorias ilimitadas). Quando os
+      // nomes de uma REFAÇÃO são entregues, o negócio desta curadoria vai para "Curadorias
+      // finalizadas" (a criação já nasceu em "Curadorias criadas").
+      if ((reg.refacoes || 0) > 0 && !reg.finalizada && reg.hubspot?.negocioId) {
+        reg.finalizada = await finalizarCuradoria(reg.hubspot.negocioId);
       }
       await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
     }

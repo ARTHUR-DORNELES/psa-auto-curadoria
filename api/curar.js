@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { anexarBriefingAoNegocio, redis, chave, chaveDeal, lerCorpo, cors, creditoPagoPorDocumento, normalizaDocumento } from './_lib.js';
+import { criarNegocioCuradoria, redis, chave, chaveDeal, lerCorpo, cors, assinaturaAtivaPorDocumento, normalizaDocumento } from './_lib.js';
 
 // A ferramenta NÃO gera mais os nomes. Ela grava o briefing no negócio e a
 // automação da PSA (disparada pela observação) produz o arquivo da IA Curadoria
@@ -26,14 +26,16 @@ export default async function handler(req, res) {
     // pelo CPF/CNPJ. A validação é feita de novo aqui (não confia só no gate do front).
     const doc = normalizaDocumento(b.documento);
     if (!doc) return res.status(400).json({ erro: 'Informe um CPF ou CNPJ válido para liberar sua curadoria.' });
-    let credito;
+    // Assinatura ativa (1 ano a partir da data de pagamento) libera curadorias ilimitadas.
+    let assinatura;
     try {
-      credito = await creditoPagoPorDocumento(b.documento);
+      assinatura = await assinaturaAtivaPorDocumento(b.documento);
     } catch (e) {
       console.error('VALIDACAO_ACESSO_FALHOU', e.message);
       return res.status(502).json({ erro: 'não conseguimos validar seu acesso agora. Tente de novo em instantes.' });
     }
-    if (!credito) return res.status(402).json({ erro: 'Não encontramos uma compra liberada para este CPF/CNPJ.' });
+    if (!assinatura) return res.status(402).json({ erro: 'Não encontramos uma assinatura para este CPF/CNPJ.' });
+    if (!assinatura.ativa) return res.status(402).json({ erro: 'Sua assinatura expirou. Renove para montar novas curadorias.' });
 
     const briefing = {
       nome: b.nome, empresa: b.empresa, email: b.email.toLowerCase().trim(), telefone: b.telefone,
@@ -49,12 +51,12 @@ export default async function handler(req, res) {
 
     const id = crypto.randomUUID();
 
-    // Fluxo unificado: o briefing vai no PRÓPRIO negócio "Pago" que liberou o acesso
-    // (creditoDealId), não num negócio novo do B2B. A observação dispara a automação.
-    // Aqui a falha é fatal: sem a nota no negócio, a curadoria não é gerada.
+    // Assinatura ilimitada: CADA curadoria cria um negócio NOVO na pipeline Auto Curadoria
+    // (etapa "Curadorias criadas"), associado ao contato assinante. É nesse negócio que o
+    // briefing e a automação rodam. Falha aqui é fatal: sem o negócio, não há curadoria.
     let hubspot;
     try {
-      hubspot = await anexarBriefingAoNegocio(credito.dealId, briefing, id);
+      hubspot = await criarNegocioCuradoria(assinatura.contatoId, briefing, id);
     } catch (e) {
       console.error('HUBSPOT_FALHOU', id, e.message);
       return res.status(502).json({
@@ -65,14 +67,14 @@ export default async function handler(req, res) {
 
     await redis().set(chave(id), JSON.stringify({
       id, criadoEm: new Date().toISOString(), briefing, hubspot, pago: true, acoes: [],
-      // crédito da compra: o negócio "Pago" que liberou o acesso. Vira "Utilizado" quando
-      // a curadoria é gerada (em /api/resultado). documento guardado só como referência.
+      // documento guardado só como referência; assinaturaDealId = o negócio da assinatura
+      // (acesso), separado do negócio desta curadoria (hubspot.negocioId).
       documento: doc.valor, documentoTipo: doc.tipo,
-      creditoDealId: credito.dealId, creditoContatoId: credito.contatoId,
+      assinaturaDealId: assinatura.dealId, contatoId: assinatura.contatoId,
     }), 'EX', 60 * 60 * 24 * 90);
-    // vínculo negócio -> curadoria: deixa o gate reencontrar esta curadoria pelo CPF/CNPJ
-    // (retomar/refazer) mesmo que o cliente não tenha guardado o link.
-    await redis().set(chaveDeal(credito.dealId), id, 'EX', 60 * 60 * 24 * 90);
+    // vínculo negócio da curadoria -> uuid: o gate reencontra esta curadoria pelo CPF/CNPJ
+    // (ver antigas) mesmo que o cliente não tenha guardado o link.
+    await redis().set(chaveDeal(hubspot.negocioId), id, 'EX', 60 * 60 * 24 * 90);
 
     res.status(200).json({ id });
   } catch (e) {

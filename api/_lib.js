@@ -165,9 +165,11 @@ export async function registrarNoHubspot(briefing, resultado, id) {
  * e adiciona a observação, que é o que dispara a automação (o webhook lê as notas do
  * negócio). Tolera prop recusada igual ao criarNegocio: enum inválido não trava o fluxo.
  */
-export async function anexarBriefingAoNegocio(dealId, briefing, id) {
+// Monta as propriedades do negócio a partir do briefing (mesmo mapa usado ao anexar
+// no negócio existente e ao criar um negócio por curadoria).
+function _propsBriefing(briefing) {
   const [primeiro] = (briefing.nome || '').trim().split(/\s+/);
-  let props = {
+  const props = {
     dealname: ['AUTO CURADORIA |', [primeiro, briefing.empresa, dataBR(briefing.data)].filter(Boolean).join(' - ')].join(' ').slice(0, 240),
     macro_tema: briefing.macroTema || undefined,
     micro_tema: briefing.microTema || undefined,
@@ -189,6 +191,11 @@ export async function anexarBriefingAoNegocio(dealId, briefing, id) {
     descreva_o_macro_tema: briefing.briefing?.slice(0, 4000) || undefined,
   };
   for (const k of Object.keys(props)) if (props[k] === undefined) delete props[k];
+  return props;
+}
+
+export async function anexarBriefingAoNegocio(dealId, briefing, id) {
+  let props = _propsBriefing(briefing);
 
   // PATCH tolerando prop recusada — nunca mexe em pipeline/dealstage (segue "Pago").
   for (let tentativa = 0; tentativa < 6; tentativa++) {
@@ -236,6 +243,49 @@ async function criarNegocio(properties, contatoId) {
     }
   }
   throw new Error('negócio recusado mesmo após descartar propriedades');
+}
+
+// Etapas da pipeline Auto Curadoria resolvidas PELO NOME (label), em runtime e em cache.
+// Assim o time cria "Curadorias criadas"/"Curadorias finalizadas" no HubSpot sem eu
+// precisar caçar ids — o código acha pelo nome. Devolve null se a etapa ainda não existe
+// (o negócio então cai na etapa padrão da pipeline, sem quebrar).
+const NOME_STAGE = { criada: 'Curadorias criadas', finalizada: 'Curadorias finalizadas' };
+let _stagesCache = null;
+async function stageIdPorNome(nome) {
+  try {
+    if (!_stagesCache) {
+      const p = await hs(`/crm/v3/pipelines/deals/${PIPE_AUTOCURADORIA}`, 'GET');
+      _stagesCache = {};
+      for (const s of (p.stages || [])) _stagesCache[String(s.label || '').trim().toLowerCase()] = s.id;
+    }
+    return _stagesCache[String(nome).trim().toLowerCase()] || null;
+  } catch (e) { console.error('stageIdPorNome falhou:', e.message); return null; }
+}
+
+// Cria um NEGÓCIO NOVO por curadoria (etapa "Curadorias criadas"), associado ao contato
+// assinante, com o briefing e a observação que dispara a automação. É o negócio onde a
+// curadoria daquela solicitação vai viver (substitui reaproveitar o negócio da assinatura).
+export async function criarNegocioCuradoria(contatoId, briefing, id) {
+  const props = _propsBriefing(briefing);
+  const criada = await stageIdPorNome(NOME_STAGE.criada);
+  if (!criada) console.error('etapa "Curadorias criadas" não encontrada na pipeline — negócio criado na etapa padrão');
+  const deal = await criarNegocio(
+    { ...props, pipeline: PIPE_AUTOCURADORIA, ...(criada ? { dealstage: criada } : {}) },
+    contatoId,
+  );
+  await nota(deal.id, notaDoBriefing(briefing, null, id));   // dispara a automação
+  return { negocioId: deal.id };
+}
+
+// Move o negócio da curadoria para "Curadorias finalizadas" (após a refação). Nunca lança.
+export async function finalizarCuradoria(dealId) {
+  if (!dealId) return false;
+  try {
+    const fin = await stageIdPorNome(NOME_STAGE.finalizada);
+    if (!fin) { console.error('etapa "Curadorias finalizadas" não encontrada — negócio não movido'); return false; }
+    await hs(`/crm/v3/objects/deals/${dealId}`, 'PATCH', { properties: { dealstage: fin } });
+    return true;
+  } catch (e) { console.error('finalizarCuradoria falhou:', e.message); return false; }
 }
 
 /**
@@ -945,7 +995,7 @@ export function normalizaDocumento(bruto) {
  */
 // Base compartilhada: acha o negócio da pipeline Auto Curadoria numa etapa, casado pelo
 // CPF/CNPJ (no contato) e associado a ele. `direction` escolhe o mais antigo/recente.
-async function _negocioAutoCuradoriaPorDoc(bruto, stage, direction) {
+async function _negocioAutoCuradoriaPorDoc(bruto, stage, direction, extraProps = []) {
   const doc = normalizaDocumento(bruto);
   if (!doc) return null;
 
@@ -968,16 +1018,35 @@ async function _negocioAutoCuradoriaPorDoc(bruto, stage, direction) {
       ],
     })),
     sorts: [{ propertyName: 'createdate', direction }],
-    properties: ['dealname', 'dealstage', 'createdate'],
+    properties: ['dealname', 'dealstage', 'createdate', ...extraProps],
     limit: 1,
   });
   const d = (deals.results || [])[0];
-  return d ? { dealId: d.id, contatoId: ids[0], doc } : null;
+  return d ? { dealId: d.id, contatoId: ids[0], doc, props: d.properties || {} } : null;
 }
 
 // Negócio "Pago" MAIS ANTIGO (fila): libera o acesso e é o crédito que a geração consome.
 export async function creditoPagoPorDocumento(bruto) {
   return _negocioAutoCuradoriaPorDoc(bruto, STAGE_PAGO, 'ASCENDING');
+}
+
+// Assinatura: o negócio "Pago" vale como acesso por 1 ANO a partir da data de pagamento
+// (usa `closedate`; cai no `createdate` se vazio). Ativa => curadorias ILIMITADAS. Passado
+// 1 ano e ainda "Pago", expira preguiçoso (move p/ "Utilizado"). Nunca lança.
+const ANO_MS = 365 * 24 * 60 * 60 * 1000;
+export async function assinaturaAtivaPorDocumento(bruto) {
+  const found = await _negocioAutoCuradoriaPorDoc(bruto, STAGE_PAGO, 'DESCENDING', ['closedate']);
+  if (!found) return null;
+  const dataPag = found.props.closedate || found.props.createdate || '';
+  const ts = dataPag ? Date.parse(dataPag) : NaN;
+  // sem data legível -> considera ativa (não travar acesso por falta de campo)
+  const ativa = Number.isFinite(ts) ? (Date.now() - ts) < ANO_MS : true;
+  const vence = Number.isFinite(ts) ? new Date(ts + ANO_MS).toISOString() : null;
+  if (!ativa) {
+    try { await hs(`/crm/v3/objects/deals/${found.dealId}`, 'PATCH', { properties: { dealstage: STAGE_UTILIZADO } }); }
+    catch (e) { console.error('expiração da assinatura falhou:', e.message); }
+  }
+  return { dealId: found.dealId, contatoId: found.contatoId, doc: found.doc, ativa, vence };
 }
 
 /**
@@ -1017,11 +1086,19 @@ export async function listarCuradorias(bruto) {
     });
     const ids = (contatos.results || []).map((c) => c.id);
     if (!ids.length) return [];
+    // curadorias = negócios nas etapas "Curadorias criadas"/"Curadorias finalizadas" (por nome).
+    // Se as etapas ainda não existem, cai no legado "Utilizado" (compat. com curadorias antigas).
+    const stagesCuradoria = (await Promise.all([
+      stageIdPorNome(NOME_STAGE.criada), stageIdPorNome(NOME_STAGE.finalizada),
+    ])).filter(Boolean);
+    const stageFiltro = stagesCuradoria.length
+      ? { propertyName: 'dealstage', operator: 'IN', values: stagesCuradoria }
+      : { propertyName: 'dealstage', operator: 'EQ', value: STAGE_UTILIZADO };
     const deals = await hs('/crm/v3/objects/deals/search', 'POST', {
       filterGroups: ids.slice(0, 5).map((cid) => ({
         filters: [
           { propertyName: 'pipeline', operator: 'EQ', value: PIPE_AUTOCURADORIA },
-          { propertyName: 'dealstage', operator: 'EQ', value: STAGE_UTILIZADO },
+          stageFiltro,
           { propertyName: 'associations.contact', operator: 'EQ', value: cid },
         ],
       })),
@@ -1050,18 +1127,18 @@ export async function listarCuradorias(bruto) {
 
 export async function decidirAcesso(bruto) {
   if (!normalizaDocumento(bruto)) return { modo: 'invalido' };
-  const pago = await creditoPagoPorDocumento(bruto);
+  const assin = await assinaturaAtivaPorDocumento(bruto);
   const curadorias = await listarCuradorias(bruto);
+  const ativa = !!(assin && assin.ativa);
 
-  // Tem curadoria(s) visível(is): o cliente ESCOLHE qual ver na lista; se também houver
-  // compra nova "Pago", pode começar uma nova (briefing) — senão, só via checkout.
+  // Assinante ATIVO monta curadorias ILIMITADAS: sempre pode criar nova (podeNova) e ver as
+  // antigas. Assinatura expirada: ainda vê as antigas, mas para criar nova precisa renovar.
   if (curadorias.length) {
-    return { modo: 'escolher', curadorias, podeNova: !!pago, contatoId: pago ? pago.contatoId : '' };
+    return { modo: 'escolher', curadorias, podeNova: ativa, contatoId: assin ? assin.contatoId : '' };
   }
-  if (pago) return { modo: 'novo', contatoId: pago.contatoId };
-  // sem curadoria viva: se existe "Utilizado" (expirou) -> esgotado; senão -> nada
-  const util = await _negocioAutoCuradoriaPorDoc(bruto, STAGE_UTILIZADO, 'DESCENDING');
-  return { modo: util ? 'esgotado' : 'nenhum' };
+  if (ativa) return { modo: 'novo', contatoId: assin.contatoId };
+  // sem curadorias: assinatura existente porém expirada -> esgotado (renovar); nada -> nenhum
+  return { modo: assin ? 'esgotado' : 'nenhum' };
 }
 
 /**
