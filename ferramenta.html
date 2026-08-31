@@ -126,19 +126,15 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 /* explicador animado da dinâmica (antes dos nomes) */
 .tut{display:flex;gap:18px;align-items:center;background:#ffffff07;border:1px solid var(--border);border-radius:var(--r-md);padding:16px 44px 16px 18px;margin-bottom:var(--s-5);position:relative}
 .tut__demo{flex:none;width:96px;height:78px;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.tut__card{width:60px;height:60px;border-radius:10px;background:#0d1424 url(https://psa-auto-curadoria.vercel.app/santiago.png) center 18%/cover no-repeat;border:1px solid var(--border-strong);position:relative;overflow:hidden;animation:tutSwipe 4.2s ease-in-out infinite}
-.tut__stamp{position:absolute;top:9px;left:50%;transform:translateX(-50%);font-family:var(--font-display-wide);font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:3px 7px;border-radius:6px;border:1.5px solid;opacity:0;white-space:nowrap}
-.tut__stamp--m{color:#eafff1;background:#16a34a;border-color:#22c55e;animation:tutM 4.2s ease-in-out infinite}
-.tut__stamp--t{color:#fff;background:#dc2626;border-color:#ef4444;animation:tutT 4.2s ease-in-out infinite}
+.tut__card{width:60px;height:60px;border-radius:10px;background:#0d1424 url(https://psa-auto-curadoria.vercel.app/santiago.png) center 18%/cover no-repeat;border:1px solid var(--border-strong);position:relative;overflow:hidden;transition:transform .55s ease}
+.tut__stamp{position:absolute;top:9px;left:50%;transform:translateX(-50%);font-family:var(--font-display-wide);font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:3px 7px;border-radius:6px;border:1.5px solid;opacity:0;white-space:nowrap;transition:opacity .3s ease}
+.tut__stamp--m{color:#eafff1;background:#16a34a;border-color:#22c55e}
+.tut__stamp--t{color:#fff;background:#dc2626;border-color:#ef4444}
 .tut__txt strong{font-family:var(--font-display-wide);text-transform:uppercase;font-size:15px}
 .tut__txt p{font-size:13px;color:var(--fg-2);margin-top:3px;line-height:1.45}
 .tut__ok{color:#4ade80}.tut__no{color:#f87171}
 .tut__x{position:absolute;top:6px;right:10px;background:none;border:0;color:var(--fg-3);font-size:22px;line-height:1;cursor:pointer;padding:2px 6px}
 .tut__x:hover{color:var(--fg-1)}
-@keyframes tutSwipe{0%,8%{transform:translateX(0) rotate(0)}22%,40%{transform:translateX(22px) rotate(9deg)}50%{transform:translateX(0) rotate(0)}64%,82%{transform:translateX(-22px) rotate(-9deg)}92%,100%{transform:translateX(0) rotate(0)}}
-@keyframes tutM{0%,14%{opacity:0}22%,40%{opacity:1}48%,100%{opacity:0}}
-@keyframes tutT{0%,56%{opacity:0}64%,82%{opacity:1}90%,100%{opacity:0}}
-@media(prefers-reduced-motion:reduce){.tut__card,.tut__stamp{animation:none}.tut__stamp--m{opacity:1}}
 .ind__redes{display:inline-flex;align-items:center;gap:8px;align-self:center;font-size:clamp(18px,3vw,24px)}
 .ind__rede{display:inline-flex;transition:filter .15s,transform .15s}
 .ind__rede:hover{filter:brightness(1.1);transform:translateY(-1px)}
@@ -1477,6 +1473,22 @@ function renderCompleto(d) {
   });
   atualizaContador();
   $('#tutX')?.addEventListener('click', () => $('#tut')?.remove());
+  // anima o explicador via JS (não depende do CSS de movimento, que "reduzir movimento" desliga)
+  (() => {
+    const tut = $('#tut'); if (!tut) return;
+    const c = tut.querySelector('.tut__card'), sm = tut.querySelector('.tut__stamp--m'), st = tut.querySelector('.tut__stamp--t');
+    if (!c || !sm || !st) return;
+    let fase = 0;
+    const passo = () => {
+      if (!document.body.contains(c)) return;   // explicador fechado -> para o loop
+      fase = (fase + 1) % 4;
+      if (fase === 1) { c.style.transform = 'translateX(20px) rotate(9deg)'; sm.style.opacity = 1; st.style.opacity = 0; }
+      else if (fase === 3) { c.style.transform = 'translateX(-20px) rotate(-9deg)'; sm.style.opacity = 0; st.style.opacity = 1; }
+      else { c.style.transform = 'translateX(0)'; sm.style.opacity = 0; st.style.opacity = 0; }
+      setTimeout(passo, fase % 2 ? 1050 : 650);   // segura mais quando o selo aparece
+    };
+    setTimeout(passo, 500);
+  })();
   $('#refazer')?.addEventListener('click', async e => {
     const manter = mantidosNomes().slice(0, MAX_MANTER_F);
     const trocam = nInd - manter.length;
