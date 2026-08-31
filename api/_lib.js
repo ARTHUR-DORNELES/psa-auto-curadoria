@@ -265,7 +265,7 @@ async function stageIdPorNome(nome) {
 // Cria um NEGÓCIO NOVO por curadoria (etapa "Curadorias criadas"), associado ao contato
 // assinante, com o briefing e a observação que dispara a automação. É o negócio onde a
 // curadoria daquela solicitação vai viver (substitui reaproveitar o negócio da assinatura).
-export async function criarNegocioCuradoria(contatoId, briefing, id) {
+export async function criarNegocioCuradoria(contatoId, briefing, id, notaExtra = '') {
   const props = _propsBriefing(briefing);
   const criada = await stageIdPorNome(NOME_STAGE.criada);
   if (!criada) console.error('etapa "Curadorias criadas" não encontrada na pipeline — negócio criado na etapa padrão');
@@ -273,7 +273,8 @@ export async function criarNegocioCuradoria(contatoId, briefing, id) {
     { ...props, pipeline: PIPE_AUTOCURADORIA, ...(criada ? { dealstage: criada } : {}) },
     contatoId,
   );
-  await nota(deal.id, notaDoBriefing(briefing, null, id));   // dispara a automação
+  // a observação dispara a automação. Na refação, `notaExtra` traz o bloco NAO_REPETIR.
+  await nota(deal.id, notaDoBriefing(briefing, null, id) + (notaExtra ? '\n\n' + notaExtra : ''));
   return { negocioId: deal.id };
 }
 

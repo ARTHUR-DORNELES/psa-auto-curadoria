@@ -1,4 +1,4 @@
-import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, finalizarCuradoria, chaveDeNome, respostasDisponibilidade } from './_lib.js';
+import { redis, chave, chaveDeal, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, criarNegocioCuradoria, finalizarCuradoria, chaveDeNome, respostasDisponibilidade } from './_lib.js';
 
 const ACOES = {
   curador: 'CLIENTE PEDIU ATENDIMENTO DE CURADOR — assumir o processo pelo caminho tradicional.',
@@ -67,12 +67,8 @@ export default async function handler(req, res) {
       reg.fotosBuscadas = true;   // já rodou o anexarFotos acima
       reg.redesBuscadas = true;   // anexarFotos também traz as redes sociais do verbete
       if (!CHECKOUT_URL) reg.pago = true;   // sem checkout, entrega direto
-      // Modelo de assinatura: NÃO consome mais o acesso (curadorias ilimitadas). Quando os
-      // nomes de uma REFAÇÃO são entregues, o negócio desta curadoria vai para "Curadorias
-      // finalizadas" (a criação já nasceu em "Curadorias criadas").
-      if ((reg.refacoes || 0) > 0 && !reg.finalizada && reg.hubspot?.negocioId) {
-        reg.finalizada = await finalizarCuradoria(reg.hubspot.negocioId);
-      }
+      // Modelo de assinatura: NÃO consome mais o acesso (curadorias ilimitadas). A finalização
+      // do negócio anterior acontece no momento da REFAÇÃO (POST 'refazer'), não aqui.
       await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
     }
 
@@ -161,35 +157,36 @@ export default async function handler(req, res) {
       const recusados = reg.resultado.indicacoes.map(i => i.nome);
       reg.descartados = [...new Set([...(reg.descartados || []), ...recusados])];
       reg.refacoes = feitas + 1;
+      const negocioAnterior = reg.hubspot?.negocioId;
       delete reg.resultado;
       reg.refeitoEm = new Date().toISOString();   // reinicia o relógio do timeout p/ esta refação
-      // NÃO zera reg.pago: no modelo de compra, quem passou pelo gate segue liberado a
-      // sessão inteira — a refação é coberta pela MESMA compra (não reconsome o crédito).
-      // Zerar aqui mostraria o teaser em vez do resultado da refação.
-      await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
+      // NÃO zera reg.pago: quem passou pelo gate segue liberado a sessão inteira.
 
-      if (reg.hubspot?.negocioId) {
-        try {
-          // A automação da IA Curadoria enrola o negócio ao ver uma observação NOVA e lê
-          // o briefing dela. Por isso a refação re-emite a MESMA nota de briefing da geração
-          // inicial (o gatilho que funciona) e acrescenta os nomes que ela NÃO pode repetir —
-          // assim a automação regenera o mesmo briefing com indicações diferentes.
-          await nota(reg.hubspot.negocioId, [
-            notaDoBriefing(reg.briefing || {}, null, id),
-            '',
-            `— REFAÇÃO ${reg.refacoes} de ${MAX_REFACOES} —`,
-            'Gere nomes DIFERENTES para o mesmo briefing. NÃO repita os palestrantes já apresentados:',
-            ...reg.descartados.map(n => `- ${n}`),
-            // marcador legível por máquina: a automação (node "Unifica 6") lê os nomes
-            // entre colchetes p/ excluir os já apresentados. Sobrevive ao strip de HTML/espaços.
-            `NAO_REPETIR: [${reg.descartados.join(' | ')}]`,
-            '',
-            `Regravar a propriedade ${PROP_NOMES} com as novas indicações. Curadoria: ${id}`,
-          ].join('\n'));
-        } catch (e) {
-          console.error('nota de refação falhou:', e.message);
-        }
+      // A refação CRIA UM NEGÓCIO NOVO em "Curadorias criadas" (não re-emite nota no mesmo
+      // negócio: uma 2ª observação NÃO re-dispara o gatilho — só a criação dispara). O bloco
+      // NAO_REPETIR exclui os nomes já mostrados; a automação regenera com indicações
+      // diferentes. O negócio anterior vai para "Curadorias finalizadas".
+      const naoRepetir = [
+        `— REFAÇÃO ${reg.refacoes} de ${MAX_REFACOES} —`,
+        'Gere nomes DIFERENTES para o mesmo briefing. NÃO repita os palestrantes já apresentados:',
+        ...reg.descartados.map(n => `- ${n}`),
+        // marcador legível por máquina: o node "Unifica 6" lê os nomes entre colchetes p/ excluir.
+        `NAO_REPETIR: [${reg.descartados.join(' | ')}]`,
+        '',
+        `Regravar a propriedade ${PROP_NOMES} com as novas indicações. Curadoria: ${id}`,
+      ].join('\n');
+
+      try {
+        const nova = await criarNegocioCuradoria(reg.contatoId, reg.briefing || {}, id, naoRepetir);
+        reg.hubspot = nova;   // a curadoria passa a viver no negócio da refação
+        await redis().set(chaveDeal(nova.negocioId), id, 'EX', 60 * 60 * 24 * 90);
+        if (negocioAnterior) await finalizarCuradoria(negocioAnterior);   // anterior -> finalizadas
+      } catch (e) {
+        console.error('refação: criar novo negócio falhou:', e.message);
+        return res.status(502).json({ erro: 'não conseguimos iniciar a refação agora. Tente de novo em instantes.' });
       }
+
+      await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
       return res.status(200).json({ ok: true, refacoes: reg.refacoes, restantes: MAX_REFACOES - reg.refacoes });
     }
 
