@@ -9,6 +9,8 @@ const ACOES = {
 // Uma refação por curadoria. Cada uma dispara a automação de novo; depois disso,
 // o caminho é falar com um curador.
 const MAX_REFACOES = Number(process.env.MAX_REFACOES || 1);
+// Na refação o cliente pode MANTER até 3 nomes que gostou; o resto é trocado.
+const MAX_MANTER = Number(process.env.MAX_MANTER || 3);
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
@@ -42,18 +44,27 @@ export default async function handler(req, res) {
       // devolve 4, os 4 já são o fim (ela não vai acrescentar um 5º depois).
       // O tempo de espera vale só enquanto a propriedade está VAZIA (automação ainda rodando
       // ou refação sem nomes inéditos); estourado e ainda vazio -> handoff pro curador.
+      // nomes que o cliente MANTEVE numa refação (preservados com foto/justificativa).
+      const mantidos = reg.mantidos || [];
       if (nomes.length === 0) {
         const TIMEOUT_MIN = Number(process.env.CURADORIA_TIMEOUT_MIN || 8);
         const clock = reg.refeitoEm || reg.criadoEm;
         const idadeMin = clock ? (Date.now() - Date.parse(clock)) / 60000 : 0;
         const estourou = idadeMin >= TIMEOUT_MIN;
-        return res.status(200).json({ id, pronto: false, timeout: estourou || undefined, linkCuradoria: curadoria.link || undefined });
+        // ainda sem nomes novos: espera. Exceção: estourou o tempo E o cliente manteve nomes
+        // -> entrega ao menos os mantidos (incompleto), sem deixar a tela vazia pra sempre.
+        if (!(estourou && mantidos.length)) {
+          return res.status(200).json({ id, pronto: false, timeout: estourou || undefined, linkCuradoria: curadoria.link || undefined });
+        }
       }
 
-      // até N nomes, com a mistura mínima por categoria (pode vir menos, se a automação
-      // publicou menos — o front marca como incompleto).
-      const escolhidos = escolherIndicacoes(nomes);
-      await anexarFotos(escolhidos);   // foto de cada palestrante (ou nada -> silhueta no front)
+      // lista final = mantidos + novos inéditos, até N (com a mistura mínima entre os novos).
+      const jaTem = new Set(mantidos.map(i => String(i.nome || '').toLowerCase()));
+      const ineditos = nomes.filter(n => !jaTem.has(n.nome.toLowerCase()));
+      const faltam = Math.max(0, N_INDICACOES - mantidos.length);
+      const novos = escolherIndicacoes(ineditos).slice(0, faltam);
+      await anexarFotos(novos);   // mantidos já têm foto/redes da rodada anterior
+      const escolhidos = [...mantidos, ...novos];
       const incompleto = escolhidos.length < N_INDICACOES;
       reg.linkCuradoria = curadoria.link;
       reg.resultado = {
@@ -143,7 +154,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { acao, palestrante, palestrantes, datas, mensagem } = await lerCorpo(req);
+    const { acao, palestrante, palestrantes, datas, mensagem, manter } = await lerCorpo(req);
 
     // Refazer: os 3 atuais saem de cena e a automação é acionada de novo pela
     // observação. Os nomes recusados ficam registrados para não voltarem.
@@ -154,13 +165,25 @@ export default async function handler(req, res) {
         return res.status(429).json({ erro: 'limite de refações atingido', limite: MAX_REFACOES });
       }
 
-      const recusados = reg.resultado.indicacoes.map(i => i.nome);
+      // O cliente pode MANTER até MAX_MANTER nomes que gostou; os demais são trocados.
+      const atuais = reg.resultado.indicacoes;
+      const querManter = new Set((Array.isArray(manter) ? manter : []).map(n => String(n || '').trim()).filter(Boolean));
+      const mantidos = atuais.filter(i => querManter.has(i.nome)).slice(0, MAX_MANTER);
+      const nomesMantidos = mantidos.map(i => i.nome);
+      const recusados = atuais.filter(i => !nomesMantidos.includes(i.nome)).map(i => i.nome);
+      if (!recusados.length) return res.status(400).json({ erro: 'selecione ao menos um nome para trocar' });
+
       reg.descartados = [...new Set([...(reg.descartados || []), ...recusados])];
+      reg.mantidos = mantidos;   // preservados com foto/justificativa/id_contato p/ a lista final
       reg.refacoes = feitas + 1;
       delete reg.resultado;
       reg.refeitoEm = new Date().toISOString();   // reinicia o relógio do timeout p/ esta refação
       // NÃO zera reg.pago: quem passou pelo gate segue liberado a sessão inteira.
       await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
+
+      // a automação não pode repetir NEM os recusados NEM os mantidos (senão traria de novo
+      // um que o cliente já tem na lista). Exclui os dois conjuntos.
+      const excluir = [...new Set([...reg.descartados, ...nomesMantidos])];
 
       // Refação no MESMO negócio (não cria um segundo): re-emite a nota do briefing +
       // NAO_REPETIR e aciona o webhook do n8n na mão (a 2ª observação não re-dispara o gatilho
@@ -172,13 +195,14 @@ export default async function handler(req, res) {
             notaDoBriefing(reg.briefing || {}, null, id),
             '',
             `— REFAÇÃO ${reg.refacoes} de ${MAX_REFACOES} —`,
+            nomesMantidos.length ? `O cliente MANTEVE: ${nomesMantidos.join(', ')} (não repita esses).` : '',
             'Gere nomes DIFERENTES para o mesmo briefing. NÃO repita os palestrantes já apresentados:',
-            ...reg.descartados.map(n => `- ${n}`),
+            ...excluir.map(n => `- ${n}`),
             // marcador legível por máquina: o node "Unifica 6" lê os nomes entre colchetes p/ excluir.
-            `NAO_REPETIR: [${reg.descartados.join(' | ')}]`,
+            `NAO_REPETIR: [${excluir.join(' | ')}]`,
             '',
             `Regravar a propriedade ${PROP_NOMES} com as novas indicações. Curadoria: ${id}`,
-          ].join('\n'));
+          ].filter(Boolean).join('\n'));
           await limparNomesDoNegocio(dealId);        // zera os nomes antigos (senão um sobra e aparece na hora)
           await dispararWebhookCuradoria(dealId);    // regenera no mesmo negócio (sem depender do gatilho)
           await finalizarCuradoria(dealId);          // negócio -> "Curadorias finalizadas"
@@ -186,7 +210,7 @@ export default async function handler(req, res) {
           console.error('nota/disparo de refação falhou:', e.message);
         }
       }
-      return res.status(200).json({ ok: true, refacoes: reg.refacoes, restantes: MAX_REFACOES - reg.refacoes });
+      return res.status(200).json({ ok: true, refacoes: reg.refacoes, restantes: MAX_REFACOES - reg.refacoes, mantidos: nomesMantidos });
     }
 
     // Disponibilidade + orçamento: um botão POR nome. Vale pelos dois juntos (é a mesma

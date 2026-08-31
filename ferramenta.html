@@ -106,6 +106,8 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .ind__rank{font-family:var(--font-mono);font-size:var(--t-caption);color:var(--psa-orange)}
 .ind__nome{font-family:var(--font-display-wide);font-weight:800;text-transform:uppercase;font-size:clamp(18px,3vw,24px)}
 .ind__fit{margin-left:auto;font-family:var(--font-mono);font-size:var(--t-caption);color:var(--fg-2);border:1px solid var(--border);border-radius:var(--r-pill);padding:4px 12px}
+.ind__manter{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:12px;color:var(--fg-2);cursor:pointer;user-select:none;white-space:nowrap}
+.ind__manter input{accent-color:var(--psa-orange);width:15px;height:15px;cursor:pointer;margin:0}
 .ind__redes{display:inline-flex;align-items:center;gap:8px;align-self:center;font-size:clamp(18px,3vw,24px)}
 .ind__rede{display:inline-flex;transition:filter .15s,transform .15s}
 .ind__rede:hover{filter:brightness(1.1);transform:translateY(-1px)}
@@ -1213,6 +1215,7 @@ function renderCompleto(d) {
             <span class="ind__nome">${esc(ind.nome)}</span>
             ${redesIcones(ind.redes)}
             <span class="ind__fit">aderência ${esc(ind.aderencia)}</span>
+            ${d.refacoesRestantes > 0 ? `<label class="ind__manter"><input type="checkbox" class="manter-chk" value="${esc(ind.nome)}"> manter</label>` : ''}
           </div>
           <div class="ind__meta">
             ${ind.perfil ? `<strong>${esc(ind.perfil)}</strong>` : ''}
@@ -1245,14 +1248,14 @@ function renderCompleto(d) {
         </div>
         ${fotoCard(ind)}
       </article>`).join('')}
-    <p class="ou">${nInd > 1 ? `Nenhum dos ${nInd} serviu?` : 'Esse nome não serviu?'}</p>
+    <p class="ou">${d.refacoesRestantes > 0 ? 'Quer trocar a lista?' : ''}</p>
     <div class="acoes" style="justify-content:center">
       ${d.refacoesRestantes > 0
         ? `<button class="btn btn--ghost" id="refazer">Refazer curadoria com outros nomes</button>`
         : `<p class="dica" style="text-align:center;max-width:46ch">Você já refez esta curadoria. Daqui em diante, um curador consegue ir além do que a ferramenta cobre.</p>`}
       <button class="btn btn--ghost" id="quero-curador">Falar com um curador da PSA</button>
     </div>
-    ${d.refacoesRestantes > 0 ? `<p class="dica" style="text-align:center">Você pode refazer uma única vez — ${nInd > 1 ? `os ${nInd} nomes atuais saem e não voltam` : 'o nome atual sai e não volta'}.</p>` : ''}
+    ${d.refacoesRestantes > 0 ? `<p class="dica" style="text-align:center;max-width:52ch">Marque em <strong>“manter”</strong> os nomes que você gostou (até ${3}) e clique em refazer: eles ficam e a IA busca outros para as vagas. É uma única vez, os não mantidos saem e não voltam.</p>` : ''}
     <p class="aviso">Viabilidade e orçamento passam pelo nosso time, que negocia com o palestrante e volta com a proposta formal. A checagem de data depende da agenda do palestrante e pode levar até 1 dia útil. Contratação, contrato, pagamento e logística você pode conduzir direto com o palestrante ou, se preferir, contratar a PSA para cuidar de tudo. É opcional, você não é obrigado.</p>`;
 
   $('#resultado').querySelectorAll('[data-acao]').forEach(b => b.addEventListener('click', async () => {
@@ -1382,13 +1385,25 @@ function renderCompleto(d) {
     e.target.textContent = '✓ Chamando a PSA no WhatsApp';
   });
 
+  // trava: no máximo 3 marcados em "manter"
+  const chks = () => [...$('#resultado').querySelectorAll('.manter-chk')];
+  $('#resultado').querySelectorAll('.manter-chk').forEach(c => c.addEventListener('change', () => {
+    const marcados = chks().filter(x => x.checked);
+    if (marcados.length > 3) { c.checked = false; alert('Você pode manter no máximo 3 nomes.'); }
+  }));
   $('#refazer')?.addEventListener('click', async e => {
-    if (!confirm(`Você pode refazer uma única vez. ${nInd > 1 ? `Os ${nInd} nomes atuais saem e não voltam` : 'O nome atual sai e não volta'}. Confirma?`)) return;
+    const manter = chks().filter(x => x.checked).map(x => x.value).slice(0, 3);
+    const trocam = nInd - manter.length;
+    if (trocam <= 0) { alert('Deixe pelo menos um nome sem "manter" para trocar.'); return; }
+    const msg = manter.length
+      ? `Vamos manter ${manter.length} e buscar ${trocam} novo${trocam > 1 ? 's' : ''}. Os não mantidos saem e não voltam. É uma única vez. Confirma?`
+      : `Você pode refazer uma única vez. ${nInd > 1 ? `Os ${nInd} nomes atuais saem e não voltam` : 'O nome atual sai e não volta'}. Confirma?`;
+    if (!confirm(msg)) return;
     e.target.disabled = true;
     e.target.textContent = 'Pedindo novos nomes…';
     const r = await fetch(`/api/resultado?id=${d.id}`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ acao: 'refazer' }),
+      body: JSON.stringify({ acao: 'refazer', manter }),
     });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
