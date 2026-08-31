@@ -844,16 +844,19 @@ export async function dispararDisponibilidade(negocioId, indicacoes, briefing, d
     [briefing.cidade, briefing.local].filter(Boolean).join('/'), // briefing.local = ESTADO
   ].filter(Boolean).join(' — ');
   const tema = [briefing.macroTema, briefing.microTema].filter(Boolean).join(' — ');
+  // o palestrante precisa saber PARA QUAL empresa é a palestra (empresaPalestra); só se
+  // o cliente não informou, cai na empresa que fez o briefing (a compradora).
+  const empresaCliente = (briefing.empresaPalestra || briefing.empresa || '').trim();
   const obs = [
     datas ? `Datas desejadas: ${datas}.` : '',
-    `Solicitado pelo cliente ${briefing.empresa || ''} via Auto Curadoria.`.replace(/\s+/g, ' ').trim(),
+    `Solicitado por ${empresaCliente} via Auto Curadoria.`.replace(/\s+/g, ' ').trim(),
   ].filter(Boolean).join(' ');
 
   // a data do evento pode não estar no briefing ("a definir"); nesse caso usamos a data
   // que o cliente informou ao solicitar disponibilidade (datas, já em DD/MM/AAAA).
   const _dataEvento = _fmtDataBR(briefing.data);
   const ev = {
-    pesq_cliente: briefing.empresa || '-',
+    pesq_cliente: empresaCliente || '-',
     pesq_formato: briefing.formato || '-',
     pesq_tema: tema || '-',
     pesq_publico: briefing.publicoAlvo || '-',
