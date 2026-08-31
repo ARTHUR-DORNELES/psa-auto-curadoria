@@ -513,6 +513,17 @@ export async function anexarFotos(indicacoes) {
 // Nome configurável para não travar o produto numa escolha minha.
 export const PROP_NOMES = process.env.PROP_CURADORIA_NOMES || 'ia_curadoria_nomes';
 
+// Limpa os nomes já publicados no negócio (antes de uma REFAÇÃO): sem isso, um nome que
+// sobrou da rodada anterior (a automação grava ~6, mostramos 5) apareceria na hora como se
+// fosse a refação, antes de o n8n regenerar. Zera para a tela esperar os nomes novos. Nunca lança.
+export async function limparNomesDoNegocio(dealId) {
+  if (!dealId) return false;
+  try {
+    await hs(`/crm/v3/objects/deals/${dealId}`, 'PATCH', { properties: { [PROP_NOMES]: '' } });
+    return true;
+  } catch (e) { console.error('limparNomesDoNegocio falhou:', e.message); return false; }
+}
+
 /**
  * Lê do negócio o que a automação da IA Curadoria deixou.
  * `nomes` é a fonte da verdade; o link fica só como referência interna.

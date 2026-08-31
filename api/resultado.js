@@ -1,4 +1,4 @@
-import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, finalizarCuradoria, chaveDeNome, respostasDisponibilidade } from './_lib.js';
+import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, limparNomesDoNegocio, finalizarCuradoria, chaveDeNome, respostasDisponibilidade } from './_lib.js';
 
 const ACOES = {
   curador: 'CLIENTE PEDIU ATENDIMENTO DE CURADOR — assumir o processo pelo caminho tradicional.',
@@ -179,7 +179,8 @@ export default async function handler(req, res) {
             '',
             `Regravar a propriedade ${PROP_NOMES} com as novas indicações. Curadoria: ${id}`,
           ].join('\n'));
-          await dispararWebhookCuradoria(dealId);   // regenera no mesmo negócio (sem depender do gatilho)
+          await limparNomesDoNegocio(dealId);        // zera os nomes antigos (senão um sobra e aparece na hora)
+          await dispararWebhookCuradoria(dealId);    // regenera no mesmo negócio (sem depender do gatilho)
           await finalizarCuradoria(dealId);          // negócio -> "Curadorias finalizadas"
         } catch (e) {
           console.error('nota/disparo de refação falhou:', e.message);
