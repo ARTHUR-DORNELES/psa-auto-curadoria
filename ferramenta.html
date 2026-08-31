@@ -106,18 +106,18 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .ind__rank{font-family:var(--font-mono);font-size:var(--t-caption);color:var(--psa-orange)}
 .ind__nome{font-family:var(--font-display-wide);font-weight:800;text-transform:uppercase;font-size:clamp(18px,3vw,24px)}
 .ind__fit{margin-left:auto;font-family:var(--font-mono);font-size:var(--t-caption);color:var(--fg-2);border:1px solid var(--border);border-radius:var(--r-pill);padding:4px 12px}
-.ind__manter{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:12px;color:var(--fg-2);cursor:pointer;user-select:none;white-space:nowrap}
-.ind__manter input{accent-color:var(--psa-orange);width:15px;height:15px;cursor:pointer;margin:0}
-/* gesto tipo Tinder na refação: arrasta esquerda = manter (verde), direita = trocar (vermelho); o card fica */
+/* gesto tipo Tinder na refação: arrasta esquerda = manter (verde), direita = trocar (vermelho); o
+   card fica e um SELO no canto mostra o estado (substitui o checkbox). O selo também é clicável. */
 .ind{transition:transform .25s ease,box-shadow .2s ease,opacity .2s ease}
 .ind--arrastavel{touch-action:pan-y;cursor:grab}
 .ind--drag{transition:none;cursor:grabbing;z-index:3;user-select:none}
 .ind--manter{box-shadow:0 0 0 2px #22c55e}
 .ind--shake{animation:indShake .4s}
 @keyframes indShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
-.ind__band{position:absolute;top:16px;font-family:var(--font-display-wide);font-weight:800;text-transform:uppercase;letter-spacing:.06em;font-size:clamp(15px,2vw,22px);padding:6px 14px;border-radius:8px;opacity:0;pointer-events:none;z-index:4}
-.ind__band--manter{left:16px;color:#dcfce7;background:#16a34ae0;border:2px solid #22c55e;transform:rotate(-7deg)}
-.ind__band--trocar{right:16px;color:#fee2e2;background:#dc2626e0;border:2px solid #ef4444;transform:rotate(7deg)}
+.ind__stamp{position:absolute;top:14px;right:14px;z-index:5;font-family:var(--font-display-wide);font-weight:800;text-transform:uppercase;letter-spacing:.05em;font-size:14px;padding:5px 12px;border-radius:8px;border:2px solid;cursor:pointer;user-select:none;transition:transform .15s ease,background .15s,color .15s,border-color .15s;background:#dc262622;color:#fca5a5;border-color:#ef444466;transform:rotate(6deg)}
+.ind--manter .ind__stamp{background:#16a34a2e;color:#86efac;border-color:#22c55e;transform:rotate(-6deg)}
+.ind--dragM .ind__stamp{background:#16a34ae6;color:#dcfce7;border-color:#22c55e;transform:rotate(-6deg) scale(1.18)}
+.ind--dragT .ind__stamp{background:#dc2626e6;color:#fee2e2;border-color:#ef4444;transform:rotate(6deg) scale(1.18)}
 .manter-cont{font-family:var(--font-mono);font-size:12px;color:var(--psa-orange);letter-spacing:.04em}
 .ind__redes{display:inline-flex;align-items:center;gap:8px;align-self:center;font-size:clamp(18px,3vw,24px)}
 .ind__rede{display:inline-flex;transition:filter .15s,transform .15s}
@@ -1219,14 +1219,14 @@ function renderCompleto(d) {
     <p class="leitura">${esc(r.leitura)}</p>
     ${r.incompleto ? `<p class="aviso">Adiantamos ${r.indicacoes.length} nome${r.indicacoes.length > 1 ? 's' : ''} de alta aderência. Um curador vai completar sua indicação e te avisar — sem custo extra.</p>` : ''}
     ${r.indicacoes.map((ind, n) => `
-      <article class="ind">
+      <article class="ind"${d.refacoesRestantes > 0 ? ` data-nome="${esc(ind.nome)}"` : ''}>
+        ${d.refacoesRestantes > 0 ? '<span class="ind__stamp">Trocar</span>' : ''}
         <div class="ind__corpo">
           <div class="ind__top">
             <span class="ind__rank">INDICAÇÃO 0${n + 1}</span>
             <span class="ind__nome">${esc(ind.nome)}</span>
             ${redesIcones(ind.redes)}
             <span class="ind__fit">aderência ${esc(ind.aderencia)}</span>
-            ${d.refacoesRestantes > 0 ? `<label class="ind__manter"><input type="checkbox" class="manter-chk" value="${esc(ind.nome)}"> manter</label>` : ''}
           </div>
           <div class="ind__meta">
             ${ind.perfil ? `<strong>${esc(ind.perfil)}</strong>` : ''}
@@ -1396,57 +1396,52 @@ function renderCompleto(d) {
     e.target.textContent = '✓ Chamando a PSA no WhatsApp';
   });
 
-  // Seleção de "manter" (até 3): checkbox + gesto tipo Tinder (arrasta esquerda = manter/verde,
-  // direita = trocar/vermelho; o card FICA e ganha estado, reversível).
+  // Seleção de "manter" (até 3), gesto tipo Tinder: arrasta esquerda = manter (selo verde),
+  // direita = trocar (selo vermelho). O card FICA; o estado vive na classe .ind--manter e no selo
+  // do canto (também clicável). Sem checkbox.
   const MAX_MANTER_F = 3;
-  const chks = () => [...$('#resultado').querySelectorAll('.manter-chk')];
-  const qtdManter = () => chks().filter(x => x.checked).length;
+  const cards = () => [...$('#resultado').querySelectorAll('.ind[data-nome]')];
+  const mantidosNomes = () => cards().filter(a => a.classList.contains('ind--manter')).map(a => a.dataset.nome);
   const contadorEl = $('#manterContador');
-  const atualizaContador = () => { if (contadorEl) contadorEl.textContent = qtdManter() ? `${qtdManter()} de ${MAX_MANTER_F} mantidos` : ''; };
-  const syncCard = art => { const c = art?.querySelector('.manter-chk'); if (c) art.classList.toggle('ind--manter', c.checked); atualizaContador(); };
+  const atualizaContador = () => { if (contadorEl) { const q = mantidosNomes().length; contadorEl.textContent = q ? `${q} de ${MAX_MANTER_F} mantidos` : ''; } };
+  const pintaSelo = art => { const s = art.querySelector('.ind__stamp'); if (s) s.textContent = art.classList.contains('ind--manter') ? 'Manter' : 'Trocar'; };
   const setManter = (art, on) => {
-    const c = art.querySelector('.manter-chk'); if (!c) return;
-    if (on && !c.checked && qtdManter() >= MAX_MANTER_F) {
+    if (on && !art.classList.contains('ind--manter') && mantidosNomes().length >= MAX_MANTER_F) {
       art.classList.remove('ind--shake'); void art.offsetWidth; art.classList.add('ind--shake');
       if (contadorEl) contadorEl.textContent = 'máximo 3 mantidos';
       return;
     }
-    c.checked = on; syncCard(art);
+    art.classList.toggle('ind--manter', on); pintaSelo(art); atualizaContador();
   };
-  chks().forEach(c => c.addEventListener('change', () => {
-    const art = c.closest('.ind');
-    if (c.checked && qtdManter() > MAX_MANTER_F) { c.checked = false; alert('Você pode manter no máximo 3 nomes.'); }
-    syncCard(art);
-  }));
-  $('#resultado').querySelectorAll('.ind').forEach(art => {
-    if (!art.querySelector('.manter-chk')) return;
-    art.classList.add('ind--arrastavel'); syncCard(art);
-    const bM = document.createElement('div'); bM.className = 'ind__band ind__band--manter'; bM.textContent = 'Manter';
-    const bT = document.createElement('div'); bT.className = 'ind__band ind__band--trocar'; bT.textContent = 'Trocar';
-    art.append(bM, bT);
+  cards().forEach(art => {
+    art.classList.add('ind--arrastavel'); pintaSelo(art);
+    art.querySelector('.ind__stamp')?.addEventListener('click', e => { e.stopPropagation(); setManter(art, !art.classList.contains('ind--manter')); });
     let x0 = 0, dx = 0, drag = false, pid = null;
     art.addEventListener('pointerdown', ev => {
-      if (ev.target.closest('button,a,input,label,.acoes-pos,.resp')) return;   // não atrapalha ações/checkbox
+      if (ev.target.closest('button,a,input,label,.acoes-pos,.resp,.ind__stamp')) return;   // não atrapalha ações/selo
       drag = true; x0 = ev.clientX; dx = 0; pid = ev.pointerId; try { art.setPointerCapture(pid); } catch (e) {} art.classList.add('ind--drag');
     });
     art.addEventListener('pointermove', ev => {
       if (!drag) return; dx = ev.clientX - x0;
       art.style.transform = `translateX(${dx}px) rotate(${dx * 0.02}deg)`;
-      bM.style.opacity = dx < 0 ? Math.min(1, -dx / 90) : 0;
-      bT.style.opacity = dx > 0 ? Math.min(1, dx / 90) : 0;
+      art.classList.toggle('ind--dragM', dx <= -20);
+      art.classList.toggle('ind--dragT', dx >= 20);
+      const s = art.querySelector('.ind__stamp');
+      if (s) s.textContent = dx <= -20 ? 'Manter' : (dx >= 20 ? 'Trocar' : (art.classList.contains('ind--manter') ? 'Manter' : 'Trocar'));
     });
     const fim = () => {
-      if (!drag) return; drag = false; art.classList.remove('ind--drag');
+      if (!drag) return; drag = false;
+      art.classList.remove('ind--drag', 'ind--dragM', 'ind--dragT');
       try { art.releasePointerCapture(pid); } catch (e) {}
       if (dx <= -80) setManter(art, true); else if (dx >= 80) setManter(art, false);
-      art.style.transform = ''; bM.style.opacity = 0; bT.style.opacity = 0;
+      art.style.transform = ''; pintaSelo(art);
     };
     art.addEventListener('pointerup', fim);
     art.addEventListener('pointercancel', fim);
   });
   atualizaContador();
   $('#refazer')?.addEventListener('click', async e => {
-    const manter = chks().filter(x => x.checked).map(x => x.value).slice(0, 3);
+    const manter = mantidosNomes().slice(0, MAX_MANTER_F);
     const trocam = nInd - manter.length;
     if (trocam <= 0) { alert('Deixe pelo menos um nome sem "manter" para trocar.'); return; }
     const msg = manter.length
