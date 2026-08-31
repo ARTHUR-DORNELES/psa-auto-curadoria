@@ -1424,16 +1424,16 @@ function renderCompleto(d) {
     art.addEventListener('pointermove', ev => {
       if (!drag) return; dx = ev.clientX - x0;
       art.style.transform = `translateX(${dx}px) rotate(${dx * 0.02}deg)`;
-      art.classList.toggle('ind--dragM', dx <= -20);
-      art.classList.toggle('ind--dragT', dx >= 20);
+      art.classList.toggle('ind--dragM', dx >= 20);
+      art.classList.toggle('ind--dragT', dx <= -20);
       const s = art.querySelector('.ind__stamp');
-      if (s) s.textContent = dx <= -20 ? 'Manter' : (dx >= 20 ? 'Trocar' : (art.classList.contains('ind--manter') ? 'Manter' : 'Trocar'));
+      if (s) s.textContent = dx >= 20 ? 'Manter' : (dx <= -20 ? 'Trocar' : (art.classList.contains('ind--manter') ? 'Manter' : 'Trocar'));
     });
     const fim = () => {
       if (!drag) return; drag = false;
       art.classList.remove('ind--drag', 'ind--dragM', 'ind--dragT');
       try { art.releasePointerCapture(pid); } catch (e) {}
-      if (dx <= -80) setManter(art, true); else if (dx >= 80) setManter(art, false);
+      if (dx >= 80) setManter(art, true); else if (dx <= -80) setManter(art, false);
       art.style.transform = ''; pintaSelo(art);
     };
     art.addEventListener('pointerup', fim);
