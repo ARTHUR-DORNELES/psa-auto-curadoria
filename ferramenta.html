@@ -360,6 +360,14 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
         <select id="sentimento"><option value="">Selecione</option></select>
       </div>
       <div>
+        <label for="empresaPalestra">Para qual empresa é essa palestra?</label>
+        <input id="empresaPalestra" autocomplete="off" placeholder="Empresa onde a palestra vai acontecer">
+      </div>
+      <div>
+        <label for="palestranteDesejado">Já tem algum palestrante específico em mente?</label>
+        <input id="palestranteDesejado" autocomplete="off" placeholder="Opcional — se não tiver, pode deixar em branco">
+      </div>
+      <div>
         <label for="briefing">Quer acrescentar algum contexto?</label>
         <textarea id="briefing" placeholder="Momento da empresa, assunto que não pode ser tocado, palestrante que já contrataram e o que funcionou (ou não)."></textarea>
         <p class="dica">Opcional, mas se já teve um evento que deu certo ou errado, conte — é o que mais afina a escolha.</p>
@@ -944,6 +952,7 @@ $('#enviar').addEventListener('click', async () => {
     localEvento: $('#localEvento').value, cidade: $('#cidade').value, local: $('#local').value,
     orcamento: $('#orcamento').value, vendaIngresso: $('#vendaIngresso').value,
     motivacao: $('#motivacao').value, sentimento: $('#sentimento').value,
+    palestranteDesejado: $('#palestranteDesejado').value, empresaPalestra: $('#empresaPalestra').value,
     briefing: $('#briefing').value,
   }, (e) => { mostra('p3', 3); $('#e3').textContent = e.message + ' — se persistir, fale com um curador pelo site.'; $('#enviar').disabled = false; });
 });
