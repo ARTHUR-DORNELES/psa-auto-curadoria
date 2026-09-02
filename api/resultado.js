@@ -62,10 +62,14 @@ export default async function handler(req, res) {
       const jaTem = new Set(mantidos.map(i => String(i.nome || '').toLowerCase()));
       const ineditos = nomes.filter(n => !jaTem.has(n.nome.toLowerCase()));
       const faltam = Math.max(0, N_INDICACOES - mantidos.length);
-      const novos = escolherIndicacoes(ineditos).slice(0, faltam);
+      // LISTA FECHADA: todos os nomes vêm com categoria "Pedido do cliente"; escolherIndicacoes
+      // reduziria a 1 (slice de 'pedido'). Aqui mostramos TODOS os que casaram, sem curar/reduzir.
+      const novos = reg.nomesDoCliente
+        ? ineditos.slice(0, Math.max(N_INDICACOES, (reg.nomesSolicitados || []).length))
+        : escolherIndicacoes(ineditos).slice(0, faltam);
       await anexarFotos(novos);   // mantidos já têm foto/redes da rodada anterior
       const escolhidos = [...mantidos, ...novos];
-      const incompleto = escolhidos.length < N_INDICACOES;
+      const incompleto = !reg.nomesDoCliente && escolhidos.length < N_INDICACOES;
       reg.linkCuradoria = curadoria.link;
       reg.resultado = {
         leitura: incompleto
