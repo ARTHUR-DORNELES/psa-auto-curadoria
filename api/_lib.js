@@ -1191,8 +1191,8 @@ export async function listarCuradorias(bruto) {
       let reg; try { reg = JSON.parse(bruto2); } catch (e) { continue; }
       vistos.add(uuid);
       const b = reg.briefing || {};
-      // rótulo = empresa do cliente + data do evento (a definir quando o briefing não teve data).
-      const empresa = String(b.empresa || '').trim();
+      // rótulo = empresa do evento + data do evento (a definir quando o briefing não teve data).
+      const empresa = String(b.empresaPalestra || b.empresa || '').trim();
       const nome = String(b.nome || '').trim();
       const label = [empresa || nome || 'Curadoria', dataBR(b.data) ? `evento ${dataBR(b.data)}` : 'evento a definir'].join(' · ');
       const finalizada = !!stFinal && String(d.properties?.dealstage) === String(stFinal);

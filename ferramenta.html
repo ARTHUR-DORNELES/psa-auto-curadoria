@@ -225,6 +225,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
     .ac-opt.sel,.ac-opt:hover{background:var(--psa-orange);color:#fff}
     .ac-opt .ac-livre{color:var(--fg-2);font-size:12px}
     .ac-cont{font-family:var(--font-mono);font-size:12px;color:var(--fg-2);margin:10px 0 0}
+    .ac-emp-label{display:block;font-size:var(--t-body-sm);color:var(--fg-2);margin:0 0 8px}
     .digitando{align-self:flex-start;color:var(--fg-3);font-size:var(--t-body-sm);font-style:italic}
     /* avatar do Santiago (respira parado, balança quando pensa) */
     .chat-layout{display:flex;gap:var(--s-6);align-items:flex-start}
@@ -969,19 +970,25 @@ async function pedeNomes() {
   const escolhidos = [];
 
   const wrap = document.createElement('div'); wrap.className = 'ac-wrap';
+  // empresa PARA QUEM é o evento (não a empresa da conta) — obrigatória
+  const empLabel = document.createElement('label'); empLabel.className = 'ac-emp-label'; empLabel.textContent = 'Para qual empresa é o evento?';
+  const empInput = document.createElement('input'); empInput.className = 'ac-input'; empInput.type = 'text'; empInput.autocomplete = 'off';
+  empInput.placeholder = 'Nome da empresa onde a palestra vai acontecer';
+  empInput.style.marginBottom = '16px';
   const chips = document.createElement('div'); chips.className = 'ac-chips';
+  const nomesLabel = document.createElement('label'); nomesLabel.className = 'ac-emp-label'; nomesLabel.textContent = 'Palestrantes que você já quer (até 5)';
   const inp = document.createElement('input'); inp.className = 'ac-input'; inp.type = 'text'; inp.autocomplete = 'off';
   inp.placeholder = 'Digite o nome do palestrante…';
   const list = document.createElement('div'); list.className = 'ac-list';
   const cont = document.createElement('p'); cont.className = 'ac-cont';
   const enviar = document.createElement('button'); enviar.className = 'btn btn--primary'; enviar.style.marginTop = '12px'; enviar.textContent = 'Montar curadoria →'; enviar.disabled = true;
-  wrap.append(chips, inp, list, cont, enviar);
+  wrap.append(empLabel, empInput, nomesLabel, chips, inp, list, cont, enviar);
   area.appendChild(wrap);
   let sel = -1;
 
   const atualiza = () => {
     cont.textContent = escolhidos.length ? `${escolhidos.length} de 5 selecionados` : '';
-    enviar.disabled = !escolhidos.length;
+    enviar.disabled = !escolhidos.length || !empInput.value.trim();
     chips.innerHTML = '';
     escolhidos.forEach((nome, i) => {
       const c = document.createElement('span'); c.className = 'ac-chip';
@@ -1027,25 +1034,27 @@ async function pedeNomes() {
     else if (e.key === 'Escape') { list.className = 'ac-list'; }
   });
   inp.addEventListener('blur', () => setTimeout(() => { list.className = 'ac-list'; }, 150));
+  empInput.addEventListener('input', atualiza);
   enviar.addEventListener('click', () => {
     const nomes = escolhidos.slice(0, 5);
-    if (!nomes.length) return;
+    const empresaEvento = empInput.value.trim();
+    if (!nomes.length || !empresaEvento) return;
     area.innerHTML = '';
-    bolha('user', nomes.join('\n'));
-    digitarBolha(`Fechado! Vou montar sua curadoria com ${nomes.length === 1 ? 'esse nome' : 'esses nomes'}: ${nomes.join(', ')}. Leva só um instante.`)
-      .then(() => enviarNomes(nomes));
+    bolha('user', `Empresa: ${empresaEvento}\n${nomes.join('\n')}`);
+    digitarBolha(`Fechado! Vou montar a curadoria para ${empresaEvento} com ${nomes.length === 1 ? 'esse nome' : 'esses nomes'}: ${nomes.join(', ')}. Leva só um instante.`)
+      .then(() => enviarNomes(nomes, empresaEvento));
   });
   inp.focus();
 }
 
 // envia os nomes -> /api/curar-nomes -> espera a IA (travada na lista) -> renderiza
-async function enviarNomes(nomes) {
+async function enviarNomes(nomes, empresaEvento) {
   mostra('carregando', 0);
   const espera = iniciarEspera();
   try {
     const r = await fetch('/api/curar-nomes', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ documento: documentoValidado, nomes, utm,
+      body: JSON.stringify({ documento: documentoValidado, nomes, utm, empresaPalestra: empresaEvento || '',
         nome: contatoNovo.nome, empresa: contatoNovo.empresa, email: contatoNovo.email, telefone: contatoNovo.telefone }),
     });
     const j = await r.json();
@@ -1492,7 +1501,8 @@ function resumoDoBriefing(d) {
 
   const dataBR = iso => (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.split('-').reverse().join('/') : iso || '');
   const linhas = [
-    ['Empresa', b.empresa], ['Responsável', b.nome], ['E-mail', b.email], ['Telefone', b.telefone],
+    // "Empresa" = a empresa PARA QUEM é o evento (empresaPalestra); a da conta é só reserva
+    ['Empresa', b.empresaPalestra || b.empresa], ['Responsável', b.nome], ['E-mail', b.email], ['Telefone', b.telefone],
     ['Tema', (b.macroTema || '').replace(/^\d+\.\s*/, '')],
     ['Recorte do tema', (b.microTema || '').replace(/^[\d.]+\s*/, '')],
     ['Público-alvo', b.publicoAlvo], ['Formato', b.formato],

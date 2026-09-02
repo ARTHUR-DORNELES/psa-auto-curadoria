@@ -35,6 +35,8 @@ export default async function handler(req, res) {
     // briefing mínimo: só a identidade (o resto do briefing vem depois, se pedir disponibilidade).
     const briefing = {
       nome: b.nome || '', empresa: b.empresa || '', email: String(b.email || '').toLowerCase().trim(), telefone: b.telefone || '',
+      // empresa PARA QUEM é o evento (perguntada no fluxo de nomes) — é a que aparece no resultado
+      empresaPalestra: String(b.empresaPalestra || '').slice(0, 300),
       nomesSolicitados: nomes,
       utm: b.utm || {},
     };
