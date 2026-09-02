@@ -249,7 +249,7 @@ async function criarNegocio(properties, contatoId) {
 // Assim o time cria "Curadorias criadas"/"Curadorias finalizadas" no HubSpot sem eu
 // precisar caçar ids — o código acha pelo nome. Devolve null se a etapa ainda não existe
 // (o negócio então cai na etapa padrão da pipeline, sem quebrar).
-const NOME_STAGE = { criada: 'Curadorias criadas', finalizada: 'Curadorias finalizadas' };
+const NOME_STAGE = { criada: 'Curadorias criadas', finalizada: 'Curadorias finalizadas', perdido: 'Negócio perdido' };
 let _stagesCache = null;
 async function stageIdPorNome(nome) {
   try {
@@ -305,6 +305,43 @@ export async function finalizarCuradoria(dealId) {
     await hs(`/crm/v3/objects/deals/${dealId}`, 'PATCH', { properties: { dealstage: fin } });
     return true;
   } catch (e) { console.error('finalizarCuradoria falhou:', e.message); return false; }
+}
+
+// "Deletar" na visão do cliente = ARQUIVAR: move o negócio para "Negócio perdido" e ele some
+// da lista (a lista só olha criadas/finalizadas). Reversível — o negócio continua no HubSpot.
+// Nunca lança.
+export async function arquivarCuradoria(dealId) {
+  if (!dealId) return false;
+  try {
+    const perdido = await stageIdPorNome(NOME_STAGE.perdido);
+    if (!perdido) { console.error('etapa "Negócio perdido" não encontrada — negócio não arquivado'); return false; }
+    await hs(`/crm/v3/objects/deals/${dealId}`, 'PATCH', { properties: { dealstage: perdido } });
+    return true;
+  } catch (e) { console.error('arquivarCuradoria falhou:', e.message); return false; }
+}
+
+// Ação do cliente sobre UMA curadoria da lista dele (finalizar/arquivar), com checagem de dono:
+// o CPF/CNPJ informado tem de bater com o contato que criou a curadoria. Nunca lança.
+export async function acaoCuradoria(bruto, uuid, acao) {
+  const doc = normalizaDocumento(bruto);
+  if (!doc) return { ok: false, erro: 'documento inválido' };
+  if (!uuid || !['finalizar', 'arquivar'].includes(acao)) return { ok: false, erro: 'ação inválida' };
+  try {
+    const cru = await redis().get(chave(uuid));
+    if (!cru) return { ok: false, erro: 'curadoria não encontrada' };
+    let reg; try { reg = JSON.parse(cru); } catch (e) { return { ok: false, erro: 'curadoria corrompida' }; }
+    const dealId = reg?.hubspot?.negocioId;
+    if (!dealId) return { ok: false, erro: 'curadoria sem negócio associado' };
+    // dono: os contatos do CPF/CNPJ têm de incluir o contato que criou esta curadoria
+    const contatos = await hs('/crm/v3/objects/contacts/search', 'POST', {
+      filterGroups: [{ filters: [{ propertyName: doc.tipo, operator: 'EQ', value: doc.valor }] }],
+      properties: [doc.tipo], limit: 100,
+    });
+    const ids = (contatos.results || []).map((c) => String(c.id));
+    if (!reg.contatoId || !ids.includes(String(reg.contatoId))) return { ok: false, erro: 'sem permissão' };
+    const ok = acao === 'finalizar' ? await finalizarCuradoria(dealId) : await arquivarCuradoria(dealId);
+    return { ok };
+  } catch (e) { console.error('acaoCuradoria falhou:', e.message); return { ok: false, erro: 'falha ao processar' }; }
 }
 
 /**
@@ -1125,9 +1162,10 @@ export async function listarCuradorias(bruto) {
     if (!ids.length) return [];
     // curadorias = negócios nas etapas "Curadorias criadas"/"Curadorias finalizadas" (por nome).
     // Se as etapas ainda não existem, cai no legado "Utilizado" (compat. com curadorias antigas).
-    const stagesCuradoria = (await Promise.all([
+    const [stCriada, stFinal] = await Promise.all([
       stageIdPorNome(NOME_STAGE.criada), stageIdPorNome(NOME_STAGE.finalizada),
-    ])).filter(Boolean);
+    ]);
+    const stagesCuradoria = [stCriada, stFinal].filter(Boolean);
     const stageFiltro = stagesCuradoria.length
       ? { propertyName: 'dealstage', operator: 'IN', values: stagesCuradoria }
       : { propertyName: 'dealstage', operator: 'EQ', value: STAGE_UTILIZADO };
@@ -1140,7 +1178,7 @@ export async function listarCuradorias(bruto) {
         ],
       })),
       sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }],
-      properties: ['dealname', 'createdate'],
+      properties: ['dealname', 'createdate', 'dealstage'],
       limit: 100,
     });
     const out = [];
@@ -1153,10 +1191,11 @@ export async function listarCuradorias(bruto) {
       let reg; try { reg = JSON.parse(bruto2); } catch (e) { continue; }
       vistos.add(uuid);
       const b = reg.briefing || {};
-      const tema = [_canonMacro(b.macroTema), b.microTema].filter(Boolean).join(' · ');
-      const label = [b.empresa, tema, dataBR(b.data)].filter(Boolean).join(' · ')
-        || String(d.properties?.dealname || 'Curadoria');
-      out.push({ id: uuid, label, criadoEm: reg.criadoEm || null });
+      // rótulo = nome do cliente + data do evento (a definir quando o briefing não teve data).
+      const nome = String(b.nome || '').trim();
+      const label = [nome || b.empresa || 'Curadoria', dataBR(b.data) ? `evento ${dataBR(b.data)}` : 'evento a definir'].join(' · ');
+      const finalizada = !!stFinal && String(d.properties?.dealstage) === String(stFinal);
+      out.push({ id: uuid, label, criadoEm: reg.criadoEm || null, finalizada });
     }
     return out;
   } catch (e) { console.error('listarCuradorias falhou:', e.message); return []; }

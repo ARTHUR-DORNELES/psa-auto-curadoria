@@ -583,16 +583,59 @@ $('#btnAcesso').addEventListener('click', async () => {
       const lista = $('#escolhaLista');
       lista.innerHTML = '';
       (j.curadorias || []).forEach((c) => {
-        const b = document.createElement('button');
-        b.className = 'btn btn--primary';
-        b.style.cssText = 'justify-content:space-between;text-align:left;width:100%';
         // data de criação (sempre existe) ajuda a diferenciar curadorias com o mesmo tema/empresa
         let criada = '';
         try { if (c.criadoEm) criada = new Date(c.criadoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch (e) {}
         const rot = (c.label || 'Curadoria').replace(/</g, '&lt;');
-        b.innerHTML = `<span style="display:flex;flex-direction:column;gap:3px;align-items:flex-start;min-width:0"><span>${rot}</span>${criada ? `<span style="font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;opacity:.85">criada em ${criada}</span>` : ''}</span><span style="flex:none">Ver →</span>`;
+
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex;flex-direction:column;gap:6px';
+
+        // linha principal (laranja): o card inteiro é o "Ver"
+        const b = document.createElement('button');
+        b.className = 'btn btn--primary';
+        b.style.cssText = 'justify-content:space-between;text-align:left;width:100%';
+        const selo = `<span class="selo-fin" style="display:${c.finalizada ? 'inline-block' : 'none'};font-size:10px;font-weight:700;letter-spacing:.05em;background:#0b7a33;color:#eafff1;border-radius:999px;padding:2px 9px;text-transform:uppercase">finalizada</span>`;
+        b.innerHTML = `<span style="display:flex;flex-direction:column;gap:3px;align-items:flex-start;min-width:0"><span style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap"><span>${rot}</span>${selo}</span>${criada ? `<span style="font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;opacity:.85">criada em ${criada}</span>` : ''}</span><span style="flex:none">Ver →</span>`;
         b.addEventListener('click', () => { location.search = 'id=' + c.id; });
-        lista.appendChild(b);
+
+        // ações secundárias: finalizar / deletar
+        const acoes = document.createElement('div');
+        acoes.style.cssText = 'display:flex;gap:16px;justify-content:flex-end;padding:0 6px';
+        const linkBase = 'background:none;border:0;font-size:12px;cursor:pointer;text-decoration:underline;padding:0';
+
+        const bFin = document.createElement('button');
+        bFin.type = 'button';
+        bFin.textContent = 'Finalizar curadoria';
+        bFin.style.cssText = linkBase + ';color:var(--fg-3)';
+        if (c.finalizada) bFin.style.display = 'none';
+        bFin.addEventListener('click', async () => {
+          if (!confirm('Finalizar esta curadoria? Ela fica marcada como concluída.')) return;
+          bFin.disabled = true; bFin.textContent = 'Finalizando…';
+          try {
+            const r = await fetch('/api/curadoria-acao', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ documento: doc, id: c.id, acao: 'finalizar' }) }).then((x) => x.json());
+            if (r && r.ok) { bFin.style.display = 'none'; const s = b.querySelector('.selo-fin'); if (s) s.style.display = 'inline-block'; }
+            else { alert((r && r.erro) || 'Não conseguimos finalizar agora.'); bFin.disabled = false; bFin.textContent = 'Finalizar curadoria'; }
+          } catch (e) { alert('Falha ao finalizar. Tente de novo.'); bFin.disabled = false; bFin.textContent = 'Finalizar curadoria'; }
+        });
+
+        const bDel = document.createElement('button');
+        bDel.type = 'button';
+        bDel.textContent = 'Deletar';
+        bDel.style.cssText = linkBase + ';color:#ff8f6b';
+        bDel.addEventListener('click', async () => {
+          if (!confirm('Deletar esta curadoria? Ela sai da sua lista.')) return;
+          bDel.disabled = true; bDel.textContent = 'Deletando…';
+          try {
+            const r = await fetch('/api/curadoria-acao', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ documento: doc, id: c.id, acao: 'arquivar' }) }).then((x) => x.json());
+            if (r && r.ok) { item.remove(); if (!lista.children.length) $('#escolhaSub').textContent = 'Você não tem mais curadorias abertas.'; }
+            else { alert((r && r.erro) || 'Não conseguimos deletar agora.'); bDel.disabled = false; bDel.textContent = 'Deletar'; }
+          } catch (e) { alert('Falha ao deletar. Tente de novo.'); bDel.disabled = false; bDel.textContent = 'Deletar'; }
+        });
+
+        acoes.append(bFin, bDel);
+        item.append(b, acoes);
+        lista.appendChild(item);
       });
       const podeNova = !!j.podeNova;   // há compra "Pago" -> pode começar uma nova pelo briefing
       $('#btnNovaBriefing').style.display = podeNova ? '' : 'none';
