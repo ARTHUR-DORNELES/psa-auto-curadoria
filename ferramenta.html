@@ -564,6 +564,9 @@ document.querySelectorAll('[data-vai]').forEach(b => b.addEventListener('click',
 // Só entra quem tem uma compra "Pago" na pipeline Auto Curadoria, casada pelo documento.
 // O servidor revalida em /api/curar — este gate é a porta, não a fechadura.
 let documentoValidado = '', contatoNovo = {};
+// modo do formulário p1/p2/p3: 'novo' (cria curadoria) ou 'briefing' (completa o briefing de
+// uma curadoria de LISTA FECHADA e dispara a disponibilidade pendente). formAlvo = {id, dispNome}.
+let formModo = 'novo', formAlvo = null;
 $('#btnAcesso').addEventListener('click', async () => {
   const doc = $('#documento').value.replace(/\D/g, '');
   $('#eGate').textContent = '';
@@ -1061,7 +1064,21 @@ async function enviarNomes(nomes) {
 }
 
 // escape: "prefiro preencher um formulário" -> fluxo de 3 passos
-$('#chat-para-form').addEventListener('click', () => mostra('p1', 1));
+$('#chat-para-form').addEventListener('click', () => { formModo = 'novo'; formAlvo = null; mostra('p1', 1); });
+
+// Abre o formulário p1/p2/p3 pré-preenchido para COMPLETAR o briefing de uma curadoria de
+// LISTA FECHADA (o cliente pediu disponibilidade e faltavam os dados do evento). Ao enviar,
+// salva via acao='briefing' e dispara a disponibilidade pendente. Sem passar pelo Santiago.
+function abrirBriefingForm(d, dispNome) {
+  formModo = 'briefing'; formAlvo = { id: d.id, dispNome: dispNome || '' };
+  const b = d.briefing || {};
+  const set = (id, v) => { const el = $('#' + id); if (el && v != null && v !== '') el.value = v; };
+  set('nome', b.nome); set('empresa', b.empresa); set('email', b.email); set('telefone', b.telefone);
+  set('empresaPalestra', b.empresaPalestra || b.empresa);
+  const btn = $('#enviar'); if (btn) btn.textContent = 'Salvar e pedir disponibilidade →';
+  // começa no passo 2 (dados do evento); a identidade do passo 1 já vem preenchida
+  mostra('p2', 2);
+}
 
 
 // ── validação ──────────────────────────────────────────────
@@ -1216,11 +1233,8 @@ async function enviarBriefing(corpo, onErro) {
   }
 }
 
-$('#enviar').addEventListener('click', async () => {
-  if (!valida1() || !valida2()) { $('#e3').textContent = 'Faltou preencher algo nos passos anteriores.'; return; }
-  if (!valida3()) return;
-  $('#enviar').disabled = true;
-  await enviarBriefing({
+function corpoDoFormulario() {
+  return {
     nome: $('#nome').value, empresa: $('#empresa').value, email: $('#email').value, telefone: $('#telefone').value,
     macroTema: $('#macroTema').value, microTema: $('#microTema').value,
     publicoAlvo: $('#publicoAlvo').value, formato: $('#formato').value,
@@ -1230,8 +1244,48 @@ $('#enviar').addEventListener('click', async () => {
     motivacao: $('#motivacao').value, sentimento: $('#sentimento').value,
     palestranteDesejado: $('#palestranteDesejado').value, empresaPalestra: $('#empresaPalestra').value,
     briefing: $('#briefing').value,
-  }, (e) => { mostra('p3', 3); $('#e3').textContent = e.message + ' — se persistir, fale com um curador pelo site.'; $('#enviar').disabled = false; });
+  };
+}
+
+$('#enviar').addEventListener('click', async () => {
+  if (!valida1() || !valida2()) { $('#e3').textContent = 'Faltou preencher algo nos passos anteriores.'; return; }
+  if (!valida3()) return;
+  $('#enviar').disabled = true;
+  // modo "briefing": salva o briefing na curadoria de LISTA FECHADA e dispara a disponibilidade
+  if (formModo === 'briefing' && formAlvo) return salvarBriefingFormExistente();
+  await enviarBriefing(corpoDoFormulario(),
+    (e) => { mostra('p3', 3); $('#e3').textContent = e.message + ' — se persistir, fale com um curador pelo site.'; $('#enviar').disabled = false; });
 });
+
+// salva o briefing do formulário na curadoria existente e dispara a disponibilidade pendente
+async function salvarBriefingFormExistente() {
+  const alvo = formAlvo;
+  const corpo = corpoDoFormulario();
+  try {
+    const r = await fetch(`/api/resultado?id=${alvo.id}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ acao: 'briefing', ...corpo }),
+    });
+    const j = await r.json();
+    if (!r.ok || !j.ok) throw new Error(j.erro || 'não consegui salvar o briefing');
+    // dispara a disponibilidade que ficou pendente, usando a data do briefing (se houver)
+    if (alvo.dispNome) {
+      const iso = corpo.data;
+      const datas = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.split('-').reverse().join('/') : '';
+      try {
+        await fetch(`/api/resultado?id=${alvo.id}`, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ acao: 'disponibilidade', palestrantes: [alvo.dispNome], datas }),
+        });
+      } catch (e) { /* mesmo se falhar, volta pro resultado e o cliente tenta de novo */ }
+    }
+    formModo = 'novo'; formAlvo = null;
+    location.href = `?id=${alvo.id}`;   // recarrega o resultado já com briefing e disponibilidade
+  } catch (e) {
+    mostra('p3', 3); $('#e3').textContent = e.message + ' — se persistir, fale com um curador pelo site.';
+    $('#enviar').disabled = false;
+  }
+}
 
 // Consulta a curadoria até a automação publicar o arquivo. Não revela antes do
 // tempo mínimo de processo; desiste depois do limite e cai na tela de "em produção".
@@ -1596,6 +1650,9 @@ function renderCompleto(d) {
   $('#resultado').querySelectorAll('.btn-disp').forEach(btn => {
     btn.addEventListener('click', async () => {
       const nome = btn.dataset.nome;
+      // LISTA FECHADA sem briefing: abre o formulário completo editável (com a data lá dentro)
+      // em vez de pedir só a data; ao salvar, dispara a disponibilidade. Não passa pelo Santiago.
+      if (d.nomesDoCliente && !d.briefingCompleto) { abrirBriefingForm(d, nome); return; }
       const iso = await pedirDataDisponibilidade(nome, d.briefing?.data || '');
       if (!iso) return;
       const datas = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.split('-').reverse().join('/') : iso;   // BR DD/MM/AAAA
@@ -1607,24 +1664,10 @@ function renderCompleto(d) {
           method: 'POST', headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ acao: 'disponibilidade', palestrantes: [nome], datas }),
         });
-        // LISTA FECHADA sem briefing: preciso do briefing do evento antes de checar agenda.
+        // rede de segurança: se o servidor pedir o briefing (lista fechada), abre o formulário
         if (r.status === 428) {
           const jj = await r.json().catch(() => ({}));
-          if (jj.precisaBriefing) {
-            btn.disabled = false; btn.textContent = antes;
-            if (!confirm('Pra checar a disponibilidade, preciso do briefing completo do evento. Vamos preencher rapidinho agora?')) return;
-            const contato = { nome: d.briefing?.nome, empresa: d.briefing?.empresa, email: d.briefing?.email, telefone: d.briefing?.telefone };
-            iniciarBriefingExistente(d.id, contato, async () => {
-              try {
-                await fetch(`/api/resultado?id=${d.id}`, {
-                  method: 'POST', headers: { 'content-type': 'application/json' },
-                  body: JSON.stringify({ acao: 'disponibilidade', palestrantes: [nome], datas }),
-                });
-              } catch (e) { /* mesmo se falhar, recarrega e o cliente tenta de novo */ }
-              location.reload();   // volta pro resultado já com a disponibilidade solicitada
-            });
-            return;
-          }
+          if (jj.precisaBriefing) { btn.disabled = false; btn.textContent = antes; abrirBriefingForm(d, nome); return; }
         }
         if (!r.ok) throw new Error(await r.text());
         await r.json();
