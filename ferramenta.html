@@ -1413,6 +1413,7 @@ function renderCompleto(d) {
     </div>
     <p class="leitura">${esc(r.leitura)}</p>
     ${r.incompleto ? `<p class="aviso">Adiantamos ${r.indicacoes.length} nome${r.indicacoes.length > 1 ? 's' : ''} de alta aderência. Um curador vai completar sua indicação e te avisar — sem custo extra.</p>` : ''}
+    ${(d.naoEncontrados && d.naoEncontrados.length) ? `<p class="aviso"><strong>Não localizamos na nossa base:</strong> ${d.naoEncontrados.map(esc).join(', ')}. Confira a grafia do nome completo, ou fale com um curador da PSA que a gente confirma a disponibilidade desse palestrante pra você.</p>` : ''}
     ${d.refacoesRestantes > 0 ? `
     <div class="tut" id="tut">
       <div class="tut__demo"><div class="tut__card"><span class="tut__stamp tut__stamp--m">Manter</span><span class="tut__stamp tut__stamp--t">Trocar</span></div></div>

@@ -149,6 +149,18 @@ export default async function handler(req, res) {
       } catch (e) { console.error('merge respostas disponibilidade:', e.message); }
     }
 
+    // LISTA FECHADA: quais nomes que o cliente pediu NÃO casaram com a base (não vieram no
+    // resultado). Sem isso, nomes digitados errado (ou fora da base) somem sem o cliente saber.
+    let naoEncontrados = [];
+    if (reg.nomesDoCliente && Array.isArray(reg.nomesSolicitados)) {
+      const achou = (cliente.indicacoes || []).map((i) => chaveDeNome(i.nome)).filter(Boolean);
+      naoEncontrados = reg.nomesSolicitados.filter((sol) => {
+        const k = chaveDeNome(sol);
+        if (!k) return false;
+        return !achou.some((a) => a === k || a.includes(k) || k.includes(a));
+      });
+    }
+
     // `disponibilidade` vai para o cliente porque quem recarrega o link precisa ver
     // que já pediu; sem isso a tela volta destravada e o pedido parece não ter saído
     return res.status(200).json({
@@ -160,6 +172,7 @@ export default async function handler(req, res) {
       // briefing completo antes. O front usa isso pra pedir o briefing na hora de solicitar.
       nomesDoCliente: !!reg.nomesDoCliente,
       briefingCompleto: reg.nomesDoCliente ? !!reg.briefingCompleto : true,
+      naoEncontrados,
     });
   }
 
