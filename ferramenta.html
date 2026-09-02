@@ -656,7 +656,7 @@ $('#btnAcesso').addEventListener('click', async () => {
       return;
     }
     documentoValidado = doc;   // modo 'novo': abre a conversa com o Santiago
-    iniciarChat(j.contato);    // já traz nome/empresa/email/telefone do contato -> não pergunta de novo
+    iniciarEntrada(j.contato); // pergunta primeiro: já tem os nomes ou quer ajuda?
   } catch (e) {
     $('#eGate').textContent = 'Não conseguimos validar agora. Tente de novo em instantes.';
     $('#btnAcesso').disabled = false;
@@ -684,7 +684,7 @@ $('#documento').addEventListener('keydown', (e) => {
 // a ferramenta com ?id=<curadoria>, que a IIFE do fim carrega sozinha.)
 // Começar uma nova: usa a compra "Pago" que ainda não foi usada -> abre o briefing.
 $('#btnNovaBriefing').addEventListener('click', () => {
-  iniciarChat(contatoNovo);
+  iniciarEntrada(contatoNovo);
 });
 // "Abrir minhas curadorias": só aqui a lista aparece.
 $('#btnAbrirLista').addEventListener('click', () => {
@@ -709,6 +709,9 @@ $('#btnVoltar').addEventListener('click', (e) => {
 // ── conversa com o Santiago (curador) ──────────────────────
 const chatHist = [];        // [{role:'santiago'|'user', content}]
 let chatSlots = {}, campoAtual = '';   // campoAtual = campo que o widget está pedindo
+// modo do chat: 'novo' (cria curadoria) ou 'briefing' (completa o briefing de uma curadoria
+// de LISTA FECHADA já existente, p/ liberar a disponibilidade). chatAlvo = id + callback.
+let chatModo = 'novo', chatAlvo = null;
 
 // troca o vídeo do avatar: 'falando' | 'pensando' | 'esperando' (mostra 1, pausa os outros)
 function santiEstado(estado) {
@@ -864,7 +867,7 @@ async function chatTurno() {
 function chatFinaliza() {
   $('#chatEntrada').innerHTML = '';
   const s = chatSlots;
-  enviarBriefing({
+  const corpo = {
     nome: s.nome, empresa: s.empresa, email: s.email, telefone: s.telefone,
     macroTema: s.macroTema, microTema: s.microTema || '',
     publicoAlvo: s.publicoAlvo, formato: s.formato,
@@ -874,17 +877,117 @@ function chatFinaliza() {
     motivacao: s.motivacao, sentimento: s.sentimento,
     palestranteDesejado: s.palestranteDesejado || '', empresaPalestra: s.empresaPalestra || '',
     briefing: s.contexto || '',                                      // curar: `briefing` = contexto
-  }, (e) => {
+  };
+  // modo "briefing": completa o briefing de uma curadoria de LISTA FECHADA existente
+  // (o cliente pediu disponibilidade e precisava dos dados do evento) — não cria nova.
+  if (chatModo === 'briefing' && chatAlvo) return salvarBriefingExistente(corpo);
+  enviarBriefing(corpo, (e) => {
     mostra('chat', 0);
     bolha('santiago', 'Não consegui registrar agora: ' + e.message + '. Se persistir, tente o formulário no topo.');
   });
 }
 
+// salva o briefing completo na curadoria de LISTA FECHADA e retoma o pedido de disponibilidade
+async function salvarBriefingExistente(corpo) {
+  const alvo = chatAlvo;
+  bolha('santiago', 'Perfeito, é só isso que eu precisava. Já estou registrando…');
+  try {
+    const r = await fetch(`/api/resultado?id=${alvo.id}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ acao: 'briefing', ...corpo }),
+    });
+    const j = await r.json();
+    if (!r.ok || !j.ok) throw new Error(j.erro || 'não consegui salvar o briefing');
+    if (alvo.onDone) alvo.onDone();
+  } catch (e) {
+    bolha('santiago', 'Deu um problema ao salvar: ' + e.message + '. Pode tentar de novo?');
+  }
+}
+
 function iniciarChat(slotsIniciais) {
+  chatModo = 'novo'; chatAlvo = null;
   chatHist.length = 0; chatSlots = { ...(slotsIniciais || {}) };   // já sabemos nome/empresa/email/telefone do contato
   $('#chatMsgs').innerHTML = ''; $('#chatEntrada').innerHTML = '';
   mostra('chat', 0);
   chatTurno();   // 1º turno: Santiago se apresenta e faz a primeira pergunta
+}
+
+// abre o briefing p/ COMPLETAR uma curadoria de LISTA FECHADA existente (sem criar nova);
+// ao terminar, chatFinaliza salva via acao='briefing' e chama onDone.
+function iniciarBriefingExistente(id, slotsIniciais, onDone) {
+  chatModo = 'briefing'; chatAlvo = { id, onDone };
+  chatHist.length = 0; chatSlots = { ...(slotsIniciais || {}) };
+  $('#chatMsgs').innerHTML = ''; $('#chatEntrada').innerHTML = '';
+  mostra('chat', 0);
+  chatTurno();
+}
+
+// ── ENTRADA: antes do briefing, pergunta se o cliente já tem os nomes ou quer ajuda ──
+function iniciarEntrada(contato) {
+  contatoNovo = contato || {};
+  chatModo = 'novo'; chatAlvo = null;
+  chatHist.length = 0; chatSlots = {};
+  $('#chatMsgs').innerHTML = ''; $('#chatEntrada').innerHTML = '';
+  mostra('chat', 0);
+  const primeiro = String((contato && contato.nome) || '').trim().split(/\s+/)[0] || '';
+  const abre = (primeiro ? `Oi, ${primeiro}! ` : 'Oi! ') + 'Antes de começar: você já tem em mente os palestrantes que quer, ou prefere que eu te ajude a encontrar?';
+  digitarBolha(abre).then(() => {
+    const area = $('#chatEntrada'); area.innerHTML = '';
+    const wrap = document.createElement('div'); wrap.className = 'chips';
+    const b1 = document.createElement('button'); b1.className = 'chip-op'; b1.textContent = 'Já tenho os nomes';
+    b1.addEventListener('click', () => { area.innerHTML = ''; bolha('user', 'Já tenho os nomes'); pedeNomes(); });
+    const b2 = document.createElement('button'); b2.className = 'chip-op'; b2.textContent = 'Quero ajuda para encontrar';
+    b2.addEventListener('click', () => { area.innerHTML = ''; bolha('user', 'Quero ajuda para encontrar'); iniciarChat(contato); });
+    wrap.append(b1, b2); area.appendChild(wrap);
+  });
+}
+
+// caminho "já tenho os nomes": coleta até 5 nomes e cria a curadoria de LISTA FECHADA
+function pedeNomes() {
+  digitarBolha('Perfeito! Me passa os nomes dos palestrantes que você já quer (até 5). Pode colocar um por linha ou separados por vírgula.').then(() => {
+    const area = $('#chatEntrada'); area.innerHTML = '';
+    const inp = document.createElement('textarea'); inp.rows = 4;
+    inp.placeholder = 'Ex.:\nFulano de Tal\nBeltrana Silva';
+    const enviar = () => {
+      const nomes = [...new Set(inp.value.split(/[\n,;]+/).map(s => s.replace(/\s+/g, ' ').trim()).filter(s => s.length >= 3))].slice(0, 5);
+      if (!nomes.length) { inp.focus(); return; }
+      area.innerHTML = '';
+      bolha('user', nomes.join('\n'));
+      digitarBolha(`Fechado! Vou montar sua curadoria com ${nomes.length === 1 ? 'esse nome' : 'esses nomes'}: ${nomes.join(', ')}. Leva só um instante.`)
+        .then(() => enviarNomes(nomes));
+    };
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); enviar(); } });
+    area.appendChild(inp);
+    const b = document.createElement('button'); b.className = 'btn btn--primary'; b.textContent = 'Enviar (Ctrl+Enter) →';
+    b.addEventListener('click', enviar);
+    area.appendChild(b);
+    inp.focus();
+  });
+}
+
+// envia os nomes -> /api/curar-nomes -> espera a IA (travada na lista) -> renderiza
+async function enviarNomes(nomes) {
+  mostra('carregando', 0);
+  const espera = iniciarEspera();
+  try {
+    const r = await fetch('/api/curar-nomes', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ documento: documentoValidado, nomes, utm,
+        nome: contatoNovo.nome, empresa: contatoNovo.empresa, email: contatoNovo.email, telefone: contatoNovo.telefone }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.erro || 'falha ao registrar os nomes');
+    history.replaceState(null, '', `?id=${j.id}`);
+    $('#salvarLink').hidden = false; $('#salvarDica').hidden = false;
+    const pronto = await aguardarCuradoria(j.id, espera);
+    espera.parar();
+    if (!pronto) return renderEmProducao(j.id);
+    pronto.pago ? renderCompleto(pronto) : renderTeaser({ id: j.id, ...pronto });
+  } catch (e) {
+    espera.parar();
+    mostra('chat', 0);
+    bolha('santiago', 'Não consegui montar agora: ' + e.message + '. Pode tentar de novo?');
+  }
 }
 
 // escape: "prefiro preencher um formulário" -> fluxo de 3 passos
@@ -1291,10 +1394,12 @@ function resumoDoBriefing(d) {
 
 function renderCompleto(d) {
   const r = d.resultado;
+  // LISTA FECHADA (cliente trouxe os nomes): não faz sentido "trocar/refazer" — ele escolheu.
+  if (d.nomesDoCliente) d.refacoesRestantes = 0;
   const nInd = r.indicacoes.length;   // quantos nomes vieram (varia: 4, 5…) — textos dinâmicos
   $('#resultado').innerHTML = `
     <span class="eyebrow">Ponto de partida</span>
-    <h1>Seu<br>briefing.</h1>
+    <h1>${d.nomesDoCliente ? 'Seus<br>palestrantes.' : 'Seu<br>briefing.'}</h1>
     <div class="acoes acoes--topo" style="margin-bottom:var(--s-4)">
       <button class="btn btn--primary" data-pdf>Baixar PDF</button>
       <button class="btn btn--ghost" data-copiar>Salvar link desta curadoria</button>
@@ -1431,6 +1536,25 @@ function renderCompleto(d) {
           method: 'POST', headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ acao: 'disponibilidade', palestrantes: [nome], datas }),
         });
+        // LISTA FECHADA sem briefing: preciso do briefing do evento antes de checar agenda.
+        if (r.status === 428) {
+          const jj = await r.json().catch(() => ({}));
+          if (jj.precisaBriefing) {
+            btn.disabled = false; btn.textContent = antes;
+            if (!confirm('Pra checar a disponibilidade, preciso do briefing completo do evento. Vamos preencher rapidinho agora?')) return;
+            const contato = { nome: d.briefing?.nome, empresa: d.briefing?.empresa, email: d.briefing?.email, telefone: d.briefing?.telefone };
+            iniciarBriefingExistente(d.id, contato, async () => {
+              try {
+                await fetch(`/api/resultado?id=${d.id}`, {
+                  method: 'POST', headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ acao: 'disponibilidade', palestrantes: [nome], datas }),
+                });
+              } catch (e) { /* mesmo se falhar, recarrega e o cliente tenta de novo */ }
+              location.reload();   // volta pro resultado já com a disponibilidade solicitada
+            });
+            return;
+          }
+        }
         if (!r.ok) throw new Error(await r.text());
         await r.json();
         // solicitou disponibilidade -> trava o card como MANTER na hora (não dá pra trocar quem

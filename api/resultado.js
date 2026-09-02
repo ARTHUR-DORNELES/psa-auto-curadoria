@@ -1,4 +1,4 @@
-import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, limparNomesDoNegocio, finalizarCuradoria, chaveDeNome, respostasDisponibilidade } from './_lib.js';
+import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, limparNomesDoNegocio, finalizarCuradoria, chaveDeNome, respostasDisponibilidade, anexarBriefingAoNegocio } from './_lib.js';
 
 const ACOES = {
   curador: 'CLIENTE PEDIU ATENDIMENTO DE CURADOR — assumir o processo pelo caminho tradicional.',
@@ -75,6 +75,12 @@ export default async function handler(req, res) {
         // `categoria` (permuta!) é comercial interno: paraCliente() a remove
         indicacoes: escolhidos.map(n => ({ ...n, aderencia: n.aderencia || 'alta' })),
       };
+      // lista fechada (cliente trouxe os nomes): a leitura padrão fala de "briefing preenchido",
+      // que aqui não existe — troca por um texto que reflete que os nomes vieram do cliente.
+      if (reg.nomesDoCliente) {
+        reg.resultado.leitura = 'Estes são os palestrantes que você indicou, já com as informações de cada um. Quando quiser, é só pedir a disponibilidade.';
+        reg.resultado.incompleto = false;
+      }
       reg.fotosBuscadas = true;   // já rodou o anexarFotos acima
       reg.redesBuscadas = true;   // anexarFotos também traz as redes sociais do verbete
       if (!CHECKOUT_URL) reg.pago = true;   // sem checkout, entrega direto
@@ -150,11 +156,16 @@ export default async function handler(req, res) {
       resultado: cliente,
       refacoesRestantes: MAX_REFACOES - (reg.refacoes || 0),
       disponibilidade: reg.disponibilidade ? { palestrantes: reg.disponibilidade.palestrantes, em: reg.disponibilidade.em } : null,
+      // curadoria de "lista fechada" (cliente trouxe os nomes): a disponibilidade exige o
+      // briefing completo antes. O front usa isso pra pedir o briefing na hora de solicitar.
+      nomesDoCliente: !!reg.nomesDoCliente,
+      briefingCompleto: reg.nomesDoCliente ? !!reg.briefingCompleto : true,
     });
   }
 
   if (req.method === 'POST') {
-    const { acao, palestrante, palestrantes, datas, mensagem, manter } = await lerCorpo(req);
+    const corpo = await lerCorpo(req);
+    const { acao, palestrante, palestrantes, datas, mensagem, manter } = corpo;
 
     // Refazer: os 3 atuais saem de cena e a automação é acionada de novo pela
     // observação. Os nomes recusados ficam registrados para não voltarem.
@@ -220,8 +231,31 @@ export default async function handler(req, res) {
     // ACUMULATIVO e idempotente por nome: cada palestrante só é processado UMA vez (um
     // segundo pedido do mesmo nome duplicaria item de linha e re-disparia o WhatsApp).
     // Nomes já pedidos são ignorados; só os inéditos entram.
+    // Curadoria de LISTA FECHADA: salva o briefing completo do evento no negócio (o cliente
+    // preenche na hora de pedir disponibilidade). NÃO re-dispara a IA (a reinscrição do
+    // gatilho é única) — só atualiza o negócio p/ a pesquisa de disponibilidade ter os dados.
+    if (acao === 'briefing') {
+      if (!reg.hubspot?.negocioId) return res.status(409).json({ erro: 'curadoria sem negócio associado' });
+      const c = corpo;
+      const campos = ['nome', 'empresa', 'email', 'telefone', 'macroTema', 'microTema', 'publicoAlvo',
+        'formato', 'data', 'horario', 'duracao', 'localEvento', 'cidade', 'local',
+        'orcamento', 'vendaIngresso', 'motivacao', 'sentimento', 'palestranteDesejado', 'empresaPalestra', 'briefing'];
+      const bf = { ...(reg.briefing || {}) };
+      for (const k of campos) if (c[k] !== undefined && String(c[k]).trim() !== '') bf[k] = String(c[k]).trim();
+      reg.briefing = bf;
+      reg.briefingCompleto = true;
+      await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
+      try { await anexarBriefingAoNegocio(reg.hubspot.negocioId, bf, id); }
+      catch (e) { console.error('anexar briefing (lista fechada) falhou:', e.message); }
+      return res.status(200).json({ ok: true, briefingCompleto: true });
+    }
+
     if (acao === 'disponibilidade') {
       if (!reg.pago) return res.status(402).json({ erro: 'disponível após a liberação da curadoria' });
+      // lista fechada: sem briefing completo, não dispara (a pesquisa iria sem dados do evento).
+      if (reg.nomesDoCliente && !reg.briefingCompleto) {
+        return res.status(428).json({ erro: 'Para pedir disponibilidade, precisamos do briefing completo do evento.', precisaBriefing: true });
+      }
 
       const pedidos = [...new Set((Array.isArray(palestrantes) ? palestrantes : [])
         .map(n => String(n || '').trim()).filter(Boolean))];
