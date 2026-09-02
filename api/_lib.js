@@ -1191,9 +1191,10 @@ export async function listarCuradorias(bruto) {
       let reg; try { reg = JSON.parse(bruto2); } catch (e) { continue; }
       vistos.add(uuid);
       const b = reg.briefing || {};
-      // rótulo = nome do cliente + data do evento (a definir quando o briefing não teve data).
+      // rótulo = empresa do cliente + data do evento (a definir quando o briefing não teve data).
+      const empresa = String(b.empresa || '').trim();
       const nome = String(b.nome || '').trim();
-      const label = [nome || b.empresa || 'Curadoria', dataBR(b.data) ? `evento ${dataBR(b.data)}` : 'evento a definir'].join(' · ');
+      const label = [empresa || nome || 'Curadoria', dataBR(b.data) ? `evento ${dataBR(b.data)}` : 'evento a definir'].join(' · ');
       const finalizada = !!stFinal && String(d.properties?.dealstage) === String(stFinal);
       out.push({ id: uuid, label, criadoEm: reg.criadoEm || null, finalizada });
     }
