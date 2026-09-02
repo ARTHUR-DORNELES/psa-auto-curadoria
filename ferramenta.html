@@ -607,7 +607,7 @@ $('#btnAcesso').addEventListener('click', async () => {
         const bFin = document.createElement('button');
         bFin.type = 'button';
         bFin.textContent = 'Finalizar curadoria';
-        bFin.style.cssText = linkBase + ';color:var(--fg-3)';
+        bFin.style.cssText = linkBase + ';color:#4ade80';
         if (c.finalizada) bFin.style.display = 'none';
         bFin.addEventListener('click', async () => {
           if (!confirm('Finalizar esta curadoria? Ela fica marcada como concluída.')) return;
@@ -622,7 +622,7 @@ $('#btnAcesso').addEventListener('click', async () => {
         const bDel = document.createElement('button');
         bDel.type = 'button';
         bDel.textContent = 'Deletar';
-        bDel.style.cssText = linkBase + ';color:#ff8f6b';
+        bDel.style.cssText = linkBase + ';color:#ff4d4d';
         bDel.addEventListener('click', async () => {
           if (!confirm('Deletar esta curadoria? Ela sai da sua lista.')) return;
           bDel.disabled = true; bDel.textContent = 'Deletando…';
