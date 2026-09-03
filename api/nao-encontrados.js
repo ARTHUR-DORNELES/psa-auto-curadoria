@@ -5,8 +5,8 @@ import { redis, cors } from './_lib.js';
 export default async function handler(req, res) {
   if (cors(req, res)) return;
 
-  const cred = process.env.NAO_ENCONTRADOS_AUTH || '';
-  if (!cred) return res.status(503).json({ erro: 'configure a env NAO_ENCONTRADOS_AUTH (usuario:senha) para liberar esta consulta.' });
+  // padrão PSA:PSA2030 (mesmo esquema dos outros painéis internos); trocável pela env
+  const cred = process.env.NAO_ENCONTRADOS_AUTH || 'PSA:PSA2030';
   const auth = String(req.headers.authorization || '');
   const enviado = auth.startsWith('Basic ') ? Buffer.from(auth.slice(6), 'base64').toString('utf8') : '';
   if (enviado !== cred) {
