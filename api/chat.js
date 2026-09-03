@@ -109,7 +109,7 @@ const TURNO_SCHEMA = {
   },
 };
 
-function sistema(faltando, slots, pularTema, continuacao, pularExtra) {
+function sistema(faltando, slots, pularTema, continuacao, pularExtra, evento) {
   const enumTxt = Object.entries(ENUM)
     .map(([k, l]) => `- ${k} (${rotuloCampo[k]}): ${l.join(' | ')}`).join('\n');
   const subs = subtemasDe(slots.macroTema);
@@ -145,6 +145,9 @@ function sistema(faltando, slots, pularTema, continuacao, pularExtra) {
     pularExtra
       ? `IMPORTANTE: NÃO pergunte também: ${pularExtra}. Esses já foram definidos fora da conversa.`
       : '',
+    evento
+      ? 'CONTEXTO: isto é um EVENTO (com um ou mais palestrantes), NÃO uma palestra única. Sempre se refira ao que está sendo planejado como "o evento", nunca como "a palestra".'
+      : 'CONTEXTO: isto é uma palestra única. Refira-se a ela como "a palestra".',
     '',
     'Regras:',
     '- A cada mensagem do cliente, EXTRAIA para "campos" tudo o que der (pode ser vários campos numa frase).',
@@ -160,7 +163,7 @@ function sistema(faltando, slots, pularTema, continuacao, pularExtra) {
     '- "microTema" e "contexto" são opcionais, pode pular se o cliente não quiser detalhar.',
     '- Perto do fim, faça também estas duas perguntas (uma por vez): (a) se o cliente já tem',
     '  um palestrante específico em mente (campo palestranteDesejado); se ele não tiver, tudo bem,',
-    '  registre algo como "não tem preferência"; (b) para qual empresa é essa palestra (campo empresaPalestra).',
+    '  registre algo como "não tem preferência"; (b) para qual empresa é esse evento/palestra (campo empresaPalestra).',
     '- Quando TODOS os obrigatórios estiverem captados, mande uma mensagem de fechamento curta',
     '  ("perfeito, é só isso que eu precisava — vou montar sua curadoria") e devolva completo=true.',
     '',
@@ -180,7 +183,7 @@ export default async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method !== 'POST') return res.status(405).json({ erro: 'use POST' });
 
-  const { historico = [], slots = {}, campoRespondido = '', pular = [], continuacao = false } = await lerCorpo(req);
+  const { historico = [], slots = {}, campoRespondido = '', pular = [], continuacao = false, evento = false } = await lerCorpo(req);
   // campos definidos FORA do chat (por palestrante/aba num evento): tema, recorte, orçamento.
   // O Santiago não pergunta esses.
   const pularSet = new Set(pular);
@@ -197,7 +200,7 @@ export default async function handler(req, res) {
       model: MODEL,
       max_tokens: 900,
       thinking: { type: 'disabled' },          // chat de briefing: rápido, sem raciocínio extenso
-      system: sistema(faltando, slots, pularTema, continuacao, pularExtra),
+      system: sistema(faltando, slots, pularTema, continuacao, pularExtra, evento),
       messages: mensagens,
     });
 

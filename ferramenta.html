@@ -755,6 +755,8 @@ let chatSlots = {}, campoAtual = '';   // campoAtual = campo que o widget está 
 let chatModo = 'novo', chatAlvo = null;
 // projeto = evento com vários palestrantes: temas escolhidos, janela do evento e aba ativa
 let projetoTemas = [], projetoAtivo = null, projetoHorarioEvento = '';
+// 'palestra' | 'evento' — muda como o Santiago se refere ao que está sendo montado
+let tipoBriefing = 'palestra';
 
 // troca o vídeo do avatar: 'falando' | 'pensando' | 'esperando' (mostra 1, pausa os outros)
 function santiEstado(estado) {
@@ -942,7 +944,7 @@ async function chatTurno() {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ historico: chatHist, slots: chatSlots, campoRespondido: campoAtual,
         pular: chatModo === 'projeto' ? ['macroTema', 'microTema', 'orcamento', 'horario'] : (chatSlots.macroTema ? ['macroTema', 'microTema'] : []),
-        continuacao: true }),
+        evento: tipoBriefing === 'evento', continuacao: true }),
     });
     const j = await r.json();
     chatDigitando(false);
@@ -1040,8 +1042,8 @@ function iniciarEntrada(contato) {
   const primeiro = String((contato && contato.nome) || '').trim().split(/\s+/)[0] || '';
   digitarBolha((primeiro ? `Oi, ${primeiro}! ` : 'Oi! ') + 'Você quer montar uma palestra ou um evento?').then(() => {
     chipsNoChat([
-      ['Uma palestra', () => { bolha('user', 'Uma palestra'); perguntaCaminho(contato, 1); }],
-      ['Um evento', () => { bolha('user', 'Um evento'); perguntaQuantos(contato); }],
+      ['Uma palestra', () => { tipoBriefing = 'palestra'; bolha('user', 'Uma palestra'); perguntaCaminho(contato, 1); }],
+      ['Um evento', () => { tipoBriefing = 'evento'; bolha('user', 'Um evento'); perguntaQuantos(contato); }],
     ]);
   });
 }
