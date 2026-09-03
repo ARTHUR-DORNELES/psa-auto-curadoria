@@ -21,6 +21,9 @@ const ENUM = {
   publicoAlvo: PUBLICO_ALVO, motivacao: MOTIVACOES, sentimento: SENTIMENTOS,
   vendaIngresso: VENDA_INGRESSO, estado: ESTADOS,
 };
+// campos que aceitam MAIS DE UM valor da lista (o evento pode ter vários públicos)
+const MULTI = new Set(['publicoAlvo']);
+const partesMulti = v => [...new Set(String(v || '').split(/\s*[,;|]\s*/).map(x => x.trim()).filter(Boolean))];
 
 const rotuloCampo = {
   nome: 'nome do responsável', empresa: 'empresa', email: 'e-mail corporativo', telefone: 'telefone',
@@ -51,6 +54,7 @@ const dataNoPassado = iso => /^\d{4}-\d{2}-\d{2}$/.test(iso) && iso < hojeISO();
 
 // widget que o front renderiza para captar o próximo campo
 function widgetPara(campo, slots) {
+  if (MULTI.has(campo)) return { campo, tipo: 'chips-multi', opcoes: ENUM[campo] };
   if (ENUM[campo]) return { campo, tipo: 'chips', opcoes: ENUM[campo] };
   if (campo === 'cidade') return { campo, tipo: 'busca', opcoes: CIDADES[slots.estado] || [] };   // autocomplete (lista grande)
   if (campo === 'microTema') return { campo, tipo: 'chips', opcoes: subtemasDe(slots.macroTema) };
@@ -61,6 +65,7 @@ function widgetPara(campo, slots) {
 
 // backstop: a resposta do usuário ao widget é aceitável para aquele campo? (validação leve)
 function aceitaBackstop(campo, val, slots) {
+  if (MULTI.has(campo)) { const opts = ENUM[campo] || []; return partesMulti(val).some(p => opts.includes(p)); }
   if (ENUM[campo]) return ENUM[campo].includes(val);
   if (campo === 'cidade') return (CIDADES[slots.estado] || []).includes(val);
   if (campo === 'microTema') return subtemasDe(slots.macroTema).includes(val);
@@ -81,6 +86,8 @@ const propsCampos = {
   contexto: { type: 'string' },
 };
 for (const [k, lista] of Object.entries(ENUM)) propsCampos[k] = { type: 'string', enum: lista };
+// publicoAlvo aceita mais de um valor -> string livre (o servidor valida cada parte contra a lista)
+propsCampos.publicoAlvo = { type: 'string', description: 'um ou mais públicos da lista, separados por vírgula' };
 
 const TURNO_SCHEMA = {
   type: 'object',
@@ -133,6 +140,7 @@ function sistema(faltando, slots, pularTema) {
     '- Para os campos de valor fechado abaixo, use EXATAMENTE um dos valores da lista (o app mostra',
     '  botões pro cliente escolher; nunca invente valor fora da lista):',
     enumTxt,
+    '- EXCEÇÃO: publicoAlvo pode ter MAIS DE UM valor (o evento pode ter vários públicos). Quando houver mais de um, liste todos separados por vírgula, usando só valores exatos da lista.',
     subs.length ? `- Recortes do tema escolhido (microTema, opcional): ${subs.join(' | ')}` : '',
     '- data no formato YYYY-MM-DD; horario no formato HH:MM.',
     '- A DATA do evento é OPCIONAL: pergunte, mas se o cliente disser que ainda não tem/"a definir",',
@@ -197,6 +205,12 @@ export default async function handler(req, res) {
     for (const [k, v] of Object.entries(out.campos || {})) {
       const val = String(v ?? '').trim();
       if (!val) continue;
+      if (MULTI.has(k)) {   // um ou mais valores da lista -> guarda só os válidos, juntos
+        const opts = ENUM[k] || [];
+        const parts = partesMulti(val).filter(p => opts.includes(p));
+        if (parts.length) novos[k] = parts.join(', ');
+        continue;
+      }
       if (ENUM[k] && !ENUM[k].includes(val)) continue;
       if (k === 'cidade' && !(CIDADES[est] || []).includes(val)) continue;
       if (k === 'microTema' && !subtemasDe(out.campos?.macroTema || slots.macroTema).includes(val)) continue;
