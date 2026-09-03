@@ -40,6 +40,8 @@ export const chave = id => `autocuradoria:${id}`;
 // vínculo negócio -> id da curadoria, para o gate reencontrar a curadoria pelo CPF/CNPJ
 // (sem depender de o cliente ter guardado o link). Mesma validade do registro: 90 dias.
 export const chaveDeal = dealId => `autocuradoria:deal:${dealId}`;
+// projeto = evento com vários palestrantes: agrupa 1 curadoria por macro tema (mesmo briefing).
+export const chaveProjeto = pid => `autocuradoria:projeto:${pid}`;
 
 // ── normalização ───────────────────────────────────────────────────────────
 const semAcento = s => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();

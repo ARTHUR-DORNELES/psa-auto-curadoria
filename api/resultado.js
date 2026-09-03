@@ -1,4 +1,4 @@
-import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, limparNomesDoNegocio, finalizarCuradoria, chaveDeNome, respostasDisponibilidade, anexarBriefingAoNegocio, registrarNomesNaoEncontrados } from './_lib.js';
+import { redis, chave, chaveProjeto, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, limparNomesDoNegocio, finalizarCuradoria, chaveDeNome, respostasDisponibilidade, anexarBriefingAoNegocio, registrarNomesNaoEncontrados } from './_lib.js';
 
 const ACOES = {
   curador: 'CLIENTE PEDIU ATENDIMENTO DE CURADOR — assumir o processo pelo caminho tradicional.',
@@ -187,6 +187,13 @@ export default async function handler(req, res) {
       nomesDoCliente: !!reg.nomesDoCliente,
       briefingCompleto: reg.nomesDoCliente ? !!reg.briefingCompleto : true,
       naoEncontrados,
+      // projeto (evento com vários palestrantes): abas por macro tema. macroTema = tema desta aba.
+      macroTema: reg.macroTema || (reg.briefing && reg.briefing.macroTema) || null,
+      projeto: await (async () => {
+        if (!reg.projetoId) return null;
+        try { const p = JSON.parse(await redis().get(chaveProjeto(reg.projetoId)) || 'null'); return p ? { id: p.id, curadorias: p.curadorias } : null; }
+        catch (e) { return null; }
+      })(),
     });
   }
 

@@ -94,7 +94,7 @@ const TURNO_SCHEMA = {
   },
 };
 
-function sistema(faltando, slots) {
+function sistema(faltando, slots, pularTema) {
   const enumTxt = Object.entries(ENUM)
     .map(([k, l]) => `- ${k} (${rotuloCampo[k]}): ${l.join(' | ')}`).join('\n');
   const subs = subtemasDe(slots.macroTema);
@@ -123,7 +123,10 @@ function sistema(faltando, slots) {
       : '',
     '',
     'IMPORTANTE: nome, empresa, e-mail e telefone do cliente JÁ os temos (aparecem em "Já captado").',
-    'NUNCA pergunte esses dados. Vá direto para as perguntas do EVENTO (tema, público, formato, data etc.).',
+    'NUNCA pergunte esses dados. Vá direto para as perguntas do EVENTO (público, formato, data etc.).',
+    pularTema
+      ? 'IMPORTANTE: o TEMA do evento JÁ foi definido antes. NUNCA pergunte o tema (macroTema) nem o recorte do tema (microTema). Pule direto para público, formato, data, local, orçamento, motivação e sentimento.'
+      : '',
     '',
     'Regras:',
     '- A cada mensagem do cliente, EXTRAIA para "campos" tudo o que der (pode ser vários campos numa frase).',
@@ -158,10 +161,13 @@ export default async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method !== 'POST') return res.status(405).json({ erro: 'use POST' });
 
-  const { historico = [], slots = {}, campoRespondido = '' } = await lerCorpo(req);
+  const { historico = [], slots = {}, campoRespondido = '', pularTema = false } = await lerCorpo(req);
+  // no briefing COMPARTILHADO de um evento (projeto), o macro tema é escolhido por palestrante
+  // ANTES do chat; aqui o Santiago não pergunta tema nem recorte.
+  const OBRIG = pularTema ? OBRIGATORIOS.filter(c => c !== 'macroTema') : OBRIGATORIOS;
   const mensagens = (historico.length ? historico : [{ role: 'user', content: 'Vamos começar.' }])
     .map(m => ({ role: m.role === 'santiago' ? 'assistant' : 'user', content: String(m.content || '').slice(0, 2000) }));
-  const faltando = OBRIGATORIOS.filter(c => !slots[c]);
+  const faltando = OBRIG.filter(c => !slots[c]);
 
   try {
     const client = new Anthropic({ timeout: 26000, maxRetries: 0 });
@@ -169,7 +175,7 @@ export default async function handler(req, res) {
       model: MODEL,
       max_tokens: 900,
       thinking: { type: 'disabled' },          // chat de briefing: rápido, sem raciocínio extenso
-      system: sistema(faltando, slots),
+      system: sistema(faltando, slots, pularTema),
       messages: mensagens,
     });
 
@@ -230,7 +236,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const faltando2 = OBRIGATORIOS.filter(c => !slots2[c]);
+    const faltando2 = OBRIG.filter(c => !slots2[c]);
     const completo = faltando2.length === 0;
 
     // o SERVIDOR decide o próximo campo/widget. Na abertura (cliente ainda não descreveu
