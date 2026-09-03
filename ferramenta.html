@@ -197,19 +197,19 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .resumo__lista dd{font-size:var(--t-body-sm);color:var(--fg-1);word-break:break-word}
     /* ── chat do Santiago ── */
     .chat-topo{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:var(--s-5)}
-    .chat-msgs{display:flex;flex-direction:column;gap:12px;min-height:220px;max-height:min(52vh,460px);overflow-y:auto;padding-right:8px;margin-bottom:var(--s-6)}
+    .chat-msgs{display:flex;flex-direction:column;gap:9px;min-height:160px;max-height:min(50vh,420px);overflow-y:auto;padding-right:8px;margin-bottom:var(--s-5)}
     .chat-msgs::-webkit-scrollbar{width:6px}
     .chat-msgs::-webkit-scrollbar-thumb{background:#ffffff2e;border-radius:3px}
-    .chat-caixa{border:1px solid var(--border);border-radius:var(--r-md);background:#ffffff05;padding:var(--s-5);box-shadow:0 10px 44px #00000045}
-    .bolha{max-width:82%;padding:12px 16px;border-radius:14px;font-size:15px;line-height:1.45;white-space:pre-wrap;animation:sobe .3s var(--ease)}
+    .chat-caixa{border:1px solid var(--border);border-radius:var(--r-md);background:#ffffff05;padding:var(--s-4);box-shadow:0 10px 44px #00000045}
+    .bolha{max-width:84%;padding:9px 13px;border-radius:12px;font-size:13.5px;line-height:1.4;white-space:pre-wrap;animation:sobe .3s var(--ease)}
     .bolha--santiago{align-self:flex-start;background:#ffffff0d;border:1px solid var(--border);border-bottom-left-radius:4px}
     .bolha--voce{align-self:flex-end;background:var(--psa-orange);color:#fff;border-bottom-right-radius:4px}
-    .bolha .quem{display:block;font-size:var(--t-caption);letter-spacing:.08em;text-transform:uppercase;color:var(--psa-orange);font-weight:700;margin-bottom:5px}
+    .bolha .quem{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--psa-orange);font-weight:700;margin-bottom:3px}
     .chat-entrada{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
     .chat-entrada input,.chat-entrada select{flex:1;min-width:220px}
-    .chat-entrada textarea{flex:1 1 100%;min-height:120px}
+    .chat-entrada textarea{flex:1 1 100%;min-height:84px}
     .chips{display:flex;flex-wrap:wrap;gap:10px}
-    .chip-op{background:#ffffff0f;border:1px solid var(--border-strong);color:var(--fg-1);border-radius:var(--r-pill);padding:8px 15px;cursor:pointer;font-size:13px;transition:all .2s var(--ease)}
+    .chip-op{background:#ffffff0f;border:1px solid var(--border-strong);color:var(--fg-1);border-radius:var(--r-pill);padding:6px 12px;cursor:pointer;font-size:12px;transition:all .2s var(--ease)}
     .chip-op:hover{background:var(--psa-orange);border-color:var(--psa-orange);color:#fff;transform:translateY(-1px)}
     .chip-op.chip-on{background:var(--psa-orange);border-color:var(--psa-orange);color:#fff}
     .chip-multi{display:flex;flex-wrap:wrap;gap:10px}
@@ -239,7 +239,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
     .chat-col{flex:1;min-width:0}
     .santi-header{flex:none;position:sticky;top:var(--s-5)}
     @media(max-width:680px){.chat-layout{flex-direction:column}.santi-header{position:static;align-self:center;margin-bottom:var(--s-5)}}
-    .santi-av{width:180px;aspect-ratio:400/712;border-radius:16px;overflow:hidden;position:relative;flex:none;border:2px solid var(--psa-orange);box-shadow:var(--glow-orange);background:#02060f}
+    .santi-av{width:132px;aspect-ratio:400/712;border-radius:14px;overflow:hidden;position:relative;flex:none;border:2px solid var(--psa-orange);box-shadow:var(--glow-orange);background:#02060f}
     .santi-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     @keyframes santiRespira{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.035)}}
     @keyframes santiPensa{0%,100%{transform:translateY(0) rotate(-2.5deg)}50%{transform:translateY(-4px) rotate(2.5deg)}}
@@ -369,6 +369,10 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
       <div class="dupla">
         <div><label for="macroTema">Tema do evento <span>*</span></label><select id="macroTema"><option value="">Selecione</option></select></div>
         <div><label for="microTema">Recorte do tema</label><select id="microTema"><option value="">Selecione o tema primeiro</option></select></div>
+      </div>
+      <div class="dupla">
+        <div><label for="macroTemaSecundario">Tema secundário <small style="opacity:.6">(opcional, reforça a busca)</small></label><select id="macroTemaSecundario"><option value="">Nenhum</option></select></div>
+        <div></div>
       </div>
       <div class="dupla">
         <div><label for="publicoAlvo">Público-alvo do evento <span>*</span></label> <small style="opacity:.6">pode marcar mais de um</small><div id="publicoAlvoChips" class="chip-multi" style="margin-top:8px"></div><input type="hidden" id="publicoAlvo"></div>
@@ -508,6 +512,7 @@ const encher = (sel, lista, rotulo = v => v) => lista.forEach(v => $(sel).add(ne
 encher('#duracao', DURACOES);
 encher('#vendaIngresso', VENDA_INGRESSO);
 encher('#macroTema', MACRO, v => v.replace(/^\d+\.\s*/, ''));
+encher('#macroTemaSecundario', MACRO, v => v.replace(/^\d+\.\s*/, ''));
 encher('#orcamento', ORCAMENTOS);
 encher('#formato', FORMATOS);
 encher('#local', ESTADOS);
@@ -905,7 +910,7 @@ async function chatTurno() {
   try {
     const r = await fetch('/api/chat', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ historico: chatHist, slots: chatSlots, campoRespondido: campoAtual, pularTema: chatModo === 'projeto', continuacao: true }),
+      body: JSON.stringify({ historico: chatHist, slots: chatSlots, campoRespondido: campoAtual, pularTema: chatModo === 'projeto' || !!chatSlots.macroTema, continuacao: true }),
     });
     const j = await r.json();
     chatDigitando(false);
@@ -925,7 +930,7 @@ function chatFinaliza() {
   const s = chatSlots;
   const corpo = {
     nome: s.nome, empresa: s.empresa, email: s.email, telefone: s.telefone,
-    macroTema: s.macroTema, microTema: s.microTema || '',
+    macroTema: s.macroTema, macroTemaSecundario: s.macroTemaSecundario || '', microTema: s.microTema || '',
     publicoAlvo: s.publicoAlvo, formato: s.formato,
     data: s.data, horario: s.horario, duracao: s.duracao,
     localEvento: s.localEvento, cidade: s.cidade, local: s.estado,   // curar: `local` = estado
@@ -1026,18 +1031,18 @@ function perguntaCaminho(contato, n) {
       ['Já tenho os nomes', () => { bolha('user', 'Já tenho os nomes'); pedeNomes(); }],
       ['Quero ajuda para encontrar', () => {
         bolha('user', 'Quero ajuda para encontrar');
-        if (n > 1) fluxoMultiTema(contato, n); else iniciarChat(contato);
+        fluxoTemas(contato, n);
       }],
     ]);
   });
 }
 
-// mostra os macro temas como chips e resolve com o valor escolhido
-function escolheTemaChip() {
+// mostra os macro temas como chips e resolve com o valor escolhido (opcionalmente exclui um)
+function escolheTemaChip(excluir) {
   return new Promise(resolve => {
     const area = $('#chatEntrada'); area.innerHTML = '';
     const wrap = document.createElement('div'); wrap.className = 'chips';
-    MACRO.forEach(t => {
+    MACRO.filter(t => t !== excluir).forEach(t => {
       const b = document.createElement('button'); b.className = 'chip-op'; b.textContent = t.replace(/^\d+\.\s*/, '');
       b.addEventListener('click', () => { area.innerHTML = ''; resolve(t); });
       wrap.appendChild(b);
@@ -1045,26 +1050,53 @@ function escolheTemaChip() {
     area.appendChild(wrap);
   });
 }
+// tema secundário (opcional): chips + "só esse tema"
+function escolheTemaSecundario(principal) {
+  return new Promise(resolve => {
+    const area = $('#chatEntrada'); area.innerHTML = '';
+    const wrap = document.createElement('div'); wrap.className = 'chips';
+    const nao = document.createElement('button'); nao.className = 'chip-op'; nao.textContent = 'Não, só esse tema';
+    nao.addEventListener('click', () => { area.innerHTML = ''; resolve(''); });
+    wrap.appendChild(nao);
+    MACRO.filter(t => t !== principal).forEach(t => {
+      const b = document.createElement('button'); b.className = 'chip-op'; b.textContent = t.replace(/^\d+\.\s*/, '');
+      b.addEventListener('click', () => { area.innerHTML = ''; resolve(t); });
+      wrap.appendChild(b);
+    });
+    area.appendChild(wrap);
+  });
+}
+// escolhe o tema de UM palestrante: principal (obrigatório) + secundário (reforço, opcional)
+async function escolheTemaComSecundario(i, n) {
+  await digitarBolha(n > 1 ? `Sobre qual tema o palestrante ${i} vai falar?` : 'Sobre qual tema você quer o palestrante?');
+  const principal = await escolheTemaChip();
+  bolha('user', principal.replace(/^\d+\.\s*/, ''));
+  await digitarBolha('Quer reforçar com um segundo tema? Ajuda a achar quem une os dois (ex.: Inovação + Saúde). É opcional.');
+  const secundario = await escolheTemaSecundario(principal);
+  bolha('user', secundario ? `+ ${secundario.replace(/^\d+\.\s*/, '')}` : 'só esse tema');
+  return { principal, secundario: secundario || '' };
+}
 
-// EVENTO com >1 palestrantes: escolhe 1 tema por palestrante; temas distintos viram abas/curadorias
-async function fluxoMultiTema(contato, n) {
-  const temas = [];
-  for (let i = 1; i <= n; i++) {
-    await digitarBolha(`Sobre qual tema o palestrante ${i} vai falar?`);
-    const t = await escolheTemaChip();
-    temas.push(t);
-    bolha('user', t.replace(/^\d+\.\s*/, ''));
+// TEMAS (palestra ou evento): 1 tema por palestrante (principal + secundário opcional).
+// n==1 ou todos do mesmo principal -> uma curadoria; principais distintos -> projeto com abas.
+async function fluxoTemas(contato, n) {
+  const escolhas = [];
+  for (let i = 1; i <= n; i++) escolhas.push(await escolheTemaComSecundario(i, n));
+  // agrupa por macro tema principal; junta os secundários (reforço) de cada principal
+  const porPrincipal = new Map();
+  for (const e of escolhas) {
+    const cur = porPrincipal.get(e.principal) || new Set();
+    if (e.secundario) cur.add(e.secundario);
+    porPrincipal.set(e.principal, cur);
   }
-  const distintos = [...new Set(temas)];
-  if (distintos.length < 2) {
-    // todos do mesmo tema -> uma curadoria só (traz vários nomes desse tema pra escolher)
-    await digitarBolha('Perfeito, anotei o tema!');
-    iniciarChat({ ...contato, macroTema: distintos[0] });
+  const temas = [...porPrincipal.entries()].map(([macroTema, secs]) => ({ macroTema, secundario: [...secs].join(', ') }));
+  if (temas.length < 2) {
+    iniciarChat({ ...contato, macroTema: temas[0].macroTema, macroTemaSecundario: temas[0].secundario });
     return;
   }
-  const nomesTemas = distintos.map(t => t.replace(/^\d+\.\s*/, '')).join(', ');
-  await digitarBolha(`Show! Vou montar ${distintos.length} listas, uma por tema (${nomesTemas}). Os detalhes do evento a seguir valem para todas.`);
-  iniciarChatProjeto(contato, distintos);
+  const nomesTemas = temas.map(t => t.macroTema.replace(/^\d+\.\s*/, '')).join(', ');
+  await digitarBolha(`Show! Vou montar ${temas.length} listas, uma por tema (${nomesTemas}). Os detalhes do evento a seguir valem para todas.`);
+  iniciarChatProjeto(contato, temas);
 }
 
 // abre o briefing COMPARTILHADO do evento (sem perguntar tema; ele já foi definido por palestrante)
@@ -1276,7 +1308,7 @@ function abrirBriefingForm(d, dispNome) {
 // ── validação ──────────────────────────────────────────────
 // Todos os campos são obrigatórios, menos os descritivos: o recorte do tema
 // (7 macro temas não têm recorte cadastrado) e o contexto livre.
-const OPCIONAIS = ['microTema', 'briefing', 'data'];   // data pode ser "a definir"
+const OPCIONAIS = ['microTema', 'macroTemaSecundario', 'briefing', 'data'];   // data pode ser "a definir"
 
 const DDDS = new Set([11,12,13,14,15,16,17,18,19,21,22,24,27,28,31,32,33,34,35,37,38,41,42,43,44,45,46,
   47,48,49,51,53,54,55,61,62,63,64,65,66,67,68,69,71,73,74,75,77,79,81,82,83,84,85,86,87,88,89,
@@ -1428,7 +1460,7 @@ async function enviarBriefing(corpo, onErro) {
 function corpoDoFormulario() {
   return {
     nome: $('#nome').value, empresa: $('#empresa').value, email: $('#email').value, telefone: $('#telefone').value,
-    macroTema: $('#macroTema').value, microTema: $('#microTema').value,
+    macroTema: $('#macroTema').value, macroTemaSecundario: $('#macroTemaSecundario').value, microTema: $('#microTema').value,
     publicoAlvo: $('#publicoAlvo').value, formato: $('#formato').value,
     data: $('#data').value, horario: $('#horario').value, duracao: $('#duracao').value,
     localEvento: $('#localEvento').value, cidade: $('#cidade').value, local: $('#local').value,
@@ -1687,6 +1719,7 @@ function resumoDoBriefing(d) {
     // "Empresa" = a empresa PARA QUEM é o evento (empresaPalestra); a da conta é só reserva
     ['Empresa', b.empresaPalestra || b.empresa], ['Responsável', b.nome], ['E-mail', b.email], ['Telefone', b.telefone],
     ['Tema', (b.macroTema || '').replace(/^\d+\.\s*/, '')],
+    ['Tema secundário', (b.macroTemaSecundario || '').replace(/^\d+\.\s*/, '')],
     ['Recorte do tema', (b.microTema || '').replace(/^[\d.]+\s*/, '')],
     ['Público-alvo', b.publicoAlvo], ['Formato', b.formato],
     ['Data', dataBR(b.data)], ['Horário', b.horario], ['Duração', b.duracao],

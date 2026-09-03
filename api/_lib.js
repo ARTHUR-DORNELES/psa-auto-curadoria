@@ -391,6 +391,7 @@ export function notaDoBriefing(b, resultado, id) {
     '',
     '— EVENTO —',
     `Tema: ${b.macroTema || 'não informado'}`,
+    ...(b.macroTemaSecundario ? [`Tema secundário (reforço, favorecer quem também fala disso): ${b.macroTemaSecundario}`] : []),
     `Recorte do tema: ${b.microTema || 'não informado'}`,
     `Empresa da palestra: ${b.empresaPalestra || 'não informado'}`,
     `Público-alvo: ${b.publicoAlvo || 'não informado'}`,

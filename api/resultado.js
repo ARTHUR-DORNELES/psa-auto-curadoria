@@ -271,7 +271,7 @@ export default async function handler(req, res) {
     if (acao === 'briefing') {
       if (!reg.hubspot?.negocioId) return res.status(409).json({ erro: 'curadoria sem negócio associado' });
       const c = corpo;
-      const campos = ['nome', 'empresa', 'email', 'telefone', 'macroTema', 'microTema', 'publicoAlvo',
+      const campos = ['nome', 'empresa', 'email', 'telefone', 'macroTema', 'macroTemaSecundario', 'microTema', 'publicoAlvo',
         'formato', 'data', 'horario', 'duracao', 'localEvento', 'cidade', 'local',
         'orcamento', 'vendaIngresso', 'motivacao', 'sentimento', 'palestranteDesejado', 'empresaPalestra', 'briefing'];
       const bf = { ...(reg.briefing || {}) };

@@ -15,9 +15,18 @@ export default async function handler(req, res) {
   try {
     const b = await lerCorpo(req);
 
-    // temas: 1+ macro temas (um por palestrante). Distintos viram curadorias.
-    const temas = [...new Set((Array.isArray(b.temas) ? b.temas : [])
-      .map((t) => String(t || '').trim()).filter(Boolean))];
+    // temas: um por palestrante; aceita string OU {macroTema, secundario}. Agrupa por macro tema
+    // principal (distintos viram curadorias) e junta os secundários (reforço) de cada principal.
+    const porTema = new Map();
+    for (const t of (Array.isArray(b.temas) ? b.temas : [])) {
+      const macroTema = String((t && typeof t === 'object' ? t.macroTema : t) || '').trim();
+      if (!macroTema) continue;
+      const sec = String((t && typeof t === 'object' ? t.secundario : '') || '').trim();
+      const cur = porTema.get(macroTema) || new Set();
+      if (sec) sec.split(/\s*,\s*/).forEach((s) => s && cur.add(s));
+      porTema.set(macroTema, cur);
+    }
+    const temas = [...porTema.entries()].map(([macroTema, secs]) => ({ macroTema, secundario: [...secs].join(', ') }));
     if (temas.length < 2) return res.status(400).json({ erro: 'um projeto de evento precisa de pelo menos 2 macro temas distintos.' });
 
     const faltando = OBRIGATORIOS.filter(c => !String(b[c] || '').trim());
@@ -49,9 +58,9 @@ export default async function handler(req, res) {
     const curadorias = [];   // { id, macroTema, negocioId }
 
     // uma curadoria (deal) por macro tema. Falha parcial: segue com as que deram certo.
-    for (const macroTema of temas) {
+    for (const { macroTema, secundario } of temas) {
       const id = crypto.randomUUID();
-      const briefing = { ...briefingBase, macroTema, microTema: '', projetoId };
+      const briefing = { ...briefingBase, macroTema, macroTemaSecundario: secundario || '', microTema: '', projetoId };
       let hubspot;
       try {
         hubspot = await criarNegocioCuradoria(assinatura.contatoId, briefing, id,

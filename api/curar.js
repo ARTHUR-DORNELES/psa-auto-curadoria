@@ -40,6 +40,7 @@ export default async function handler(req, res) {
     const briefing = {
       nome: b.nome, empresa: b.empresa, email: b.email.toLowerCase().trim(), telefone: b.telefone,
       macroTema: b.macroTema, microTema: b.microTema || '',
+      macroTemaSecundario: String(b.macroTemaSecundario || '').slice(0, 80),
       publicoAlvo: b.publicoAlvo, formato: b.formato,
       data: b.data, horario: b.horario, duracao: b.duracao,
       localEvento: b.localEvento, cidade: b.cidade, local: b.local,
