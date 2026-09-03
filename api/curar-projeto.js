@@ -4,9 +4,10 @@ import { criarNegocioCuradoria, redis, chave, chaveDeal, chaveProjeto, lerCorpo,
 // EVENTO com vários palestrantes (caminho "quero ajuda"): cria UMA curadoria por MACRO TEMA,
 // todas com o MESMO briefing (só o tema muda). O resultado vira abas, uma por tema.
 // Espelha o curar.js, mas em lote e agrupado por tema.
+// macroTema E orcamento NÃO são obrigatórios aqui: vêm por curadoria (temas[]).
 const OBRIGATORIOS = ['nome', 'empresa', 'email', 'telefone', 'publicoAlvo',
-  'formato', 'horario', 'duracao', 'localEvento', 'cidade', 'local', 'orcamento', 'vendaIngresso',
-  'motivacao', 'sentimento'];   // macroTema NÃO é obrigatório aqui: vem por curadoria (temas[])
+  'formato', 'horario', 'duracao', 'localEvento', 'cidade', 'local', 'vendaIngresso',
+  'motivacao', 'sentimento'];
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
@@ -22,11 +23,13 @@ export default async function handler(req, res) {
       const macroTema = String((t && typeof t === 'object' ? t.macroTema : t) || '').trim();
       if (!macroTema) continue;
       const sec = String((t && typeof t === 'object' ? t.secundario : '') || '').trim();
-      const cur = porTema.get(macroTema) || new Set();
-      if (sec) sec.split(/\s*,\s*/).forEach((s) => s && cur.add(s));
+      const orc = String((t && typeof t === 'object' ? t.orcamento : '') || '').trim();
+      const cur = porTema.get(macroTema) || { secs: new Set(), orcamento: '' };
+      if (sec) sec.split(/\s*,\s*/).forEach((s) => s && cur.secs.add(s));
+      if (!cur.orcamento && orc) cur.orcamento = orc;
       porTema.set(macroTema, cur);
     }
-    const temas = [...porTema.entries()].map(([macroTema, secs]) => ({ macroTema, secundario: [...secs].join(', ') }));
+    const temas = [...porTema.entries()].map(([macroTema, v]) => ({ macroTema, secundario: [...v.secs].join(', '), orcamento: v.orcamento || '' }));
     if (temas.length < 2) return res.status(400).json({ erro: 'um projeto de evento precisa de pelo menos 2 macro temas distintos.' });
 
     const faltando = OBRIGATORIOS.filter(c => !String(b[c] || '').trim());
@@ -58,9 +61,9 @@ export default async function handler(req, res) {
     const curadorias = [];   // { id, macroTema, negocioId }
 
     // uma curadoria (deal) por macro tema. Falha parcial: segue com as que deram certo.
-    for (const { macroTema, secundario } of temas) {
+    for (const { macroTema, secundario, orcamento } of temas) {
       const id = crypto.randomUUID();
-      const briefing = { ...briefingBase, macroTema, macroTemaSecundario: secundario || '', microTema: '', projetoId };
+      const briefing = { ...briefingBase, macroTema, macroTemaSecundario: secundario || '', orcamento: orcamento || briefingBase.orcamento || '', microTema: '', projetoId };
       let hubspot;
       try {
         hubspot = await criarNegocioCuradoria(assinatura.contatoId, briefing, id,

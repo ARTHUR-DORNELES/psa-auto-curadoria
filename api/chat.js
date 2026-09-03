@@ -109,7 +109,7 @@ const TURNO_SCHEMA = {
   },
 };
 
-function sistema(faltando, slots, pularTema, continuacao) {
+function sistema(faltando, slots, pularTema, continuacao, pularExtra) {
   const enumTxt = Object.entries(ENUM)
     .map(([k, l]) => `- ${k} (${rotuloCampo[k]}): ${l.join(' | ')}`).join('\n');
   const subs = subtemasDe(slots.macroTema);
@@ -140,7 +140,10 @@ function sistema(faltando, slots, pularTema, continuacao) {
     'IMPORTANTE: nome, empresa, e-mail e telefone do cliente JÁ os temos (aparecem em "Já captado").',
     'NUNCA pergunte esses dados. Vá direto para as perguntas do EVENTO (público, formato, data etc.).',
     pularTema
-      ? 'IMPORTANTE: o TEMA do evento JÁ foi definido antes. NUNCA pergunte o tema (macroTema) nem o recorte do tema (microTema). Pule direto para público, formato, data, local, orçamento, motivação e sentimento.'
+      ? 'IMPORTANTE: o TEMA do evento JÁ foi definido antes. NUNCA pergunte o tema (macroTema) nem o recorte do tema (microTema).'
+      : '',
+    pularExtra
+      ? `IMPORTANTE: NÃO pergunte também: ${pularExtra}. Esses já foram definidos fora da conversa.`
       : '',
     '',
     'Regras:',
@@ -177,10 +180,13 @@ export default async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method !== 'POST') return res.status(405).json({ erro: 'use POST' });
 
-  const { historico = [], slots = {}, campoRespondido = '', pularTema = false, continuacao = false } = await lerCorpo(req);
-  // no briefing COMPARTILHADO de um evento (projeto), o macro tema é escolhido por palestrante
-  // ANTES do chat; aqui o Santiago não pergunta tema nem recorte.
-  const OBRIG = pularTema ? OBRIGATORIOS.filter(c => c !== 'macroTema') : OBRIGATORIOS;
+  const { historico = [], slots = {}, campoRespondido = '', pular = [], continuacao = false } = await lerCorpo(req);
+  // campos definidos FORA do chat (por palestrante/aba num evento): tema, recorte, orçamento.
+  // O Santiago não pergunta esses.
+  const pularSet = new Set(pular);
+  const OBRIG = OBRIGATORIOS.filter(c => !pularSet.has(c));
+  const pularTema = pularSet.has('macroTema');
+  const pularExtra = [...pularSet].filter(c => c !== 'macroTema' && c !== 'microTema').map(c => rotuloCampo[c] || c).join(', ');
   const mensagens = (historico.length ? historico : [{ role: 'user', content: 'Vamos começar.' }])
     .map(m => ({ role: m.role === 'santiago' ? 'assistant' : 'user', content: String(m.content || '').slice(0, 2000) }));
   const faltando = OBRIG.filter(c => !slots[c]);
@@ -191,7 +197,7 @@ export default async function handler(req, res) {
       model: MODEL,
       max_tokens: 900,
       thinking: { type: 'disabled' },          // chat de briefing: rápido, sem raciocínio extenso
-      system: sistema(faltando, slots, pularTema, continuacao),
+      system: sistema(faltando, slots, pularTema, continuacao, pularExtra),
       messages: mensagens,
     });
 

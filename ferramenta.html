@@ -940,7 +940,9 @@ async function chatTurno() {
   try {
     const r = await fetch('/api/chat', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ historico: chatHist, slots: chatSlots, campoRespondido: campoAtual, pularTema: chatModo === 'projeto' || !!chatSlots.macroTema, continuacao: true }),
+      body: JSON.stringify({ historico: chatHist, slots: chatSlots, campoRespondido: campoAtual,
+        pular: chatModo === 'projeto' ? ['macroTema', 'microTema', 'orcamento'] : (chatSlots.macroTema ? ['macroTema', 'microTema'] : []),
+        continuacao: true }),
     });
     const j = await r.json();
     chatDigitando(false);
@@ -1109,17 +1111,64 @@ async function escolheTemaComSecundario(i, n) {
 
 // TEMAS (palestra ou evento): 1 tema por palestrante (principal + secundário opcional).
 // n==1 ou todos do mesmo principal -> uma curadoria; principais distintos -> projeto com abas.
+// chips genéricos (qualquer lista) -> resolve com o valor escolhido
+function escolheChip(opcoes) {
+  return new Promise(resolve => {
+    const area = $('#chatEntrada'); area.innerHTML = '';
+    const wrap = document.createElement('div'); wrap.className = 'chips';
+    opcoes.forEach(op => {
+      const b = document.createElement('button'); b.className = 'chip-op'; b.textContent = op;
+      b.addEventListener('click', () => { area.innerHTML = ''; resolve(op); });
+      wrap.appendChild(b);
+    });
+    area.appendChild(wrap);
+  });
+}
+// pega o maior número de uma faixa de orçamento ("De R$20.001,00 até R$50.000,00" -> 50000)
+function parseFaixaMax(faixa) {
+  const nums = (String(faixa).match(/\d[\d.]*/g) || []).map(x => parseInt(x.replace(/\./g, ''), 10)).filter(x => !isNaN(x));
+  return nums.length ? Math.max(...nums) : 0;
+}
+// EVENTO: orçamento TOTAL + divisão (igual entre todos, ou valor por palestrante)
+async function coletaOrcamentoEvento(n) {
+  await digitarBolha('E qual a faixa de orçamento TOTAL do evento, somando todos os palestrantes?');
+  const total = await escolheChip(ORCAMENTOS);
+  bolha('user', total);
+  await digitarBolha('Como você quer dividir esse valor entre os palestrantes?');
+  const modo = await escolheChip(['Dividir igual entre todos', 'Definir um valor por palestrante']);
+  bolha('user', modo);
+  if (modo.indexOf('igual') >= 0) {
+    const per = Math.max(1000, Math.round(parseFaixaMax(total) / n));
+    const perStr = 'R$ ' + per.toLocaleString('pt-BR');
+    await digitarBolha(`Fechado! Fica cerca de ${perStr} por palestrante.`);
+    return Array(n).fill(perStr);
+  }
+  const out = [];
+  for (let i = 1; i <= n; i++) {
+    await digitarBolha(`Qual a faixa de orçamento do palestrante ${i}?`);
+    const f = await escolheChip(ORCAMENTOS); bolha('user', f); out.push(f);
+  }
+  return out;
+}
+
 async function fluxoTemas(contato, n) {
   const escolhas = [];
   for (let i = 1; i <= n; i++) escolhas.push(await escolheTemaComSecundario(i, n));
-  // agrupa por macro tema principal; junta os secundários (reforço) de cada principal
+  const ehProjeto = new Set(escolhas.map(e => e.principal)).size >= 2;
+  // orçamento por palestrante só faz sentido no evento com temas distintos (várias curadorias)
+  if (ehProjeto) {
+    const orcs = await coletaOrcamentoEvento(n);
+    escolhas.forEach((e, i) => { e.orcamento = orcs[i]; });
+  }
+  // agrupa por macro tema principal; junta os secundários (reforço) e pega o orçamento de cada
   const porPrincipal = new Map();
   for (const e of escolhas) {
-    const cur = porPrincipal.get(e.principal) || new Set();
-    if (e.secundario) cur.add(e.secundario);
+    const cur = porPrincipal.get(e.principal) || { secs: new Set(), orcamento: '' };
+    if (e.secundario) cur.secs.add(e.secundario);
+    if (!cur.orcamento && e.orcamento) cur.orcamento = e.orcamento;
     porPrincipal.set(e.principal, cur);
   }
-  const temas = [...porPrincipal.entries()].map(([macroTema, secs]) => ({ macroTema, secundario: [...secs].join(', ') }));
+  const temas = [...porPrincipal.entries()].map(([macroTema, v]) => ({ macroTema, secundario: [...v.secs].join(', '), orcamento: v.orcamento || '' }));
   if (temas.length < 2) {
     iniciarChat({ ...contato, macroTema: temas[0].macroTema, macroTemaSecundario: temas[0].secundario });
     return;
