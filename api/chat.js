@@ -24,6 +24,8 @@ const ENUM = {
 // campos que aceitam MAIS DE UM valor da lista (o evento pode ter vários públicos)
 const MULTI = new Set(['publicoAlvo']);
 const partesMulti = v => [...new Set(String(v || '').split(/\s*[,;|]\s*/).map(x => x.trim()).filter(Boolean))];
+// campos com sugestões em chips MAS que aceitam texto livre ("Outro") — não travam na lista
+const SUGESTAO = new Set(['motivacao', 'sentimento']);
 
 const rotuloCampo = {
   nome: 'nome do responsável', empresa: 'empresa', email: 'e-mail corporativo', telefone: 'telefone',
@@ -54,17 +56,21 @@ const dataNoPassado = iso => /^\d{4}-\d{2}-\d{2}$/.test(iso) && iso < hojeISO();
 
 // widget que o front renderiza para captar o próximo campo
 function widgetPara(campo, slots) {
+  if (SUGESTAO.has(campo)) return { campo, tipo: 'chips-livre', opcoes: ENUM[campo] };   // chips + "Outro"
   if (MULTI.has(campo)) return { campo, tipo: 'chips-multi', opcoes: ENUM[campo] };
   if (ENUM[campo]) return { campo, tipo: 'chips', opcoes: ENUM[campo] };
   if (campo === 'cidade') return { campo, tipo: 'busca', opcoes: CIDADES[slots.estado] || [] };   // autocomplete (lista grande)
   if (campo === 'microTema') return { campo, tipo: 'chips', opcoes: subtemasDe(slots.macroTema) };
   if (campo === 'data') return { campo, tipo: 'data', min: hojeISO() };   // trava datas passadas no seletor
   if (campo === 'horario') return { campo, tipo: 'hora' };
+  // "já tem palestrante em mente?" -> texto livre com atalho "Não tenho"
+  if (campo === 'palestranteDesejado') return { campo, tipo: 'texto', atalhos: ['Não tenho preferência'], placeholder: 'Nome do palestrante (ou toque em "Não tenho")' };
   return { campo, tipo: 'texto' };
 }
 
 // backstop: a resposta do usuário ao widget é aceitável para aquele campo? (validação leve)
 function aceitaBackstop(campo, val, slots) {
+  if (SUGESTAO.has(campo)) return String(val || '').trim().length > 0;   // aceita qualquer texto
   if (MULTI.has(campo)) { const opts = ENUM[campo] || []; return partesMulti(val).some(p => opts.includes(p)); }
   if (ENUM[campo]) return ENUM[campo].includes(val);
   if (campo === 'cidade') return (CIDADES[slots.estado] || []).includes(val);
@@ -88,6 +94,8 @@ const propsCampos = {
 for (const [k, lista] of Object.entries(ENUM)) propsCampos[k] = { type: 'string', enum: lista };
 // publicoAlvo aceita mais de um valor -> string livre (o servidor valida cada parte contra a lista)
 propsCampos.publicoAlvo = { type: 'string', description: 'um ou mais públicos da lista, separados por vírgula' };
+// motivacao/sentimento: as listas são só sugestões, o cliente pode escrever livre -> string
+for (const k of SUGESTAO) propsCampos[k] = { type: 'string' };
 
 const TURNO_SCHEMA = {
   type: 'object',
@@ -205,6 +213,7 @@ export default async function handler(req, res) {
     for (const [k, v] of Object.entries(out.campos || {})) {
       const val = String(v ?? '').trim();
       if (!val) continue;
+      if (SUGESTAO.has(k)) { novos[k] = val; continue; }   // sugestão + texto livre: aceita como veio
       if (MULTI.has(k)) {   // um ou mais valores da lista -> guarda só os válidos, juntos
         const opts = ENUM[k] || [];
         const parts = partesMulti(val).filter(p => opts.includes(p));

@@ -835,6 +835,26 @@ function chatWidget(widget) {
     conf.textContent = 'Confirmar →'; conf.disabled = true;
     conf.addEventListener('click', () => { const arr = [...sel]; if (arr.length) responder(arr.join(', '), arr.join(', ')); });
     area.appendChild(conf);
+  } else if (widget.tipo === 'chips-livre') {
+    // sugestões em chips + "Outro (escrever)" pra texto livre
+    const wrap = document.createElement('div'); wrap.className = 'chips';
+    (widget.opcoes || []).forEach(op => {
+      const b = document.createElement('button'); b.className = 'chip-op'; b.textContent = op;
+      b.addEventListener('click', () => responder(op));
+      wrap.appendChild(b);
+    });
+    const outro = document.createElement('button'); outro.className = 'chip-op'; outro.textContent = '✎ Outro (escrever)';
+    outro.addEventListener('click', () => {
+      area.innerHTML = '';
+      const inp = document.createElement('input'); inp.type = 'text'; inp.placeholder = 'Conte em uma frase…';
+      const env = () => { const v = inp.value.trim(); if (v) responder(v); };
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); env(); } });
+      area.appendChild(inp);
+      const bb = document.createElement('button'); bb.className = 'btn btn--primary'; bb.textContent = 'Enviar →';
+      bb.addEventListener('click', env); area.appendChild(bb); inp.focus();
+    });
+    wrap.appendChild(outro);
+    area.appendChild(wrap);
   } else if (widget.tipo === 'chips') {
     const wrap = document.createElement('div'); wrap.className = 'chips';
     (widget.opcoes || []).forEach(op => {
@@ -871,6 +891,16 @@ function chatWidget(widget) {
     area.appendChild(b); area.appendChild(erro);
     inp.focus();
   } else {
+    // atalhos rápidos (ex.: "Não tenho preferência" no palestrante desejado)
+    if (widget.atalhos && widget.atalhos.length) {
+      const aw = document.createElement('div'); aw.className = 'chips'; aw.style.cssText = 'flex-basis:100%;margin-bottom:10px';
+      widget.atalhos.forEach(a => {
+        const b = document.createElement('button'); b.className = 'chip-op'; b.textContent = a;
+        b.addEventListener('click', () => responder(a));
+        aw.appendChild(b);
+      });
+      area.appendChild(aw);
+    }
     // campo livre grande (relato de abertura) -> textarea; senão input de 1 linha
     const inp = document.createElement(widget.multilinha ? 'textarea' : 'input');
     if (widget.multilinha) inp.rows = 4;
