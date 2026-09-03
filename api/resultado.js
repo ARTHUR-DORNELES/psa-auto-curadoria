@@ -1,4 +1,4 @@
-import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, limparNomesDoNegocio, finalizarCuradoria, chaveDeNome, respostasDisponibilidade, anexarBriefingAoNegocio } from './_lib.js';
+import { redis, chave, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, limparNomesDoNegocio, finalizarCuradoria, chaveDeNome, respostasDisponibilidade, anexarBriefingAoNegocio, registrarNomesNaoEncontrados } from './_lib.js';
 
 const ACOES = {
   curador: 'CLIENTE PEDIU ATENDIMENTO DE CURADOR — assumir o processo pelo caminho tradicional.',
@@ -163,6 +163,16 @@ export default async function handler(req, res) {
         if (!k) return false;
         return !achou.some((a) => a === k || a.includes(k) || k.includes(a));
       });
+      // salva os não encontrados (demanda: nomes fora da base) uma única vez por curadoria
+      if (naoEncontrados.length && !reg.naoEncontradosSalvos) {
+        try {
+          await registrarNomesNaoEncontrados(reg.hubspot?.negocioId, naoEncontrados, {
+            empresa: reg.briefing?.empresaPalestra || reg.briefing?.empresa || '', curadoria: id,
+          });
+        } catch (e) { console.error('registrar nao-encontrados falhou:', e.message); }
+        reg.naoEncontradosSalvos = true;
+        await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
+      }
     }
 
     // `disponibilidade` vai para o cliente porque quem recarrega o link precisa ver

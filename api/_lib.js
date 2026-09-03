@@ -320,6 +320,34 @@ export async function arquivarCuradoria(dealId) {
   } catch (e) { console.error('arquivarCuradoria falhou:', e.message); return false; }
 }
 
+// Salva os palestrantes que o cliente PEDIU e que NÃO existem na base (lista fechada). É demanda:
+// nomes que a PSA poderia passar a representar. Guarda em dois lugares: nota no negócio (o time vê
+// na hora) e um acumulador central no Redis (ranking de demanda por nome). Nunca lança.
+export async function registrarNomesNaoEncontrados(dealId, nomes, meta = {}) {
+  const lista = [...new Set((nomes || []).map((n) => String(n || '').replace(/\s+/g, ' ').trim()).filter(Boolean))];
+  if (!lista.length) return;
+  const em = new Date().toISOString();
+  // acumulador: ZINCRBY conta quantas vezes cada nome foi pedido; hash guarda o último contexto
+  try {
+    for (const nome of lista) {
+      await redis().zincrby('auto-curadoria:nao-encontrados', 1, nome);
+      await redis().hset('auto-curadoria:nao-encontrados:meta', nome.toLowerCase(),
+        JSON.stringify({ nome, ultimaEmpresa: meta.empresa || '', em, curadoria: meta.curadoria || '' }));
+    }
+  } catch (e) { console.error('acumulador nao-encontrados falhou:', e.message); }
+  // nota no negócio
+  try {
+    if (dealId) {
+      await nota(dealId, [
+        'AUTO CURADORIA — palestrante(s) solicitado(s) pelo cliente e NÃO encontrado(s) na base:',
+        ...lista.map((n) => `- ${n}`),
+        meta.empresa ? `Evento para: ${meta.empresa}.` : '',
+        'Avaliar cadastro/representação desses nomes.',
+      ].filter(Boolean).join('\n'));
+    }
+  } catch (e) { console.error('nota nao-encontrados falhou:', e.message); }
+}
+
 // Ação do cliente sobre UMA curadoria da lista dele (finalizar/arquivar), com checagem de dono:
 // o CPF/CNPJ informado tem de bater com o contato que criou a curadoria. Nunca lança.
 export async function acaoCuradoria(bruto, uuid, acao) {
