@@ -905,7 +905,7 @@ async function chatTurno() {
   try {
     const r = await fetch('/api/chat', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ historico: chatHist, slots: chatSlots, campoRespondido: campoAtual, pularTema: chatModo === 'projeto' }),
+      body: JSON.stringify({ historico: chatHist, slots: chatSlots, campoRespondido: campoAtual, pularTema: chatModo === 'projeto', continuacao: true }),
     });
     const j = await r.json();
     chatDigitando(false);
@@ -965,9 +965,10 @@ async function salvarBriefingExistente(corpo) {
 function iniciarChat(slotsIniciais) {
   chatModo = 'novo'; chatAlvo = null;
   chatHist.length = 0; chatSlots = { ...(slotsIniciais || {}) };   // já sabemos nome/empresa/email/telefone do contato
-  $('#chatMsgs').innerHTML = ''; $('#chatEntrada').innerHTML = '';
+  // NÃO limpa #chatMsgs: mantém a conversa da entrada (palestra/evento, etc.) — mais fluido
+  $('#chatEntrada').innerHTML = '';
   mostra('chat', 0);
-  chatTurno();   // 1º turno: Santiago se apresenta e faz a primeira pergunta
+  chatTurno();   // Santiago segue com a primeira pergunta do briefing
 }
 
 // abre o briefing p/ COMPLETAR uma curadoria de LISTA FECHADA existente (sem criar nova);
@@ -1057,12 +1058,12 @@ async function fluxoMultiTema(contato, n) {
   const distintos = [...new Set(temas)];
   if (distintos.length < 2) {
     // todos do mesmo tema -> uma curadoria só (traz vários nomes desse tema pra escolher)
-    await digitarBolha('Perfeito! Vou montar uma curadoria desse tema e você escolhe os palestrantes. Agora me conta sobre o evento.');
+    await digitarBolha('Perfeito, anotei o tema!');
     iniciarChat({ ...contato, macroTema: distintos[0] });
     return;
   }
   const nomesTemas = distintos.map(t => t.replace(/^\d+\.\s*/, '')).join(', ');
-  await digitarBolha(`Show! Vou montar ${distintos.length} listas, uma por tema (${nomesTemas}). Agora me conta os detalhes do evento, que valem para todas.`);
+  await digitarBolha(`Show! Vou montar ${distintos.length} listas, uma por tema (${nomesTemas}). Os detalhes do evento a seguir valem para todas.`);
   iniciarChatProjeto(contato, distintos);
 }
 
@@ -1070,7 +1071,8 @@ async function fluxoMultiTema(contato, n) {
 function iniciarChatProjeto(contato, temas) {
   chatModo = 'projeto'; chatAlvo = null; projetoTemas = temas;
   chatHist.length = 0; chatSlots = { ...(contato || {}) };
-  $('#chatMsgs').innerHTML = ''; $('#chatEntrada').innerHTML = '';
+  // NÃO limpa #chatMsgs: continua a mesma conversa (evento -> quantos -> temas -> briefing)
+  $('#chatEntrada').innerHTML = '';
   mostra('chat', 0);
   chatTurno();
 }

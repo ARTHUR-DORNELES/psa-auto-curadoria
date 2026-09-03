@@ -101,7 +101,7 @@ const TURNO_SCHEMA = {
   },
 };
 
-function sistema(faltando, slots, pularTema) {
+function sistema(faltando, slots, pularTema, continuacao) {
   const enumTxt = Object.entries(ENUM)
     .map(([k, l]) => `- ${k} (${rotuloCampo[k]}): ${l.join(' | ')}`).join('\n');
   const subs = subtemasDe(slots.macroTema);
@@ -118,16 +118,16 @@ function sistema(faltando, slots, pularTema) {
     'algo fora do briefing, diga em uma frase curta que a curadoria cuida disso depois e volte',
     'para a pergunta atual.',
     '',
-    'Se a conversa está começando (sem histórico), APRESENTE-SE (é o Santiago, curador',
-    'responsável) e faça UMA pergunta ABERTA convidando o cliente a descrever o evento com as',
-    'próprias palavras — algo como "me conta um pouco sobre o evento que você está planejando?".',
+    continuacao
+      ? 'A conversa JÁ começou e você JÁ cumprimentou o cliente. NÃO se apresente nem cumprimente de novo. No seu primeiro turno aqui, vá direto: faça UMA pergunta ABERTA convidando o cliente a descrever o evento com as próprias palavras, algo como "me conta um pouco sobre o evento que você está planejando?".'
+      : 'Se a conversa está começando (sem histórico), APRESENTE-SE (é o Santiago, curador responsável) e faça UMA pergunta ABERTA convidando o cliente a descrever o evento com as próprias palavras, algo como "me conta um pouco sobre o evento que você está planejando?".',
+    (!continuacao && primeiroNome)
+      ? `O cliente se chama ${primeiroNome}. Na PRIMEIRA mensagem, cumprimente-o pelo primeiro nome, comece por "Oi, ${primeiroNome}!".`
+      : '',
     'O app vai mostrar uma caixa de texto livre (não botões) pra essa primeira resposta. Dessa',
     'descrição, EXTRAIA o máximo de campos de uma vez. Depois disso, pergunte só o que faltar.',
     'NÃO liste campos nem faça várias perguntas nessa abertura.',
-    'Se o relato vier curto, NÃO insista nem peça mais detalhes — apenas siga para os campos que faltam.',
-    primeiroNome
-      ? `O cliente se chama ${primeiroNome}. Na PRIMEIRA mensagem, cumprimente-o pelo primeiro nome — comece por "Oi, ${primeiroNome}!".`
-      : '',
+    'Se o relato vier curto, NÃO insista nem peça mais detalhes, apenas siga para os campos que faltam.',
     '',
     'IMPORTANTE: nome, empresa, e-mail e telefone do cliente JÁ os temos (aparecem em "Já captado").',
     'NUNCA pergunte esses dados. Vá direto para as perguntas do EVENTO (público, formato, data etc.).',
@@ -169,7 +169,7 @@ export default async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method !== 'POST') return res.status(405).json({ erro: 'use POST' });
 
-  const { historico = [], slots = {}, campoRespondido = '', pularTema = false } = await lerCorpo(req);
+  const { historico = [], slots = {}, campoRespondido = '', pularTema = false, continuacao = false } = await lerCorpo(req);
   // no briefing COMPARTILHADO de um evento (projeto), o macro tema é escolhido por palestrante
   // ANTES do chat; aqui o Santiago não pergunta tema nem recorte.
   const OBRIG = pularTema ? OBRIGATORIOS.filter(c => c !== 'macroTema') : OBRIGATORIOS;
@@ -183,7 +183,7 @@ export default async function handler(req, res) {
       model: MODEL,
       max_tokens: 900,
       thinking: { type: 'disabled' },          // chat de briefing: rápido, sem raciocínio extenso
-      system: sistema(faltando, slots, pularTema),
+      system: sistema(faltando, slots, pularTema, continuacao),
       messages: mensagens,
     });
 
