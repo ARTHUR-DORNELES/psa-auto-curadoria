@@ -1174,7 +1174,9 @@ function injetaAbas(d) {
   const projeto = d.projeto; if (!projeto || (projeto.curadorias || []).length < 2) return;
   const cont = document.createElement('div'); cont.innerHTML = abasProjetoHTML(d.id, projeto);
   const bar = cont.firstElementChild;
-  $('#resultado').insertBefore(bar, $('#resultado').firstChild);
+  // as abas ficam ABAIXO do briefing (que é o mesmo p/ todas) e ACIMA dos nomes
+  const ancora = $('#resultado').querySelector('.res__topo') || $('#resultado').firstChild;
+  $('#resultado').insertBefore(bar, ancora);
   bar.querySelectorAll('.proj-aba').forEach(b => b.addEventListener('click', () => {
     const cid = b.dataset.cur; if (cid === d.id) return;
     loadCuradoriaTab(cid, projeto);
@@ -1953,25 +1955,43 @@ function renderCompleto(d) {
   if (btnPdf) btnPdf.addEventListener('click', async () => {
     const b = d.briefing || {};
     const dataBR = iso => (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.split('-').reverse().join('/') : iso || '');
-    const n = (d.resultado?.indicacoes || []).length;
+    const rotTema = t => (t || '').replace(/^\d+\.\s*/, '');
+    const mapInd = i => ({ nome: i.nome, perfil: i.perfil, aderencia: i.aderencia, porque: i.porque, faixa: i.faixa, valorVenda: i.valorVenda, resposta: i.resposta, foto: i.foto });
     const palavras = { 1: 'Um nome', 2: 'Dois nomes', 3: 'Três nomes', 4: 'Quatro nomes', 5: 'Cinco nomes', 6: 'Seis nomes', 7: 'Sete nomes' };
-    const payload = {
-      titulo: `${palavras[n] || n + ' nomes'} pro seu evento.`,
-      geradaEm: d.criadoEm ? new Date(d.criadoEm).toLocaleDateString('pt-BR') : '',
-      briefing: {
-        empresa: b.empresa, responsavel: b.nome, tema: (b.macroTema || '').replace(/^\d+\.\s*/, ''),
-        formato: b.formato, data: dataBR(b.data), horario: b.horario, duracao: b.duracao,
-        local: b.localEvento, cidade: b.cidade, estado: b.local, orcamento: b.orcamento,
-        publicoAlvo: b.publicoAlvo, vendaIngresso: b.vendaIngresso,
-        motivacao: b.motivacao, sentimento: b.sentimento, contexto: b.briefing,
-      },
-      indicacoes: (d.resultado?.indicacoes || []).map(i => ({
-        nome: i.nome, perfil: i.perfil, aderencia: i.aderencia, porque: i.porque, faixa: i.faixa, valorVenda: i.valorVenda, resposta: i.resposta, foto: i.foto,
-      })),
-    };
     const antes = btnPdf.textContent;
     btnPdf.disabled = true; btnPdf.textContent = 'Gerando PDF…';
     try {
+      // PROJETO (evento com vários temas): junta TODAS as abas num PDF só.
+      let indicacoes = [], titulo;
+      const cs = (d.projeto && (d.projeto.curadorias || []).length > 1) ? d.projeto.curadorias : null;
+      if (cs) {
+        const results = await Promise.all(cs.map(c => fetch(`/api/resultado?id=${c.id}`).then(x => x.json()).catch(() => null)));
+        results.forEach((rc, k) => {
+          const tema = rotTema(cs[k].macroTema);
+          (rc && rc.resultado && rc.resultado.indicacoes || []).forEach(i => {
+            const m = mapInd(i); m.perfil = tema + (m.perfil ? ' · ' + m.perfil : '');   // marca o tema no perfil
+            indicacoes.push(m);
+          });
+        });
+        titulo = `Seu evento em ${cs.length} temas.`;
+      } else {
+        indicacoes = (d.resultado?.indicacoes || []).map(mapInd);
+        const n = indicacoes.length;
+        titulo = `${palavras[n] || n + ' nomes'} pro seu evento.`;
+      }
+      const payload = {
+        titulo,
+        geradaEm: d.criadoEm ? new Date(d.criadoEm).toLocaleDateString('pt-BR') : '',
+        briefing: {
+          empresa: b.empresaPalestra || b.empresa, responsavel: b.nome,
+          tema: cs ? cs.map(c => rotTema(c.macroTema)).join(', ') : rotTema(b.macroTema),
+          formato: b.formato, data: dataBR(b.data), horario: b.horario, duracao: b.duracao,
+          local: b.localEvento, cidade: b.cidade, estado: b.local, orcamento: b.orcamento,
+          publicoAlvo: b.publicoAlvo, vendaIngresso: b.vendaIngresso,
+          motivacao: b.motivacao, sentimento: b.sentimento, contexto: b.briefing,
+        },
+        indicacoes,
+      };
       const r = await fetch(PDF_API, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
       });
