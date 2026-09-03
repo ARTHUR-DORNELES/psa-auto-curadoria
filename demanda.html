@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Demanda fora da base · Auto Curadoria PSA</title>
+<style>
+  :root{--bg:#02060f;--card:#0e1420;--border:#ffffff22;--border-strong:#ffffff44;--fg:#fff;--fg-2:#ffffffb8;--fg-3:#ffffff7a;--orange:#f85000;--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5}
+  .wrap{max-width:960px;margin:0 auto;padding:40px 20px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);font-weight:700}
+  h1{font-size:30px;margin:6px 0 4px;letter-spacing:-.01em}
+  .sub{color:var(--fg-2);margin:0 0 24px;font-size:15px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px}
+  label{display:block;font-size:13px;color:var(--fg-2);margin:0 0 6px}
+  input{width:100%;padding:12px 14px;border:1px solid var(--border-strong);border-radius:10px;background:#ffffff0f;color:var(--fg);font-size:15px}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .row>div{flex:1;min-width:180px}
+  button{margin-top:14px;background:var(--orange);border:0;color:#fff;border-radius:999px;padding:12px 22px;font-size:14px;font-weight:700;cursor:pointer}
+  button.ghost{background:transparent;border:1px solid var(--border-strong);color:var(--fg);margin:0}
+  .erro{color:#ff8a66;font-size:14px;min-height:20px;margin:10px 0 0}
+  .topo{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--border)}
+  th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--fg-3);font-weight:600}
+  td.num{font-family:var(--mono);font-weight:700;color:var(--orange);text-align:right;width:90px}
+  tr:last-child td{border-bottom:0}
+  .vazio{color:var(--fg-2);padding:24px 0;text-align:center}
+  .quando{color:var(--fg-3);font-size:12px}
+  .hint{color:var(--fg-3);font-size:12px;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="eyebrow">Auto Curadoria PSA</span>
+  <h1>Demanda fora da base</h1>
+  <p class="sub">Palestrantes que clientes pediram na curadoria "já tenho os nomes" e que a PSA ainda não tem cadastrados. Ranking pelo número de pedidos.</p>
+
+  <section class="card" id="login">
+    <div class="row">
+      <div><label for="u">Usuário</label><input id="u" autocomplete="username"></div>
+      <div><label for="p">Senha</label><input id="p" type="password" autocomplete="current-password"></div>
+    </div>
+    <button id="entrar">Entrar →</button>
+    <p class="erro" id="eLogin"></p>
+  </section>
+
+  <section id="painel" style="display:none">
+    <div class="topo">
+      <div><strong id="cont"></strong></div>
+      <div style="display:flex;gap:10px"><button class="ghost" id="recarregar">Recarregar</button><button class="ghost" id="sair">Sair</button></div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table>
+        <thead><tr><th>Palestrante</th><th>Última empresa que pediu</th><th style="text-align:right">Pedidos</th></tr></thead>
+        <tbody id="linhas"></tbody>
+      </table>
+    </div>
+    <p class="hint">Cada nome é gravado uma vez por curadoria. A contagem soma pedidos de curadorias diferentes.</p>
+  </section>
+</div>
+
+<script>
+  var $ = function (s) { return document.querySelector(s); };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function creds() { try { return sessionStorage.getItem('ac_dem_auth') || ''; } catch (e) { return ''; } }
+  function setCreds(v) { try { v ? sessionStorage.setItem('ac_dem_auth', v) : sessionStorage.removeItem('ac_dem_auth'); } catch (e) {} }
+
+  function quando(iso) {
+    if (!iso) return '';
+    try { return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }); } catch (e) { return ''; }
+  }
+
+  async function carregar() {
+    var auth = creds();
+    if (!auth) { mostraLogin(); return; }
+    try {
+      var r = await fetch('/api/nao-encontrados', { headers: { Authorization: 'Basic ' + auth } });
+      if (r.status === 401) { setCreds(''); mostraLogin('Usuário ou senha inválidos.'); return; }
+      if (r.status === 503) { var j0 = await r.json().catch(function () { return {}; }); mostraLogin(j0.erro || 'Consulta ainda não liberada no servidor.'); return; }
+      if (!r.ok) { mostraLogin('Não consegui carregar agora. Tente de novo.'); return; }
+      var j = await r.json();
+      render(j.itens || []);
+      $('#login').style.display = 'none';
+      $('#painel').style.display = '';
+    } catch (e) { mostraLogin('Falha de rede. Tente de novo.'); }
+  }
+
+  function render(itens) {
+    $('#cont').textContent = itens.length ? (itens.length + ' palestrante' + (itens.length > 1 ? 's' : '') + ' em demanda') : '';
+    var tb = $('#linhas');
+    if (!itens.length) { tb.innerHTML = '<tr><td colspan="3"><div class="vazio">Nada por aqui ainda. Quando um cliente pedir alguém fora da base, aparece aqui.</div></td></tr>'; return; }
+    tb.innerHTML = itens.map(function (it) {
+      return '<tr><td><strong>' + esc(it.nome) + '</strong>' + (it.em ? '<div class="quando">último pedido em ' + esc(quando(it.em)) + '</div>' : '') + '</td>'
+        + '<td>' + esc(it.ultimaEmpresa || '—') + '</td>'
+        + '<td class="num">' + (it.pedidos || 0) + '</td></tr>';
+    }).join('');
+  }
+
+  function mostraLogin(erro) {
+    $('#painel').style.display = 'none';
+    $('#login').style.display = '';
+    $('#eLogin').textContent = erro || '';
+  }
+
+  $('#entrar').addEventListener('click', function () {
+    var u = $('#u').value.trim(), p = $('#p').value;
+    if (!u || !p) { $('#eLogin').textContent = 'Preencha usuário e senha.'; return; }
+    setCreds(btoa(u + ':' + p));
+    carregar();
+  });
+  $('#p').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#entrar').click(); });
+  $('#recarregar').addEventListener('click', carregar);
+  $('#sair').addEventListener('click', function () { setCreds(''); mostraLogin(); });
+
+  carregar();
+</script>
+</body>
+</html>
