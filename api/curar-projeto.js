@@ -6,8 +6,8 @@ import { criarNegocioCuradoria, redis, chave, chaveDeal, chaveProjeto, lerCorpo,
 // Espelha o curar.js, mas em lote e agrupado por tema.
 // macroTema E orcamento NÃO são obrigatórios aqui: vêm por curadoria (temas[]).
 const OBRIGATORIOS = ['nome', 'empresa', 'email', 'telefone', 'publicoAlvo',
-  'formato', 'horario', 'duracao', 'localEvento', 'cidade', 'local', 'vendaIngresso',
-  'motivacao', 'sentimento'];
+  'duracao', 'localEvento', 'cidade', 'local', 'vendaIngresso',
+  'motivacao', 'sentimento'];   // horario e orcamento vêm por curadoria (temas[])
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
@@ -48,6 +48,7 @@ export default async function handler(req, res) {
       nome: b.nome, empresa: b.empresa, email: b.email.toLowerCase().trim(), telefone: b.telefone,
       publicoAlvo: b.publicoAlvo, formato: b.formato,
       data: b.data, horario: b.horario, duracao: b.duracao,
+      horarioEvento: String(b.horarioEvento || '').slice(0, 60),   // janela do evento (das A às B)
       localEvento: b.localEvento, cidade: b.cidade, local: b.local,
       orcamento: b.orcamento, vendaIngresso: b.vendaIngresso,
       motivacao: b.motivacao, sentimento: b.sentimento,
@@ -61,9 +62,9 @@ export default async function handler(req, res) {
     const curadorias = [];   // { id, macroTema, negocioId }
 
     // uma curadoria (deal) por macro tema. Falha parcial: segue com as que deram certo.
-    for (const { macroTema, secundario, orcamento } of temas) {
+    for (const { macroTema, secundario, orcamento, horario } of temas) {
       const id = crypto.randomUUID();
-      const briefing = { ...briefingBase, macroTema, macroTemaSecundario: secundario || '', orcamento: orcamento || briefingBase.orcamento || '', microTema: '', projetoId };
+      const briefing = { ...briefingBase, macroTema, macroTemaSecundario: secundario || '', orcamento: orcamento || briefingBase.orcamento || '', horario: horario || briefingBase.horario || '', microTema: '', projetoId };
       let hubspot;
       try {
         hubspot = await criarNegocioCuradoria(assinatura.contatoId, briefing, id,

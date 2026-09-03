@@ -8,7 +8,7 @@ import { criarNegocioCuradoria, redis, chave, chaveDeal, lerCorpo, cors, assinat
 // e o contexto livre) e a DATA (pode ser "a definir"; só vira obrigatória ao solicitar
 // disponibilidade). Espelha a validação do formulário — o servidor não confia nela.
 const OBRIGATORIOS = ['nome', 'empresa', 'email', 'telefone', 'macroTema', 'publicoAlvo',
-  'formato', 'horario', 'duracao', 'localEvento', 'cidade', 'local', 'orcamento', 'vendaIngresso',
+  'horario', 'duracao', 'localEvento', 'cidade', 'local', 'orcamento', 'vendaIngresso',
   'motivacao', 'sentimento'];
 
 export default async function handler(req, res) {

@@ -12,7 +12,7 @@ const MODEL = 'claude-sonnet-5';
 // espelha os obrigatórios do curar.js (+ estado, que lá é briefing.local). A DATA é
 // opcional (pode ser "a definir"; só obrigatória ao solicitar disponibilidade).
 const OBRIGATORIOS = ['nome', 'empresa', 'email', 'telefone', 'macroTema', 'publicoAlvo',
-  'formato', 'horario', 'duracao', 'localEvento', 'estado', 'cidade', 'orcamento',
+  'horario', 'duracao', 'localEvento', 'estado', 'cidade', 'orcamento',
   'vendaIngresso', 'motivacao', 'sentimento', 'palestranteDesejado', 'empresaPalestra'];
 
 // campos de valor fechado -> validados contra a lista e travados no schema de saída
