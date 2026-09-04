@@ -48,7 +48,10 @@ export default async function handler(req, res) {
   try { owners = await ownersList(); }
   catch (e) {
     console.error('lideranca: não consegui ler owners:', e.message);
-    return res.status(503).json({ erro: 'o token do HubSpot ainda não tem permissão para ler usuários (escopo crm.objects.owners.read). Peça para habilitar.' });
+    return res.status(503).json({
+      erro: 'o token do HubSpot ainda não tem permissão para ler usuários (escopo crm.objects.owners.read). Peça para habilitar.',
+      detalhe: String(e.message || e).slice(0, 400),
+    });
   }
   if (!owners.emails.has(email)) return res.status(403).json({ erro: 'e-mail não é de um usuário do HubSpot da PSA' });
 
