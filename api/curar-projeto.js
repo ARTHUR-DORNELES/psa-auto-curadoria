@@ -22,14 +22,16 @@ export default async function handler(req, res) {
     for (const t of (Array.isArray(b.temas) ? b.temas : [])) {
       const macroTema = String((t && typeof t === 'object' ? t.macroTema : t) || '').trim();
       if (!macroTema) continue;
-      const sec = String((t && typeof t === 'object' ? t.secundario : '') || '').trim();
-      const orc = String((t && typeof t === 'object' ? t.orcamento : '') || '').trim();
-      const cur = porTema.get(macroTema) || { secs: new Set(), orcamento: '' };
+      const _s = (k) => String((t && typeof t === 'object' ? t[k] : '') || '').trim();
+      const sec = _s('secundario'), orc = _s('orcamento'), hor = _s('horario'), dur = _s('duracao');
+      const cur = porTema.get(macroTema) || { secs: new Set(), orcamento: '', horario: '', duracao: '' };
       if (sec) sec.split(/\s*,\s*/).forEach((s) => s && cur.secs.add(s));
       if (!cur.orcamento && orc) cur.orcamento = orc;
+      if (!cur.horario && hor) cur.horario = hor;
+      if (!cur.duracao && dur) cur.duracao = dur;
       porTema.set(macroTema, cur);
     }
-    const temas = [...porTema.entries()].map(([macroTema, v]) => ({ macroTema, secundario: [...v.secs].join(', '), orcamento: v.orcamento || '' }));
+    const temas = [...porTema.entries()].map(([macroTema, v]) => ({ macroTema, secundario: [...v.secs].join(', '), orcamento: v.orcamento || '', horario: v.horario || '', duracao: v.duracao || '' }));
     if (temas.length < 2) return res.status(400).json({ erro: 'um projeto de evento precisa de pelo menos 2 macro temas distintos.' });
 
     const faltando = OBRIGATORIOS.filter(c => !String(b[c] || '').trim());
@@ -62,9 +64,9 @@ export default async function handler(req, res) {
     const curadorias = [];   // { id, macroTema, negocioId }
 
     // uma curadoria (deal) por macro tema. Falha parcial: segue com as que deram certo.
-    for (const { macroTema, secundario, orcamento, horario } of temas) {
+    for (const { macroTema, secundario, orcamento, horario, duracao } of temas) {
       const id = crypto.randomUUID();
-      const briefing = { ...briefingBase, macroTema, macroTemaSecundario: secundario || '', orcamento: orcamento || briefingBase.orcamento || '', horario: horario || briefingBase.horario || '', microTema: '', projetoId };
+      const briefing = { ...briefingBase, macroTema, macroTemaSecundario: secundario || '', orcamento: orcamento || briefingBase.orcamento || '', horario: horario || briefingBase.horario || '', duracao: duracao || briefingBase.duracao || '', microTema: '', projetoId };
       let hubspot;
       try {
         hubspot = await criarNegocioCuradoria(assinatura.contatoId, briefing, id,

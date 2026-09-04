@@ -1113,22 +1113,26 @@ function pedeHora() {
     area.append(inp, b); inp.focus();
   });
 }
-// horário de cada palestra numa pergunta só (um campo por palestra) -> [ "HH:MM", ... ]
-function pedeHorariosPalestras(escolhas) {
+// horário + duração de cada palestra numa pergunta só -> [ {horario, duracao}, ... ]
+function pedeHorarioDuracaoPalestras(escolhas) {
   return new Promise(resolve => {
     const area = $('#chatEntrada'); area.innerHTML = '';
-    const wrap = document.createElement('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;flex-basis:100%';
-    const inputs = escolhas.map((e, i) => {
-      const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:10px;align-items:center';
+    const wrap = document.createElement('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:12px;flex-basis:100%';
+    const linhas = escolhas.map((e, i) => {
+      const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:10px;align-items:center;flex-wrap:wrap';
       const lab = document.createElement('span'); lab.textContent = `${i + 1}ª · ${e.principal.replace(/^\d+\.\s*/, '')}`;
       lab.style.cssText = 'color:var(--fg-2);font-size:13px;min-width:150px';
-      const inp = document.createElement('input'); inp.type = 'time';
-      row.append(lab, inp); wrap.appendChild(row); return inp;
+      const hora = document.createElement('input'); hora.type = 'time'; hora.title = 'horário de início';
+      const dur = document.createElement('select'); dur.className = 'ac-input'; dur.style.cssText = 'width:auto;flex:0 0 auto;padding:9px 12px';
+      dur.add(new Option('duração…', ''));
+      DURACOES.forEach(d => dur.add(new Option(d, d)));
+      row.append(lab, hora, dur); wrap.appendChild(row);
+      return { hora, dur };
     });
     const b = document.createElement('button'); b.className = 'btn btn--primary'; b.textContent = 'Enviar →';
-    const env = () => { if (inputs.every(i => i.value)) { area.innerHTML = ''; resolve(inputs.map(i => i.value)); } };
+    const env = () => { if (linhas.every(l => l.hora.value && l.dur.value)) { area.innerHTML = ''; resolve(linhas.map(l => ({ horario: l.hora.value, duracao: l.dur.value }))); } };
     b.addEventListener('click', env);
-    area.append(wrap, b); if (inputs[0]) inputs[0].focus();
+    area.append(wrap, b); if (linhas[0]) linhas[0].hora.focus();
   });
 }
 // janela de horário (início e término) numa pergunta só -> { ini, fim }
@@ -1211,23 +1215,24 @@ async function fluxoTemas(contato, n) {
     const { ini, fim } = await pedeJanelaHora();
     projetoHorarioEvento = `das ${ini} às ${fim}`;
     bolha('user', projetoHorarioEvento);
-    await digitarBolha('E o horário de cada palestra?');
-    const horarios = await pedeHorariosPalestras(escolhas);
-    escolhas.forEach((e, i) => { e.horario = horarios[i]; });
-    bolha('user', escolhas.map((e, i) => `${i + 1}ª ${e.horario}`).join('   '));
+    await digitarBolha('E o horário e a duração de cada palestra?');
+    const hd = await pedeHorarioDuracaoPalestras(escolhas);
+    escolhas.forEach((e, i) => { e.horario = hd[i].horario; e.duracao = hd[i].duracao; });
+    bolha('user', escolhas.map((e, i) => `${i + 1}ª ${e.horario} (${e.duracao})`).join('   '));
     const orcs = await coletaOrcamentoEvento(n);
     escolhas.forEach((e, i) => { e.orcamento = orcs[i]; });
   }
-  // agrupa por macro tema principal; junta os secundários (reforço) + orçamento + horário de cada
+  // agrupa por macro tema principal; junta os secundários (reforço) + orçamento + horário + duração de cada
   const porPrincipal = new Map();
   for (const e of escolhas) {
-    const cur = porPrincipal.get(e.principal) || { secs: new Set(), orcamento: '', horario: '' };
+    const cur = porPrincipal.get(e.principal) || { secs: new Set(), orcamento: '', horario: '', duracao: '' };
     if (e.secundario) cur.secs.add(e.secundario);
     if (!cur.orcamento && e.orcamento) cur.orcamento = e.orcamento;
     if (!cur.horario && e.horario) cur.horario = e.horario;
+    if (!cur.duracao && e.duracao) cur.duracao = e.duracao;
     porPrincipal.set(e.principal, cur);
   }
-  const temas = [...porPrincipal.entries()].map(([macroTema, v]) => ({ macroTema, secundario: [...v.secs].join(', '), orcamento: v.orcamento || '', horario: v.horario || '' }));
+  const temas = [...porPrincipal.entries()].map(([macroTema, v]) => ({ macroTema, secundario: [...v.secs].join(', '), orcamento: v.orcamento || '', horario: v.horario || '', duracao: v.duracao || '' }));
   if (temas.length < 2) {
     iniciarChat({ ...contato, macroTema: temas[0].macroTema, macroTemaSecundario: temas[0].secundario });
     return;
