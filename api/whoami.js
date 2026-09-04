@@ -27,5 +27,13 @@ export default async function handler(req, res) {
     if (r.ok) { const j = await r.json(); portal = { portalId: j.portalId, tipo: j.accountType, timeZone: j.timeZone }; }
   } catch (e) { /* ignora */ }
 
-  return res.status(200).json({ fingerprint, portal });
+  // tenta descobrir o appId (abre o app por link direto: /private-apps/<portal>/<appId>)
+  let integracao = null;
+  try {
+    const r = await fetch('https://api.hubapi.com/integrations/v1/me', { headers: { Authorization: `Bearer ${tok}` } });
+    const t = await r.text();
+    integracao = { status: r.status, body: t.slice(0, 300) };
+  } catch (e) { integracao = { erro: String(e.message || e).slice(0, 200) }; }
+
+  return res.status(200).json({ fingerprint, portal, integracao });
 }
