@@ -28,7 +28,11 @@ async function donoInfo(ownerId) {
     const info = { id: ownerId, nome, email: o.email || '', times };
     _ownerCache.set(ownerId, info);
     return info;
-  } catch (e) { const info = { id: ownerId, nome: `#${ownerId}`, email: '', times: [] }; _ownerCache.set(ownerId, info); return info; }
+  } catch (e) {
+    // sem escopo de owners no token -> não dá pra resolver o nome; mostra vazio (vira "—" no painel)
+    console.error('donoInfo falhou p/', ownerId, e.message);
+    const info = { id: ownerId, nome: '', email: '', times: [] }; _ownerCache.set(ownerId, info); return info;
+  }
 }
 
 // rótulos das etapas do pipeline de negócios (id da etapa -> nome legível), cacheado
