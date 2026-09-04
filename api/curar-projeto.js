@@ -6,8 +6,8 @@ import { criarNegocioCuradoria, redis, chave, chaveDeal, chaveProjeto, lerCorpo,
 // Espelha o curar.js, mas em lote e agrupado por tema.
 // macroTema E orcamento NÃO são obrigatórios aqui: vêm por curadoria (temas[]).
 const OBRIGATORIOS = ['nome', 'empresa', 'email', 'telefone', 'publicoAlvo',
-  'duracao', 'localEvento', 'cidade', 'local', 'vendaIngresso',
-  'motivacao', 'sentimento'];   // horario e orcamento vêm por curadoria (temas[])
+  'localEvento', 'cidade', 'local', 'vendaIngresso',
+  'motivacao', 'sentimento'];   // horario, orcamento, duracao não se aplicam ao evento (janela + por palestra)
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;

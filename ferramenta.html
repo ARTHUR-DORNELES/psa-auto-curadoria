@@ -943,7 +943,7 @@ async function chatTurno() {
     const r = await fetch('/api/chat', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ historico: chatHist, slots: chatSlots, campoRespondido: campoAtual,
-        pular: chatModo === 'projeto' ? ['macroTema', 'microTema', 'orcamento', 'horario'] : (chatSlots.macroTema ? ['macroTema', 'microTema'] : []),
+        pular: chatModo === 'projeto' ? ['macroTema', 'microTema', 'orcamento', 'horario', 'duracao'] : (chatSlots.macroTema ? ['macroTema', 'microTema'] : []),
         evento: tipoBriefing === 'evento', continuacao: true }),
     });
     const j = await r.json();
