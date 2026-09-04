@@ -11,21 +11,21 @@ export default async function handler(req, res) {
 
   const tok = process.env.HUBSPOT_TOKEN || '';
   if (!tok) return res.status(500).json({ erro: 'HUBSPOT_TOKEN não está definido no ambiente' });
+
+  // impressão digital MASCARADA p/ casar com o Vercel e o "Mostrar token" de cada app privado.
+  // Nunca devolve o token inteiro.
+  const fingerprint = {
+    inicio: tok.slice(0, 15),   // ex.: "pat-na1-2582xxx"
+    fim: tok.slice(-4),
+    tamanho: tok.length,
+  };
+
+  // tenta confirmar o portal (não expõe nada sensível)
+  let portal = null;
   try {
-    const r = await fetch(`https://api.hubapi.com/oauth/v1/access-tokens/${encodeURIComponent(tok)}`);
-    const j = await r.json();
-    const scopes = Array.isArray(j.scopes) ? j.scopes : [];
-    return res.status(200).json({
-      httpStatus: r.status,
-      app_id: j.app_id,
-      hub_id: j.hub_id,
-      criado_por: j.user,            // e-mail de quem criou o app privado
-      token_type: j.token_type,
-      tem_owners_read: scopes.some((s) => /owners/i.test(s)),
-      total_scopes: scopes.length,
-      scopes,
-    });
-  } catch (e) {
-    return res.status(500).json({ erro: String(e.message || e).slice(0, 400) });
-  }
+    const r = await fetch('https://api.hubapi.com/account-info/v3/details', { headers: { Authorization: `Bearer ${tok}` } });
+    if (r.ok) { const j = await r.json(); portal = { portalId: j.portalId, tipo: j.accountType, timeZone: j.timeZone }; }
+  } catch (e) { /* ignora */ }
+
+  return res.status(200).json({ fingerprint, portal });
 }
