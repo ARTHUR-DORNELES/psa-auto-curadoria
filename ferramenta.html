@@ -1113,6 +1113,41 @@ function pedeHora() {
     area.append(inp, b); inp.focus();
   });
 }
+// horário de cada palestra numa pergunta só (um campo por palestra) -> [ "HH:MM", ... ]
+function pedeHorariosPalestras(escolhas) {
+  return new Promise(resolve => {
+    const area = $('#chatEntrada'); area.innerHTML = '';
+    const wrap = document.createElement('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;flex-basis:100%';
+    const inputs = escolhas.map((e, i) => {
+      const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:10px;align-items:center';
+      const lab = document.createElement('span'); lab.textContent = `${i + 1}ª · ${e.principal.replace(/^\d+\.\s*/, '')}`;
+      lab.style.cssText = 'color:var(--fg-2);font-size:13px;min-width:150px';
+      const inp = document.createElement('input'); inp.type = 'time';
+      row.append(lab, inp); wrap.appendChild(row); return inp;
+    });
+    const b = document.createElement('button'); b.className = 'btn btn--primary'; b.textContent = 'Enviar →';
+    const env = () => { if (inputs.every(i => i.value)) { area.innerHTML = ''; resolve(inputs.map(i => i.value)); } };
+    b.addEventListener('click', env);
+    area.append(wrap, b); if (inputs[0]) inputs[0].focus();
+  });
+}
+// janela de horário (início e término) numa pergunta só -> { ini, fim }
+function pedeJanelaHora() {
+  return new Promise(resolve => {
+    const area = $('#chatEntrada'); area.innerHTML = '';
+    const linha = document.createElement('div');
+    linha.style.cssText = 'display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex-basis:100%';
+    const rot = t => { const s = document.createElement('span'); s.textContent = t; s.style.color = 'var(--fg-2)'; return s; };
+    const ini = document.createElement('input'); ini.type = 'time';
+    const fim = document.createElement('input'); fim.type = 'time';
+    linha.append(rot('das'), ini, rot('às'), fim);
+    const b = document.createElement('button'); b.className = 'btn btn--primary'; b.textContent = 'Enviar →';
+    const env = () => { if (ini.value && fim.value) { area.innerHTML = ''; resolve({ ini: ini.value, fim: fim.value }); } };
+    [ini, fim].forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); env(); } }));
+    b.addEventListener('click', env);
+    area.append(linha, b); ini.focus();
+  });
+}
 async function escolheTemaComSecundario(i, n) {
   await digitarBolha(n > 1 ? `Sobre qual tema o palestrante ${i} vai falar?` : 'Sobre qual tema você quer o palestrante?');
   const principal = await escolheTemaChip();
@@ -1172,16 +1207,14 @@ async function fluxoTemas(contato, n) {
   projetoHorarioEvento = '';
   // evento com temas distintos (várias curadorias): janela do evento + horário e orçamento por palestra
   if (ehProjeto) {
-    await digitarBolha('Qual o horário de INÍCIO do evento?');
-    const ini = await pedeHora(); bolha('user', ini);
-    await digitarBolha('E o horário de TÉRMINO do evento?');
-    const fim = await pedeHora(); bolha('user', fim);
+    await digitarBolha('Qual o horário do evento (início e término)?');
+    const { ini, fim } = await pedeJanelaHora();
     projetoHorarioEvento = `das ${ini} às ${fim}`;
-    for (let i = 1; i <= n; i++) {
-      await digitarBolha(`Qual o horário da ${i}ª palestra (${escolhas[i - 1].principal.replace(/^\d+\.\s*/, '')})?`);
-      escolhas[i - 1].horario = await pedeHora();
-      bolha('user', escolhas[i - 1].horario);
-    }
+    bolha('user', projetoHorarioEvento);
+    await digitarBolha('E o horário de cada palestra?');
+    const horarios = await pedeHorariosPalestras(escolhas);
+    escolhas.forEach((e, i) => { e.horario = horarios[i]; });
+    bolha('user', escolhas.map((e, i) => `${i + 1}ª ${e.horario}`).join('   '));
     const orcs = await coletaOrcamentoEvento(n);
     escolhas.forEach((e, i) => { e.orcamento = orcs[i]; });
   }
