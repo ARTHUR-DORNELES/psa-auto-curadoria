@@ -127,7 +127,11 @@
         '<div class="item__topo"><div>'
         + '<div class="item__nome"><a href="' + esc(it.url) + '" target="_blank" rel="noopener">' + esc(it.dealname) + ' ↗</a>'
         + (it.etapa ? ' <span class="etapa">' + esc(it.etapa) + '</span>' : '') + '</div>'
-        + '<div class="item__meta">dono: ' + esc(it.dono || '—') + (it.solicitante ? ' · pedido por ' + esc(it.solicitante) : '') + (it.em ? ' · ' + esc(quando(it.em)) : '') + '</div>'
+        + '<div class="item__meta">' + [
+            (it.solicitante ? 'pedido por ' + esc(it.solicitante) : ''),
+            (it.dono ? 'dono: ' + esc(it.dono) : ''),
+            (it.em ? esc(quando(it.em)) : '')
+          ].filter(Boolean).join(' · ') + '</div>'
         + '</div><div class="gestor">Aprova: <b>' + esc(it.gerente || it.area || 'gestor da área') + '</b></div></div>'
         + '<div class="chips">' + (pal || '<span class="chip">sem palestrantes</span>') + '</div>'
         + '<div class="acts"><button class="ok" data-ap="' + esc(it.dealId) + '">Aprovar e disparar</button>'
