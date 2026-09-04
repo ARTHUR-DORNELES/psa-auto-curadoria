@@ -1,4 +1,4 @@
-import { hs, cors, lerCorpo } from './_lib.js';
+import { hs, cors, lerCorpo, redis } from './_lib.js';
 
 // Painel de APROVAÇÕES da pesquisa de disponibilidade (palestrantes-app).
 // O card do HubSpot, em vez de disparar, grava no negócio:
@@ -103,6 +103,7 @@ export default async function handler(req, res) {
         const dono = await donoInfo(p.hubspot_owner_id);
         itens.push({
           dealId: d.id, dealname: p.dealname || `Negócio ${d.id}`,
+          donoId: String(p.hubspot_owner_id || ''),   // usado p/ filtrar pela liderança
           etapa: etapas[p.dealstage] || '',   // nome da etapa do pipeline
           dono: dono ? dono.nome : '', area: dono && dono.times.length ? dono.times.join(', ') : '',
           gerente: dados.gerente || (dono && dono.times[0]) || '',   // gerente da área (hierarquia); fallback = time do dono
@@ -112,7 +113,20 @@ export default async function handler(req, res) {
           url: `https://app.hubspot.com/contacts/49656171/record/0-3/${d.id}`,
         });
       }
-      return res.status(200).json({ total: itens.length, itens });
+      // filtro por liderança: se o líder logado tem liderados definidos, mostra só os
+      // pedidos dos negócios cujo dono é liderado dele. Sem liderados definidos -> vê tudo.
+      let visiveis = itens;
+      let filtrado = false;
+      try {
+        const meus = JSON.parse((await redis().get(`aprov:lider:${aprovador}`)) || '[]');
+        if (Array.isArray(meus) && meus.length) {
+          const set = new Set(meus.map(String));
+          visiveis = itens.filter((it) => set.has(it.donoId));
+          filtrado = true;
+        }
+      } catch (e) { /* sem Redis -> mostra tudo */ }
+
+      return res.status(200).json({ total: visiveis.length, itens: visiveis, filtrado });
     } catch (e) {
       const msg = String(e.message || e);
       console.error('aprovacoes GET falhou:', msg);

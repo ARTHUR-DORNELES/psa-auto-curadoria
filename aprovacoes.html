@@ -38,6 +38,15 @@
   .vazio{color:var(--fg-2);padding:24px 0;text-align:center}
   .aviso{color:#ffcf99;background:#f8500018;border:1px solid #f8500055;border-radius:10px;padding:12px 14px;font-size:13.5px;margin-bottom:16px}
   .hint{color:var(--fg-3);font-size:12px;margin-top:14px}
+  .tabs{display:flex;gap:8px}
+  .tab{background:transparent;border:1px solid var(--border);color:var(--fg-2);border-radius:999px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer}
+  .tab--on{background:var(--orange);border-color:var(--orange);color:#fff}
+  .time{display:flex;flex-direction:column;gap:2px;max-height:52vh;overflow:auto;border:1px solid var(--border);border-radius:12px;padding:8px}
+  .pessoa{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:14px}
+  .pessoa:hover{background:#ffffff0d}
+  .pessoa input{width:auto;margin:0}
+  .pessoa .mail{color:var(--fg-3);font-size:12px;font-family:var(--mono)}
+  .filtroTag{display:inline-block;background:#22c55e22;border:1px solid #22c55e66;color:#8ff0b0;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600;margin-left:8px}
 </style>
 </head>
 <body>
@@ -55,12 +64,29 @@
 
   <section id="painel" style="display:none">
     <div class="topo">
-      <div><strong id="cont"></strong></div>
+      <div class="tabs">
+        <button class="tab tab--on" id="tabAprov">Aprovações</button>
+        <button class="tab" id="tabTime">Meu time</button>
+      </div>
       <div style="display:flex;gap:10px"><button class="ghost" id="recarregar">Recarregar</button><button class="ghost" id="sair">Sair</button></div>
     </div>
-    <div id="aviso"></div>
-    <div id="lista"></div>
-    <p class="hint">Aprovar dispara a pesquisa de disponibilidade (WhatsApp) para os palestrantes selecionados. Reprovar registra a reprovação, que aparece no card do negócio.</p>
+
+    <div id="abaAprovacoes">
+      <div style="margin:2px 0 12px"><strong id="cont"></strong></div>
+      <div id="aviso"></div>
+      <div id="lista"></div>
+      <p class="hint">Aprovar dispara a pesquisa de disponibilidade (WhatsApp) para os palestrantes selecionados. Reprovar registra a reprovação, que aparece no card do negócio.</p>
+    </div>
+
+    <div id="abaTime" style="display:none">
+      <p class="sub" style="margin-bottom:14px">Marque quem são seus liderados. A fila de aprovações passa a mostrar só os pedidos dos negócios dessas pessoas.</p>
+      <input id="buscaTime" placeholder="Buscar pessoa..." style="margin-bottom:12px">
+      <div id="listaTime" class="time"></div>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:14px">
+        <button id="salvarTime">Salvar meu time</button>
+        <span class="erro" id="eTime" style="min-height:0"></span>
+      </div>
+    </div>
   </section>
 </div>
 
@@ -82,14 +108,15 @@
       if (!r.ok) return mostraLogin('Não consegui carregar agora. Tente de novo.');
       var j = await r.json();
       $('#aviso').innerHTML = j.aviso ? '<div class="aviso">' + esc(j.aviso) + '</div>' : '';
-      render(j.itens || []);
+      render(j.itens || [], j.filtrado);
       $('#login').style.display = 'none';
       $('#painel').style.display = '';
     } catch (e) { mostraLogin('Falha de rede. Tente de novo.'); }
   }
 
-  function render(itens) {
-    $('#cont').textContent = itens.length ? (itens.length + ' negócio' + (itens.length > 1 ? 's' : '') + ' aguardando aprovação') : '';
+  function render(itens, filtrado) {
+    var txt = itens.length ? (itens.length + ' negócio' + (itens.length > 1 ? 's' : '') + ' aguardando aprovação') : '';
+    $('#cont').innerHTML = esc(txt) + (filtrado ? '<span class="filtroTag">só o seu time</span>' : '');
     var box = $('#lista');
     if (!itens.length) { box.innerHTML = '<div class="vazio">Nada pendente por aqui. Quando um curador solicitar aprovação, aparece aqui.</div>'; return; }
     box.innerHTML = '';
@@ -126,6 +153,56 @@
     } catch (e) { erroEl.textContent = e.message; btns.forEach(function (b) { b.disabled = false; }); }
   }
 
+  // ---- Meu time (liderança) ----
+  var _ownersTime = [], _marcados = {};
+  function trocaAba(qual) {
+    var aprov = qual === 'aprov';
+    $('#tabAprov').classList.toggle('tab--on', aprov);
+    $('#tabTime').classList.toggle('tab--on', !aprov);
+    $('#abaAprovacoes').style.display = aprov ? '' : 'none';
+    $('#abaTime').style.display = aprov ? 'none' : '';
+    if (!aprov && !_ownersTime.length) carregarTime();
+  }
+  async function carregarTime() {
+    $('#eTime').textContent = 'Carregando...';
+    try {
+      var r = await fetch('/api/lideranca', { headers: { Authorization: authHeader() } });
+      var j = await r.json();
+      if (!r.ok) throw new Error(j.erro || 'não consegui carregar');
+      _ownersTime = j.owners || [];
+      _marcados = {}; (j.meus || []).forEach(function (id) { _marcados[String(id)] = true; });
+      $('#eTime').textContent = '';
+      renderTime('');
+    } catch (e) { $('#eTime').textContent = e.message; $('#listaTime').innerHTML = ''; }
+  }
+  function renderTime(filtro) {
+    var f = (filtro || '').toLowerCase();
+    var box = $('#listaTime'); box.innerHTML = '';
+    _ownersTime
+      .filter(function (o) { return !f || (o.nome + ' ' + o.email).toLowerCase().indexOf(f) >= 0; })
+      .forEach(function (o) {
+        var lab = document.createElement('label'); lab.className = 'pessoa';
+        lab.innerHTML = '<input type="checkbox" ' + (_marcados[o.id] ? 'checked' : '') + '>'
+          + '<span>' + esc(o.nome) + '</span><span class="mail">' + esc(o.email) + '</span>';
+        lab.querySelector('input').addEventListener('change', function (e) { _marcados[o.id] = e.target.checked; });
+        box.appendChild(lab);
+      });
+  }
+  async function salvarTime() {
+    var ids = Object.keys(_marcados).filter(function (id) { return _marcados[id]; });
+    $('#eTime').textContent = 'Salvando...';
+    try {
+      var r = await fetch('/api/lideranca', { method: 'POST', headers: { 'content-type': 'application/json', Authorization: authHeader() }, body: JSON.stringify({ liderados: ids }) });
+      var j = await r.json();
+      if (!r.ok || !j.ok) throw new Error(j.erro || 'não deu certo');
+      $('#eTime').textContent = '✓ Time salvo (' + j.salvos + ')';
+    } catch (e) { $('#eTime').textContent = e.message; }
+  }
+  $('#tabAprov').addEventListener('click', function () { trocaAba('aprov'); });
+  $('#tabTime').addEventListener('click', function () { trocaAba('time'); });
+  $('#buscaTime').addEventListener('input', function (e) { renderTime(e.target.value); });
+  $('#salvarTime').addEventListener('click', salvarTime);
+
   function mostraLogin(erro) { $('#painel').style.display = 'none'; $('#login').style.display = ''; $('#eLogin').textContent = erro || ''; }
   $('#entrar').addEventListener('click', function () {
     var u = $('#u').value.trim().toLowerCase();
@@ -134,7 +211,7 @@
   });
   $('#u').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#entrar').click(); });
   $('#recarregar').addEventListener('click', carregar);
-  $('#sair').addEventListener('click', function () { setCreds(''); mostraLogin(); });
+  $('#sair').addEventListener('click', function () { setCreds(''); _ownersTime = []; _marcados = {}; trocaAba('aprov'); mostraLogin(); });
   carregar();
 </script>
 </body>
