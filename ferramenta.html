@@ -2238,7 +2238,7 @@ function renderCompleto(d) {
     ${abas}
     <div id="nomesPanel">${htmlNomes(d)}</div>`;
   if (abas) $('#resultado').querySelectorAll('.proj-aba').forEach(b => b.addEventListener('click', () => {
-    const cid = b.dataset.cur; if (cid !== d.id) trocarAba(cid, d.projeto);
+    const cid = b.dataset.cur; if (cid !== projetoAtivo) trocarAba(cid, d.projeto);   // compara com a aba ATIVA, não a inicial
   }));
   wireNomes(d);
   mostra('resultado', 0);
