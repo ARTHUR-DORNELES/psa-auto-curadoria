@@ -66,7 +66,8 @@ export default async function handler(req, res) {
       const msg = String(e.message || e);
       console.error('aprovacoes GET falhou:', msg);
       // qualquer falha na busca (propriedade ainda não criada, etc.) -> lista vazia + aviso com o detalhe
-      const propFaltando = /pesq_aprov|does not exist|PROPERTY|not exist|Invalid property/i.test(msg);
+      // a busca só filtra por pesq_aprov_status; qualquer 400 aqui = propriedade ainda não criada
+      const propFaltando = /pesq_aprov|does not exist|PROPERTY|not exist|Invalid property|problem with the request|HubSpot 400/i.test(msg);
       return res.status(200).json({
         total: 0, itens: [],
         aviso: propFaltando
