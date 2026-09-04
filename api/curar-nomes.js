@@ -1,11 +1,11 @@
 import crypto from 'node:crypto';
 import { criarNegocioCuradoria, redis, chave, chaveDeal, lerCorpo, cors, assinaturaAtivaPorDocumento, normalizaDocumento } from './_lib.js';
 
-// Caminho "JÁ TENHO OS NOMES": o cliente informa até 5 palestrantes que já quer.
+// Caminho "JÁ TENHO OS NOMES": o cliente informa até 8 palestrantes que já quer.
 // A IA Curadoria roda igual, mas TRAVADA na lista fechada (marcador LISTA_FECHADA na
 // observação) — ela resolve id_contato, foto, valor e justificativa de cada nome, sem
 // indicar mais ninguém. O briefing completo só é exigido depois, se pedir disponibilidade.
-const MAX_NOMES = 5;
+const MAX_NOMES = 8;
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;

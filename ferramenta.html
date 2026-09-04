@@ -1315,9 +1315,9 @@ function renderProjeto(d) {
   else { loadCuradoriaTab(d.id, d.projeto); }
 }
 
-// caminho "já tenho os nomes": coleta até 5 nomes e cria a curadoria de LISTA FECHADA
+// caminho "já tenho os nomes": coleta até 8 nomes e cria a curadoria de LISTA FECHADA
 async function pedeNomes() {
-  await digitarBolha('Perfeito! Comece a digitar o nome do palestrante e escolha da lista (até 5). Se não achar, pode digitar o nome completo mesmo assim.');
+  await digitarBolha('Perfeito! Comece a digitar o nome do palestrante e escolha da lista (até 8). Se não achar, pode digitar o nome completo mesmo assim.');
   const area = $('#chatEntrada'); area.innerHTML = '';
   let base = [];
   try { const j = await (await fetch('/api/palestrantes')).json(); base = Array.isArray(j.nomes) ? j.nomes : []; } catch (e) {}
@@ -1331,7 +1331,7 @@ async function pedeNomes() {
   empInput.placeholder = 'Nome da empresa onde a palestra vai acontecer';
   empInput.style.marginBottom = '16px';
   const chips = document.createElement('div'); chips.className = 'ac-chips';
-  const nomesLabel = document.createElement('label'); nomesLabel.className = 'ac-emp-label'; nomesLabel.textContent = 'Palestrantes que você já quer (até 5)';
+  const nomesLabel = document.createElement('label'); nomesLabel.className = 'ac-emp-label'; nomesLabel.textContent = 'Palestrantes que você já quer (até 8)';
   const inp = document.createElement('input'); inp.className = 'ac-input'; inp.type = 'text'; inp.autocomplete = 'off';
   inp.placeholder = 'Digite o nome do palestrante…';
   const list = document.createElement('div'); list.className = 'ac-list';
@@ -1342,7 +1342,7 @@ async function pedeNomes() {
   let sel = -1;
 
   const atualiza = () => {
-    cont.textContent = escolhidos.length ? `${escolhidos.length} de 5 selecionados` : '';
+    cont.textContent = escolhidos.length ? `${escolhidos.length} de 8 selecionados` : '';
     enviar.disabled = !escolhidos.length || !empInput.value.trim();
     chips.innerHTML = '';
     escolhidos.forEach((nome, i) => {
@@ -1356,7 +1356,7 @@ async function pedeNomes() {
   const addNome = (nome) => {
     const n = String(nome || '').replace(/\s+/g, ' ').trim();
     if (n.length < 3) return;
-    if (escolhidos.length >= 5) { cont.textContent = 'máximo de 5 nomes'; return; }
+    if (escolhidos.length >= 8) { cont.textContent = 'máximo de 8 nomes'; return; }
     if (escolhidos.some(e => norm(e) === norm(n))) { inp.value = ''; render(''); return; }
     escolhidos.push(n); atualiza();
     inp.value = ''; render(''); inp.focus();
@@ -1391,7 +1391,7 @@ async function pedeNomes() {
   inp.addEventListener('blur', () => setTimeout(() => { list.className = 'ac-list'; }, 150));
   empInput.addEventListener('input', atualiza);
   enviar.addEventListener('click', () => {
-    const nomes = escolhidos.slice(0, 5);
+    const nomes = escolhidos.slice(0, 8);
     const empresaEvento = empInput.value.trim();
     if (!nomes.length || !empresaEvento) return;
     area.innerHTML = '';
