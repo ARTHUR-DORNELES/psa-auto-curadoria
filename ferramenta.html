@@ -1152,7 +1152,7 @@ async function escolheTemaComSecundario(i, n) {
   await digitarBolha(n > 1 ? `Sobre qual tema o palestrante ${i} vai falar?` : 'Sobre qual tema você quer o palestrante?');
   const principal = await escolheTemaChip();
   bolha('user', principal.replace(/^\d+\.\s*/, ''));
-  await digitarBolha('Quer reforçar com um segundo tema? Ajuda a achar quem une os dois (ex.: Inovação + Saúde). É opcional.');
+  await digitarBolha('Quer reforçar com um segundo tema?');
   const secundario = await escolheTemaSecundario(principal);
   bolha('user', secundario ? `+ ${secundario.replace(/^\d+\.\s*/, '')}` : 'só esse tema');
   return { principal, secundario: secundario || '' };
@@ -1278,41 +1278,41 @@ function abasProjetoHTML(activeId, projeto) {
   return `<div class="proj-abas">${(projeto.curadorias || []).map(c =>
     `<button class="proj-aba${c.id === activeId ? ' on' : ''}" data-cur="${esc(c.id)}">${esc(rot(c.macroTema))}</button>`).join('')}</div>`;
 }
-function injetaAbas(d) {
-  const projeto = d.projeto; if (!projeto || (projeto.curadorias || []).length < 2) return;
-  const cont = document.createElement('div'); cont.innerHTML = abasProjetoHTML(d.id, projeto);
-  const bar = cont.firstElementChild;
-  // as abas ficam ABAIXO do briefing (que é o mesmo p/ todas) e ACIMA dos nomes
-  const ancora = $('#resultado').querySelector('.res__topo') || $('#resultado').firstChild;
-  $('#resultado').insertBefore(bar, ancora);
-  bar.querySelectorAll('.proj-aba').forEach(b => b.addEventListener('click', () => {
-    const cid = b.dataset.cur; if (cid === d.id) return;
-    loadCuradoriaTab(cid, projeto);
-  }));
-}
-// carrega uma aba (curadoria): mostra as abas + espera a IA daquela aba e renderiza
+// carrega a aba ativa (1ª ou recarregada por link): espera a IA e renderiza tudo (cabeçalho + abas + nomes)
 async function loadCuradoriaTab(id, projeto) {
   projetoAtivo = id;
-  mostra('resultado', 0);
-  $('#resultado').innerHTML = abasProjetoHTML(id, projeto)
-    + `<p class="leitura" style="margin-top:22px">Montando as indicações desta aba… leva um instante. Você pode trocar de aba enquanto isso.</p>`;
-  $('#resultado').querySelectorAll('.proj-aba').forEach(b => b.addEventListener('click', () => {
-    const cid = b.dataset.cur; if (cid === id) return; loadCuradoriaTab(cid, projeto);
-  }));
+  mostra('carregando', 0);
+  $('#pensando').textContent = 'Montando as indicações do seu evento…';
   for (let t = 0; t < 60; t++) {
-    if (projetoAtivo !== id) return;   // trocou de aba
+    if (projetoAtivo !== id) return;
     let d = null;
     try { d = await (await fetch(`/api/resultado?id=${id}`)).json(); } catch (e) {}
-    if (d && d.pronto) { if (projetoAtivo !== id) return; renderCompleto(d); injetaAbas(d); return; }
+    if (d && d.pronto) { if (projetoAtivo !== id) return; renderCompleto(d); return; }
     await new Promise(r => setTimeout(r, 6000));
   }
-  if (projetoAtivo === id) { renderEmProducao(id); injetaAbas({ id, projeto }); }
+  if (projetoAtivo === id) renderEmProducao(id);
+}
+// troca de ABA: o briefing (cabeçalho) e as abas ficam ESTÁTICOS; só a lista de palestrantes muda.
+async function trocarAba(id, projeto) {
+  projetoAtivo = id;
+  $('#resultado').querySelectorAll('.proj-aba').forEach(b => b.classList.toggle('on', b.dataset.cur === id));
+  const panel = $('#nomesPanel');
+  if (!panel) return loadCuradoriaTab(id, projeto);
+  panel.innerHTML = '<p class="leitura" style="margin-top:20px">Montando as indicações deste tema… você pode trocar de aba enquanto isso.</p>';
+  for (let t = 0; t < 60; t++) {
+    if (projetoAtivo !== id) return;
+    let d = null;
+    try { d = await (await fetch(`/api/resultado?id=${id}`)).json(); } catch (e) {}
+    if (d && d.pronto) { if (projetoAtivo !== id) return; panel.innerHTML = htmlNomes(d); wireNomes(d); return; }
+    await new Promise(r => setTimeout(r, 6000));
+  }
+  if (projetoAtivo === id) panel.innerHTML = '<p class="aviso">Está levando mais que o normal. Recarregue em instantes.</p>';
 }
 // entrada do resultado quando a curadoria faz parte de um projeto (várias abas)
 function renderProjeto(d) {
   projetoAtivo = d.id;
-  if (d.pronto) { renderCompleto(d); injetaAbas(d); }
-  else { loadCuradoriaTab(d.id, d.projeto); }
+  if (d.pronto) renderCompleto(d);
+  else loadCuradoriaTab(d.id, d.projeto);
 }
 
 // caminho "já tenho os nomes": coleta até 8 nomes e cria a curadoria de LISTA FECHADA
@@ -1882,19 +1882,10 @@ function resumoDoBriefing(d) {
     </section>`;
 }
 
-function renderCompleto(d) {
+// NOMES (apresentação dos palestrantes): vira uma seção que troca por aba, sem mexer no briefing.
+function htmlNomes(d) {
   const r = d.resultado;
-  // LISTA FECHADA (cliente trouxe os nomes): não faz sentido "trocar/refazer" — ele escolheu.
-  if (d.nomesDoCliente) d.refacoesRestantes = 0;
-  const nInd = r.indicacoes.length;   // quantos nomes vieram (varia: 4, 5…) — textos dinâmicos
-  $('#resultado').innerHTML = `
-    <span class="eyebrow">Ponto de partida</span>
-    <h1>${d.nomesDoCliente ? 'Seus<br>palestrantes.' : 'Seu<br>briefing.'}</h1>
-    <div class="acoes acoes--topo" style="margin-bottom:var(--s-4)">
-      <button class="btn btn--primary" data-pdf>Baixar PDF</button>
-      <button class="btn btn--ghost" data-copiar>Salvar link desta curadoria</button>
-    </div>
-    ${resumoDoBriefing(d)}
+  return `
     <div class="res__topo">
       <div>
         <span class="eyebrow">Curadoria liberada</span>
@@ -1963,7 +1954,12 @@ function renderCompleto(d) {
     </div>
     ${d.refacoesRestantes > 0 ? `<p class="dica" style="text-align:center;max-width:52ch">Marque em <strong>“manter”</strong> os nomes que você gostou (até ${3}) e clique em refazer: eles ficam e a IA busca outros para as vagas. É uma única vez, os não mantidos saem e não voltam.</p>` : ''}
     <p class="aviso">Viabilidade e orçamento passam pelo nosso time, que negocia com o palestrante e volta com a proposta formal. A checagem de data depende da agenda do palestrante e pode levar até 1 dia útil. Contratação, contrato, pagamento e logística você pode conduzir direto com o palestrante ou, se preferir, contratar a PSA para cuidar de tudo. É opcional, você não é obrigado.</p>`;
+}
 
+// FIAÇÃO da seção de nomes (re-chamada ao trocar de aba; consulta #resultado, que contém o #nomesPanel).
+function wireNomes(d) {
+  const r = d.resultado;
+  const nInd = r.indicacoes.length;
   $('#resultado').querySelectorAll('[data-acao]').forEach(b => b.addEventListener('click', async () => {
     // o prazo entra aqui, no momento em que a pessoa decide pedir: quem só lê o aviso
     // no fim da página chega ao pedido sem saber que a resposta não é na hora
@@ -2060,7 +2056,7 @@ function renderCompleto(d) {
   // Baixar PDF: gera o PDF branqueado (Chromium) com os dados que o cliente vê e baixa.
   // Se o gerador falhar, cai na impressão do navegador (o @media print cobre).
   const btnPdf = $('#resultado').querySelector('[data-pdf]');
-  if (btnPdf) btnPdf.addEventListener('click', async () => {
+  if (btnPdf && !btnPdf.dataset.wired) { btnPdf.dataset.wired = '1'; btnPdf.addEventListener('click', async () => {
     const b = d.briefing || {};
     const dataBR = iso => (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.split('-').reverse().join('/') : iso || '');
     const rotTema = t => (t || '').replace(/^\d+\.\s*/, '');
@@ -2069,18 +2065,15 @@ function renderCompleto(d) {
     const antes = btnPdf.textContent;
     btnPdf.disabled = true; btnPdf.textContent = 'Gerando PDF…';
     try {
-      // PROJETO (evento com vários temas): junta TODAS as abas num PDF só.
-      let indicacoes = [], titulo;
+      // PROJETO (evento com vários temas): um PDF só, com uma SEÇÃO por tema (título + contagem própria).
+      let indicacoes = [], secoes = null, titulo;
       const cs = (d.projeto && (d.projeto.curadorias || []).length > 1) ? d.projeto.curadorias : null;
       if (cs) {
         const results = await Promise.all(cs.map(c => fetch(`/api/resultado?id=${c.id}`).then(x => x.json()).catch(() => null)));
-        results.forEach((rc, k) => {
-          const tema = rotTema(cs[k].macroTema);
-          (rc && rc.resultado && rc.resultado.indicacoes || []).forEach(i => {
-            const m = mapInd(i); m.perfil = tema + (m.perfil ? ' · ' + m.perfil : '');   // marca o tema no perfil
-            indicacoes.push(m);
-          });
-        });
+        secoes = results.map((rc, k) => ({
+          titulo: rotTema(cs[k].macroTema),
+          indicacoes: (rc && rc.resultado && rc.resultado.indicacoes || []).map(mapInd),
+        })).filter(s => s.indicacoes.length);
         titulo = `Seu evento em ${cs.length} temas.`;
       } else {
         indicacoes = (d.resultado?.indicacoes || []).map(mapInd);
@@ -2098,7 +2091,7 @@ function renderCompleto(d) {
           publicoAlvo: b.publicoAlvo, vendaIngresso: b.vendaIngresso,
           motivacao: b.motivacao, sentimento: b.sentimento, contexto: b.briefing,
         },
-        indicacoes,
+        ...(secoes ? { secoes } : { indicacoes }),
       };
       const r = await fetch(PDF_API, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
@@ -2114,7 +2107,7 @@ function renderCompleto(d) {
     } finally {
       btnPdf.disabled = false; btnPdf.textContent = antes;
     }
-  });
+  }); }
 
   $('#quero-curador').addEventListener('click', async e => {
     // híbrido: abre o WhatsApp na hora (dentro do clique, p/ não bloquear popup) E registra a nota no HubSpot
@@ -2226,7 +2219,28 @@ function renderCompleto(d) {
     espera.parar();
     pronto ? renderCompleto(pronto) : renderEmProducao(d.id);
   });
+}
 
+// renderiza o resultado: cabeçalho (briefing) ESTÁTICO + abas + a seção de nomes (#nomesPanel).
+// Ao trocar de aba, só o #nomesPanel muda (trocarAba); o briefing e as abas ficam parados.
+function renderCompleto(d) {
+  // LISTA FECHADA (cliente trouxe os nomes): não faz sentido "trocar/refazer" — ele escolheu.
+  if (d.nomesDoCliente) d.refacoesRestantes = 0;
+  const abas = (d.projeto && (d.projeto.curadorias || []).length > 1) ? abasProjetoHTML(d.id, d.projeto) : '';
+  $('#resultado').innerHTML = `
+    <span class="eyebrow">Ponto de partida</span>
+    <h1>${d.nomesDoCliente ? 'Seus<br>palestrantes.' : 'Seu<br>briefing.'}</h1>
+    <div class="acoes acoes--topo" style="margin-bottom:var(--s-4)">
+      <button class="btn btn--primary" data-pdf>Baixar PDF</button>
+      <button class="btn btn--ghost" data-copiar>Salvar link desta curadoria</button>
+    </div>
+    ${resumoDoBriefing(d)}
+    ${abas}
+    <div id="nomesPanel">${htmlNomes(d)}</div>`;
+  if (abas) $('#resultado').querySelectorAll('.proj-aba').forEach(b => b.addEventListener('click', () => {
+    const cid = b.dataset.cur; if (cid !== d.id) trocarAba(cid, d.projeto);
+  }));
+  wireNomes(d);
   mostra('resultado', 0);
 }
 
