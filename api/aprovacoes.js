@@ -31,6 +31,19 @@ async function donoInfo(ownerId) {
   } catch (e) { const info = { id: ownerId, nome: `#${ownerId}`, email: '', times: [] }; _ownerCache.set(ownerId, info); return info; }
 }
 
+// rótulos das etapas do pipeline de negócios (id da etapa -> nome legível), cacheado
+let _stageCache = null;
+async function stageLabels() {
+  if (_stageCache) return _stageCache;
+  const m = {};
+  try {
+    const r = await hs('/crm/v3/pipelines/deals', 'GET');
+    for (const pl of (r.results || [])) for (const st of (pl.stages || [])) m[st.id] = st.label;
+  } catch (e) { console.error('stageLabels falhou:', e.message); }
+  _stageCache = m;
+  return m;
+}
+
 export default async function handler(req, res) {
   if (cors(req, res)) return;
   if (!autorizado(req)) {
@@ -42,11 +55,12 @@ export default async function handler(req, res) {
     try {
       const busca = await hs('/crm/v3/objects/deals/search', 'POST', {
         filterGroups: [{ filters: [{ propertyName: STATUS, operator: 'EQ', value: 'pendente' }] }],
-        properties: ['dealname', 'hubspot_owner_id', STATUS, DADOS],
+        properties: ['dealname', 'hubspot_owner_id', 'dealstage', STATUS, DADOS],
         sorts: [{ propertyName: 'hs_lastmodifieddate', direction: 'DESCENDING' }],
         limit: 100,
       }).catch((e) => { throw e; });
 
+      const etapas = await stageLabels();
       const itens = [];
       for (const d of (busca.results || [])) {
         const p = d.properties || {};
@@ -54,10 +68,12 @@ export default async function handler(req, res) {
         const dono = await donoInfo(p.hubspot_owner_id);
         itens.push({
           dealId: d.id, dealname: p.dealname || `Negócio ${d.id}`,
+          etapa: etapas[p.dealstage] || '',   // nome da etapa do pipeline
           dono: dono ? dono.nome : '', area: dono && dono.times.length ? dono.times.join(', ') : '',
           gerente: dados.gerente || (dono && dono.times[0]) || '',   // gerente da área (hierarquia); fallback = time do dono
           solicitante: dados.solicitante || '', em: dados.em || '',
-          palestrantes: (dados.palestrantes || []).map(x => x.nome).filter(Boolean),
+          // (já pesquisado) sinaliza que o palestrante já recebeu pesquisa antes p/ esta data+local
+          palestrantes: (dados.palestrantes || []).map(x => (x.dup ? `${x.nome} (já pesquisado)` : x.nome)).filter(Boolean),
           url: `https://app.hubspot.com/contacts/49656171/record/0-3/${d.id}`,
         });
       }

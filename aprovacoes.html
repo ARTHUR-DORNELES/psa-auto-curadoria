@@ -30,6 +30,7 @@
   .item__nome{font-weight:700;font-size:16px}
   .item__nome a{color:var(--fg);text-decoration:none;border-bottom:1px dotted var(--fg-3)}
   .item__meta{color:var(--fg-3);font-size:12.5px;margin-top:4px;font-family:var(--mono)}
+  .etapa{display:inline-block;background:#f8500022;border:1px solid #f8500066;color:#ffcf99;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600;vertical-align:middle;margin-left:6px}
   .chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
   .chip{background:#ffffff10;border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:13px;color:var(--fg-2)}
   .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
@@ -97,7 +98,8 @@
       var pal = (it.palestrantes || []).map(function (n) { return '<span class="chip">' + esc(n) + '</span>'; }).join('');
       el.innerHTML =
         '<div class="item__topo"><div>'
-        + '<div class="item__nome"><a href="' + esc(it.url) + '" target="_blank" rel="noopener">' + esc(it.dealname) + ' ↗</a></div>'
+        + '<div class="item__nome"><a href="' + esc(it.url) + '" target="_blank" rel="noopener">' + esc(it.dealname) + ' ↗</a>'
+        + (it.etapa ? ' <span class="etapa">' + esc(it.etapa) + '</span>' : '') + '</div>'
         + '<div class="item__meta">dono: ' + esc(it.dono || '—') + (it.solicitante ? ' · pedido por ' + esc(it.solicitante) : '') + (it.em ? ' · ' + esc(quando(it.em)) : '') + '</div>'
         + '</div><div class="gestor">Aprova: <b>' + esc(it.gerente || it.area || 'gestor da área') + '</b></div></div>'
         + '<div class="chips">' + (pal || '<span class="chip">sem palestrantes</span>') + '</div>'
