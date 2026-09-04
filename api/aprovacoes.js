@@ -64,11 +64,16 @@ export default async function handler(req, res) {
       return res.status(200).json({ total: itens.length, itens });
     } catch (e) {
       const msg = String(e.message || e);
-      if (/PROPERTY_DOESNT_EXIST|does not exist|pesq_aprov/i.test(msg)) {
-        return res.status(200).json({ total: 0, itens: [], aviso: 'As propriedades pesq_aprov_status / pesq_aprov_dados ainda não existem no HubSpot.' });
-      }
       console.error('aprovacoes GET falhou:', msg);
-      return res.status(500).json({ erro: 'falha ao listar aprovações' });
+      // qualquer falha na busca (propriedade ainda não criada, etc.) -> lista vazia + aviso com o detalhe
+      const propFaltando = /pesq_aprov|does not exist|PROPERTY|not exist|Invalid property/i.test(msg);
+      return res.status(200).json({
+        total: 0, itens: [],
+        aviso: propFaltando
+          ? 'Ainda não há pendentes (ou as propriedades pesq_aprov_status / pesq_aprov_dados não foram criadas no HubSpot).'
+          : 'Não consegui listar agora.',
+        detalhe: msg.slice(0, 300),
+      });
     }
   }
 
