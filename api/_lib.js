@@ -77,7 +77,7 @@ export function semNumerosInternos(texto) {
 
 
 // ── HubSpot ────────────────────────────────────────────────────────────────
-async function hs(caminho, metodo, corpo) {
+export async function hs(caminho, metodo, corpo) {
   const r = await fetch(`${HS}${caminho}`, {
     method: metodo,
     headers: { Authorization: `Bearer ${process.env.HUBSPOT_TOKEN}`, 'Content-Type': 'application/json' },
