@@ -9,11 +9,18 @@ import { hs, cors, lerCorpo } from './_lib.js';
 const STATUS = 'pesq_aprov_status';
 const DADOS = 'pesq_aprov_dados';
 
-function autorizado(req) {
-  const cred = process.env.APROVACOES_AUTH || 'PSA:PSA2030';
+// Acesso por e-mail corporativo (sem senha): basta um e-mail @profissionaissa.com(.br).
+// É um portão leve p/ uso interno + registra quem aprovou; não é autenticação forte.
+const DOMINIO_PSA = /@profissionaissa\.com(\.br)?$/i;
+function aprovadorEmail(req) {
   const auth = String(req.headers.authorization || '');
-  const enviado = auth.startsWith('Basic ') ? Buffer.from(auth.slice(6), 'base64').toString('utf8') : '';
-  return enviado === cred;
+  let email = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  if (!email) email = String(req.headers['x-aprovador'] || '').trim();
+  return email.toLowerCase();
+}
+function autorizado(req) {
+  const email = aprovadorEmail(req);
+  return DOMINIO_PSA.test(email) ? email : '';
 }
 
 // dono do negócio + time(s) do dono (o "gerente da área" é resolvido pela hierarquia de times)
@@ -50,10 +57,8 @@ async function stageLabels() {
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
-  if (!autorizado(req)) {
-    res.setHeader('WWW-Authenticate', 'Basic realm="aprovacoes"');
-    return res.status(401).json({ erro: 'não autorizado' });
-  }
+  const aprovador = autorizado(req);
+  if (!aprovador) return res.status(401).json({ erro: 'informe um e-mail @profissionaissa.com' });
 
   if (req.method === 'GET') {
     try {
@@ -103,8 +108,9 @@ export default async function handler(req, res) {
     if (!dealId || !['aprovar', 'reprovar'].includes(acao)) return res.status(400).json({ erro: 'dealId e ação (aprovar/reprovar) obrigatórios' });
     try {
       if (acao === 'reprovar') {
+        console.log('aprovacoes: REPROVADO', dealId, 'por', aprovador);
         await hs(`/crm/v3/objects/deals/${dealId}`, 'PATCH', { properties: { [STATUS]: 'reprovado' } });
-        return res.status(200).json({ ok: true, status: 'reprovado' });
+        return res.status(200).json({ ok: true, status: 'reprovado', por: aprovador });
       }
       // APROVAR: lê o staging guardado e aplica em cada contato (dispara), depois marca aprovado
       const deal = await hs(`/crm/v3/objects/deals/${dealId}?properties=${DADOS},${STATUS}`, 'GET');
@@ -119,8 +125,9 @@ export default async function handler(req, res) {
           disparados.push(pal.nome || cid);
         } catch (e) { console.error('disparo (aprovação) falhou p/', cid, e.message); falhas.push(pal.nome || cid); }
       }
+      console.log('aprovacoes: APROVADO', dealId, 'por', aprovador, '-> disparados', disparados.length);
       await hs(`/crm/v3/objects/deals/${dealId}`, 'PATCH', { properties: { [STATUS]: 'aprovado' } });
-      return res.status(200).json({ ok: true, status: 'aprovado', disparados, falhas });
+      return res.status(200).json({ ok: true, status: 'aprovado', disparados, falhas, por: aprovador });
     } catch (e) {
       console.error('aprovacoes POST falhou:', e.message);
       return res.status(500).json({ erro: 'falha ao processar a aprovação' });
