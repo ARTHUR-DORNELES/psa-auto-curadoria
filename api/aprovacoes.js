@@ -18,9 +18,35 @@ function aprovadorEmail(req) {
   if (!email) email = String(req.headers['x-aprovador'] || '').trim();
   return email.toLowerCase();
 }
-function autorizado(req) {
+// Lista de e-mails de usuários (owners) ATIVOS do HubSpot, em minúsculas. Cacheada.
+// null = não conseguimos ler owners (token sem escopo) -> cai no portão por domínio.
+let _ownersEmails = null;
+async function ownersAtivos() {
+  if (_ownersEmails instanceof Set) return _ownersEmails;
+  const set = new Set();
+  try {
+    let after = '';
+    for (let i = 0; i < 30; i++) {
+      const qs = `?limit=100&archived=false${after ? `&after=${after}` : ''}`;
+      const r = await hs(`/crm/v3/owners/${qs}`, 'GET');
+      for (const o of (r.results || [])) if (o.email) set.add(String(o.email).toLowerCase());
+      after = r.paging && r.paging.next && r.paging.next.after;
+      if (!after) break;
+    }
+    _ownersEmails = set;
+    return set;
+  } catch (e) {
+    console.error('ownersAtivos falhou (token sem escopo de owners?):', e.message);
+    return null; // não cacheia a falha; segue no portão por domínio até o escopo existir
+  }
+}
+
+async function autorizado(req) {
   const email = aprovadorEmail(req);
-  return DOMINIO_PSA.test(email) ? email : '';
+  if (!DOMINIO_PSA.test(email)) return '';
+  const owners = await ownersAtivos();
+  if (owners === null) return email;              // sem escopo p/ validar -> portão por domínio (temporário)
+  return owners.has(email) ? email : '';          // exige e-mail de um usuário real do HubSpot da PSA
 }
 
 // dono do negócio + time(s) do dono (o "gerente da área" é resolvido pela hierarquia de times)
@@ -57,8 +83,8 @@ async function stageLabels() {
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
-  const aprovador = autorizado(req);
-  if (!aprovador) return res.status(401).json({ erro: 'informe um e-mail @profissionaissa.com' });
+  const aprovador = await autorizado(req);
+  if (!aprovador) return res.status(401).json({ erro: 'informe um e-mail válido @profissionaissa.com (usuário do HubSpot)' });
 
   if (req.method === 'GET') {
     try {
