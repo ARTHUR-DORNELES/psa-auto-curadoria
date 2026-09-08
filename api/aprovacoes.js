@@ -28,7 +28,7 @@ async function ownersAtivos() {
     let after = '';
     for (let i = 0; i < 30; i++) {
       const qs = `?limit=100&archived=false${after ? `&after=${after}` : ''}`;
-      const r = await hs(`/crm/v3/owners/${qs}`, 'GET');
+      const r = await hs(`/crm/v3/owners/${qs}`, 'GET', undefined, await ownersToken());
       for (const o of (r.results || [])) if (o.email) set.add(String(o.email).toLowerCase());
       after = r.paging && r.paging.next && r.paging.next.after;
       if (!after) break;
@@ -62,9 +62,9 @@ async function donoInfo(ownerId) {
     _ownerCache.set(ownerId, info);
     return info;
   } catch (e) {
-    // sem escopo de owners no token -> não dá pra resolver o nome; mostra vazio (vira "—" no painel)
+    // NÃO cacheia a falha: assim, quando o token de owners passar a funcionar, resolve na próxima
     console.error('donoInfo falhou p/', ownerId, e.message);
-    const info = { id: ownerId, nome: '', email: '', times: [] }; _ownerCache.set(ownerId, info); return info;
+    return { id: ownerId, nome: '', email: '', times: [] };
   }
 }
 
