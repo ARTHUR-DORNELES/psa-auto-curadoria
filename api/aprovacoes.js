@@ -8,6 +8,9 @@ import { hs, cors, lerCorpo, redis } from './_lib.js';
 
 const STATUS = 'pesq_aprov_status';
 const DADOS = 'pesq_aprov_dados';
+// token dedicado só p/ ler owners (app privado clássico com crm.objects.owners.read).
+// Se não existir, cai no token padrão do hs() (comportamento atual).
+const OWNERS_TOKEN = process.env.HUBSPOT_OWNERS_TOKEN || undefined;
 
 // Acesso por e-mail corporativo (sem senha): basta um e-mail @profissionaissa.com(.br).
 // É um portão leve p/ uso interno + registra quem aprovou; não é autenticação forte.
@@ -55,7 +58,7 @@ async function donoInfo(ownerId) {
   if (!ownerId) return null;
   if (_ownerCache.has(ownerId)) return _ownerCache.get(ownerId);
   try {
-    const o = await hs(`/crm/v3/owners/${ownerId}`, 'GET');
+    const o = await hs(`/crm/v3/owners/${ownerId}`, 'GET', undefined, OWNERS_TOKEN);
     const nome = [o.firstName, o.lastName].filter(Boolean).join(' ') || o.email || `#${ownerId}`;
     const times = (o.teams || []).map(t => t.name).filter(Boolean);
     const info = { id: ownerId, nome, email: o.email || '', times };

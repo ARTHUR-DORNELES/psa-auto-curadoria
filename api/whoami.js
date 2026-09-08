@@ -35,5 +35,18 @@ export default async function handler(req, res) {
     integracao = { status: r.status, body: t.slice(0, 300) };
   } catch (e) { integracao = { erro: String(e.message || e).slice(0, 200) }; }
 
-  return res.status(200).json({ fingerprint, portal, integracao });
+  // testa o token dedicado de owners (se configurado)
+  let owners = { definido: false };
+  const ot = process.env.HUBSPOT_OWNERS_TOKEN || '';
+  if (ot) {
+    owners.definido = true;
+    owners.fingerprint = { inicio: ot.slice(0, 15), fim: ot.slice(-4), tamanho: ot.length };
+    try {
+      const r = await fetch('https://api.hubapi.com/crm/v3/owners/?limit=1', { headers: { Authorization: `Bearer ${ot}` } });
+      owners.leOwners = r.status === 200;
+      owners.httpStatus = r.status;
+    } catch (e) { owners.erro = String(e.message || e).slice(0, 200); }
+  }
+
+  return res.status(200).json({ fingerprint, portal, integracao, owners });
 }
