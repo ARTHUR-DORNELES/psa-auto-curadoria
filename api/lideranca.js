@@ -1,4 +1,4 @@
-import { hs, cors, lerCorpo, redis } from './_lib.js';
+import { hs, cors, lerCorpo, redis, ownersToken } from './_lib.js';
 
 // Cada líder escolhe seus liderados (self-service). O mapa líder -> [ownerIds] fica no Redis
 // e o painel /aprovacoes usa isso p/ filtrar a fila (o líder vê só os pedidos do seu time).
@@ -6,8 +6,6 @@ import { hs, cors, lerCorpo, redis } from './_lib.js';
 
 const DOMINIO_PSA = /@profissionaissa\.com(\.br)?$/i;
 const chaveLider = (email) => `aprov:lider:${email}`;
-// token dedicado só p/ ler owners (fallback p/ o token padrão se não existir)
-const OWNERS_TOKEN = process.env.HUBSPOT_OWNERS_TOKEN || undefined;
 
 function aprovadorEmail(req) {
   const auth = String(req.headers.authorization || '');
@@ -25,7 +23,7 @@ async function ownersList() {
   let after = '';
   for (let i = 0; i < 30; i++) {
     const qs = `?limit=100&archived=false${after ? `&after=${after}` : ''}`;
-    const r = await hs(`/crm/v3/owners/${qs}`, 'GET', undefined, OWNERS_TOKEN);
+    const r = await hs(`/crm/v3/owners/${qs}`, 'GET', undefined, await ownersToken());
     for (const o of (r.results || [])) {
       const nome = [o.firstName, o.lastName].filter(Boolean).join(' ') || o.email || `#${o.id}`;
       lista.push({ id: String(o.id), nome, email: (o.email || '').toLowerCase() });

@@ -88,6 +88,20 @@ export async function hs(caminho, metodo, corpo, token) {
   return texto ? JSON.parse(texto) : {};
 }
 
+// Token dedicado p/ ler owners (usuários do HubSpot), sem mexer no token principal.
+// Ordem: variável de ambiente HUBSPOT_OWNERS_TOKEN > valor guardado no Redis > null (cai no padrão).
+// Cacheado ~60s p/ não bater no Redis a cada request.
+export const CHAVE_OWNERS_TOKEN = 'aprov:owners_token';
+let _ownersTok = { v: undefined, em: 0 };
+export async function ownersToken() {
+  if (process.env.HUBSPOT_OWNERS_TOKEN) return process.env.HUBSPOT_OWNERS_TOKEN;
+  if (Date.now() - _ownersTok.em < 60000) return _ownersTok.v || undefined;
+  let v = '';
+  try { v = (await redis().get(CHAVE_OWNERS_TOKEN)) || ''; } catch (e) { v = ''; }
+  _ownersTok = { v, em: Date.now() };
+  return v || undefined;
+}
+
 /**
  * HubSpot rejeita o contato inteiro se o telefone não estiver em E.164.
  * Número irreconhecível vira campo vazio — perder o telefone é melhor que perder o lead.

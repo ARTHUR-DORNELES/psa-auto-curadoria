@@ -47,6 +47,9 @@
   .pessoa input{width:auto;margin:0}
   .pessoa .mail{color:var(--fg-3);font-size:12px;font-family:var(--mono)}
   .filtroTag{display:inline-block;background:#22c55e22;border:1px solid #22c55e66;color:#8ff0b0;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600;margin-left:8px}
+  .cfgTok{border:1px solid var(--border);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--fg-2)}
+  .cfgTok ol{margin:10px 0 14px;padding-left:20px}.cfgTok li{margin:6px 0}
+  .cfgTok code{background:#ffffff14;padding:2px 6px;border-radius:6px;font-family:var(--mono);font-size:12.5px}
 </style>
 </head>
 <body>
@@ -172,12 +175,45 @@
     try {
       var r = await fetch('/api/lideranca', { headers: { Authorization: authHeader() } });
       var j = await r.json();
-      if (!r.ok) throw new Error(j.erro || 'não consegui carregar');
+      if (!r.ok) { $('#eTime').textContent = ''; boxTokenOwners(j.erro || 'Não consegui listar as pessoas.'); return; }
       _ownersTime = j.owners || [];
       _marcados = {}; (j.meus || []).forEach(function (id) { _marcados[String(id)] = true; });
       $('#eTime').textContent = '';
       renderTime('');
     } catch (e) { $('#eTime').textContent = e.message; $('#listaTime').innerHTML = ''; }
+  }
+
+  // quando o painel ainda não consegue ler usuários: campo p/ colar a chave dedicada de owners
+  function boxTokenOwners(msg) {
+    $('#buscaTime').style.display = 'none';
+    $('#salvarTime').style.display = 'none';
+    $('#listaTime').innerHTML =
+      '<div class="cfgTok">'
+      + '<p><b>Falta liberar a leitura de usuários.</b> ' + esc(msg) + '</p>'
+      + '<ol>'
+      + '<li>No HubSpot, crie um app privado com o escopo <code>crm.objects.owners.read</code> e copie o token.</li>'
+      + '<li>Cole o token aqui e salve. Ele fica guardado com segurança e nunca é exibido de volta.</li>'
+      + '</ol>'
+      + '<input id="tokOwners" type="password" placeholder="pat-na1-..." autocomplete="off">'
+      + '<div style="display:flex;gap:10px;align-items:center;margin-top:10px">'
+      + '<button id="salvarTokOwners">Salvar chave</button>'
+      + '<span class="erro" id="eTok" style="min-height:0"></span></div>'
+      + '</div>';
+    $('#salvarTokOwners').addEventListener('click', salvarTokenOwners);
+  }
+  async function salvarTokenOwners() {
+    var tok = ($('#tokOwners').value || '').trim();
+    if (!/^pat-/.test(tok)) { $('#eTok').textContent = 'Cole um token que começa com pat-'; return; }
+    $('#eTok').textContent = 'Validando...';
+    try {
+      var r = await fetch('/api/owners-token', { method: 'POST', headers: { 'content-type': 'application/json', Authorization: authHeader() }, body: JSON.stringify({ token: tok }) });
+      var j = await r.json();
+      if (!r.ok || !j.ok) throw new Error(j.erro || 'não deu certo');
+      $('#eTok').textContent = '✓ Chave salva. Carregando as pessoas...';
+      $('#buscaTime').style.display = ''; $('#salvarTime').style.display = '';
+      _ownersTime = [];
+      setTimeout(carregarTime, 800);
+    } catch (e) { $('#eTok').textContent = e.message; }
   }
   function renderTime(filtro) {
     var f = (filtro || '').toLowerCase();
