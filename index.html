@@ -146,11 +146,15 @@ a{color:inherit;text-decoration:none}
 .mock__body{padding:var(--s-6);display:grid;gap:var(--s-5)}
 .pick{border:1px solid var(--border-subtle);border-radius:var(--r-sm);padding:var(--s-5);display:flex;gap:var(--s-5);align-items:stretch}
 .pick__corpo{flex:1;min-width:0;display:grid;gap:12px}
-.pick__foto{flex:none;width:112px;position:relative;border-radius:12px;overflow:hidden;background:#ffffff0d;border:1px solid var(--border-subtle)}
+.pick__aside{flex:none;width:112px;display:flex;flex-direction:column;gap:10px}
+.pick__foto{position:relative;border-radius:12px;overflow:hidden;background:#ffffff0d;border:1px solid var(--border-subtle)}
 .pick__foto::before{content:"";display:block;padding-top:120%}
 .pick__silhueta{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--fg-4)}
 .pick__silhueta svg{width:52%;height:auto}
-@media(max-width:560px){.pick{flex-direction:column-reverse}.pick__foto{width:112px;align-self:flex-start}}
+.pick__redes{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:22px}
+.pick__rede{display:inline-flex}
+.pick__rede svg{width:.9em;height:.9em;display:block}
+@media(max-width:560px){.pick{flex-direction:column-reverse}.pick__aside{width:112px;align-self:flex-start}}
 .pick__top{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px}
 .pick__rank{font-family:var(--font-mono);font-size:var(--t-caption);color:var(--psa-orange)}
 .pick__name{font-family:var(--font-display-wide);font-weight:800;text-transform:uppercase;font-size:var(--t-h3)}
@@ -371,7 +375,13 @@ a{color:inherit;text-decoration:none}
             <span class="chip chip--solid">Solicitar disponibilidade e orçamento</span>
           </div>
           </div>
-          <div class="pick__foto"><div class="pick__silhueta"><svg viewBox="0 0 64 74" fill="currentColor" aria-hidden="true"><circle cx="32" cy="22" r="15"></circle><path d="M32 41C17.6 41 6 51.4 6 64.3V74h52v-9.7C58 51.4 46.4 41 32 41z"></path></svg></div></div>
+          <div class="pick__aside">
+            <div class="pick__foto"><div class="pick__silhueta"><svg viewBox="0 0 64 74" fill="currentColor" aria-hidden="true"><circle cx="32" cy="22" r="15"></circle><path d="M32 41C17.6 41 6 51.4 6 64.3V74h52v-9.7C58 51.4 46.4 41 32 41z"></path></svg></div></div>
+            <div class="pick__redes">
+              <span class="pick__rede" title="Instagram"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="igGrad1" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#FEDA75"/><stop offset=".25" stop-color="#FA7E1E"/><stop offset=".5" stop-color="#D62976"/><stop offset=".75" stop-color="#962FBF"/><stop offset="1" stop-color="#4F5BD5"/></linearGradient></defs><rect x="1" y="1" width="22" height="22" rx="6" fill="url(#igGrad1)"/><rect x="6.3" y="6.3" width="11.4" height="11.4" rx="3.6" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="16.4" cy="7.6" r="1.05" fill="#fff"/></svg></span>
+              <span class="pick__rede" title="LinkedIn"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="5" fill="#0A66C2"/><path fill="#fff" d="M7.4 9.1H5.1V18h2.3V9.1zM6.25 8a1.35 1.35 0 1 0 0-2.7 1.35 1.35 0 0 0 0 2.7zM18.9 18h-2.3v-4.35c0-1.04-.02-2.37-1.44-2.37-1.45 0-1.67 1.13-1.67 2.3V18h-2.3V9.1h2.2v1.22h.04c.31-.58 1.06-1.2 2.18-1.2 2.33 0 2.76 1.53 2.76 3.53V18z"/></svg></span>
+            </div>
+          </div>
         </article>
 
         <article class="pick">
@@ -402,7 +412,14 @@ a{color:inherit;text-decoration:none}
             </div>
           </div>
           </div>
-          <div class="pick__foto"><div class="pick__silhueta"><svg viewBox="0 0 64 74" fill="currentColor" aria-hidden="true"><circle cx="32" cy="22" r="15"></circle><path d="M32 41C17.6 41 6 51.4 6 64.3V74h52v-9.7C58 51.4 46.4 41 32 41z"></path></svg></div></div>
+          <div class="pick__aside">
+            <div class="pick__foto"><div class="pick__silhueta"><svg viewBox="0 0 64 74" fill="currentColor" aria-hidden="true"><circle cx="32" cy="22" r="15"></circle><path d="M32 41C17.6 41 6 51.4 6 64.3V74h52v-9.7C58 51.4 46.4 41 32 41z"></path></svg></div></div>
+            <div class="pick__redes">
+              <span class="pick__rede" title="LinkedIn"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="5" fill="#0A66C2"/><path fill="#fff" d="M7.4 9.1H5.1V18h2.3V9.1zM6.25 8a1.35 1.35 0 1 0 0-2.7 1.35 1.35 0 0 0 0 2.7zM18.9 18h-2.3v-4.35c0-1.04-.02-2.37-1.44-2.37-1.45 0-1.67 1.13-1.67 2.3V18h-2.3V9.1h2.2v1.22h.04c.31-.58 1.06-1.2 2.18-1.2 2.33 0 2.76 1.53 2.76 3.53V18z"/></svg></span>
+              <span class="pick__rede" title="Instagram"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="igGrad2" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#FEDA75"/><stop offset=".25" stop-color="#FA7E1E"/><stop offset=".5" stop-color="#D62976"/><stop offset=".75" stop-color="#962FBF"/><stop offset="1" stop-color="#4F5BD5"/></linearGradient></defs><rect x="1" y="1" width="22" height="22" rx="6" fill="url(#igGrad2)"/><rect x="6.3" y="6.3" width="11.4" height="11.4" rx="3.6" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="16.4" cy="7.6" r="1.05" fill="#fff"/></svg></span>
+              <span class="pick__rede" title="YouTube"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="5" fill="#FF0000"/><path fill="#fff" d="M9.8 8.2l6.4 3.8-6.4 3.8z"/></svg></span>
+            </div>
+          </div>
         </article>
 
         <article class="pick">
@@ -422,7 +439,14 @@ a{color:inherit;text-decoration:none}
             <span class="chip chip--solid">Solicitar disponibilidade e orçamento</span>
           </div>
           </div>
-          <div class="pick__foto"><div class="pick__silhueta"><svg viewBox="0 0 64 74" fill="currentColor" aria-hidden="true"><circle cx="32" cy="22" r="15"></circle><path d="M32 41C17.6 41 6 51.4 6 64.3V74h52v-9.7C58 51.4 46.4 41 32 41z"></path></svg></div></div>
+          <div class="pick__aside">
+            <div class="pick__foto"><div class="pick__silhueta"><svg viewBox="0 0 64 74" fill="currentColor" aria-hidden="true"><circle cx="32" cy="22" r="15"></circle><path d="M32 41C17.6 41 6 51.4 6 64.3V74h52v-9.7C58 51.4 46.4 41 32 41z"></path></svg></div></div>
+            <div class="pick__redes">
+              <span class="pick__rede" title="Instagram"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="igGrad3" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#FEDA75"/><stop offset=".25" stop-color="#FA7E1E"/><stop offset=".5" stop-color="#D62976"/><stop offset=".75" stop-color="#962FBF"/><stop offset="1" stop-color="#4F5BD5"/></linearGradient></defs><rect x="1" y="1" width="22" height="22" rx="6" fill="url(#igGrad3)"/><rect x="6.3" y="6.3" width="11.4" height="11.4" rx="3.6" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="16.4" cy="7.6" r="1.05" fill="#fff"/></svg></span>
+              <span class="pick__rede" title="LinkedIn"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="5" fill="#0A66C2"/><path fill="#fff" d="M7.4 9.1H5.1V18h2.3V9.1zM6.25 8a1.35 1.35 0 1 0 0-2.7 1.35 1.35 0 0 0 0 2.7zM18.9 18h-2.3v-4.35c0-1.04-.02-2.37-1.44-2.37-1.45 0-1.67 1.13-1.67 2.3V18h-2.3V9.1h2.2v1.22h.04c.31-.58 1.06-1.2 2.18-1.2 2.33 0 2.76 1.53 2.76 3.53V18z"/></svg></span>
+              <span class="pick__rede" title="TikTok"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="5" fill="#000"/><g transform="translate(2.9 2.9) scale(.76)"><path fill="#25F4EE" d="M15.3 5.06a4.28 4.28 0 0 0 .93 1.9 4.28 4.28 0 0 0 1.6 1.13v.94a5.9 5.9 0 0 1-2.9-1.06v6.5a5.5 5.5 0 1 1-5.5-5.5c.16 0 .32.01.48.03v3.1a2.4 2.4 0 1 0 1.68 2.29V3h2.9c0 .25.02.5.06.74z"/><path fill="#FE2C55" d="M16.9 6.2a4.28 4.28 0 0 0 1.6 1.13v.94a5.9 5.9 0 0 1-2.9-1.06v6.5a5.5 5.5 0 0 1-8.6 4.53 5.5 5.5 0 0 0 9.24-4V7.74a5.9 5.9 0 0 0 2.9 1.06v-.94a4.28 4.28 0 0 1-2.24-.66z"/><path fill="#fff" d="M8.5 9.04a5.5 5.5 0 0 0-1.5 10.2 5.5 5.5 0 0 1 3.98-9.17c.16 0 .32.01.48.03v3.1a2.4 2.4 0 0 0-.48-.05 2.4 2.4 0 0 0-.98 4.59 2.4 2.4 0 0 1-1.5-2.22V9.07a5.6 5.6 0 0 0-.48-.03z"/><path fill="#fff" d="M15.3 5.06c.04.24.06.49.06.74h-2.9v10.4a2.4 2.4 0 0 1-3.88 1.88 2.4 2.4 0 0 0 4.18-1.62V6.06h2.6c-.03-.33-.06-.66-.06-1z"/></g></svg></span>
+            </div>
+          </div>
         </article>
 
       </div>
