@@ -92,8 +92,9 @@ for (const alvo of ALVOS) {
   let corpo = src.match(/<body>([\s\S]*?)(?:<script>|<\/body>)/)[1];
   let js = (src.match(/<script>([\s\S]*?)<\/script>\s*<\/body>/) || [, ''])[1];
 
-  if (js) {
-    // API absoluta: a página roda no domínio da PSA, a API na Vercel
+  if (js && js.includes('/api/')) {
+    // API absoluta: a página roda no domínio da PSA, a API na Vercel.
+    // (só quando o script chama a API — scripts sem /api/, ex. carrossel da LP, passam direto)
     js = js.replace('const $ = s => document.querySelector(s);', `const API = ${JSON.stringify(API)};\nconst $ = s => document.querySelector(s);`)
            .replaceAll("'/api/", "API+'/api/")
            .replaceAll('`/api/', '`${API}/api/');

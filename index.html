@@ -80,17 +80,13 @@ a{color:inherit;text-decoration:none}
 .hero__actions{display:flex;flex-wrap:wrap;gap:var(--s-4);margin-top:var(--s-7)}
 .hero__note{margin-top:var(--s-5);font-size:var(--t-body-sm);color:var(--fg-3)}
 .hero__track{overflow:hidden}
-.hero__rail{display:flex;width:200%;animation:heroRotate 14s infinite}
+.hero__rail{display:flex;width:200%;transition:transform .55s ease}
 .hero__slide{flex:0 0 50%;width:50%}
-.hero:hover .hero__rail,.hero:hover .hero__dot{animation-play-state:paused}
-@keyframes heroRotate{0%,44%{transform:translateX(0)}50%,94%{transform:translateX(-50%)}100%{transform:translateX(0)}}
 .hero__dots{display:flex;gap:9px;margin-top:var(--s-6)}
-.hero__dot{width:34px;height:5px;border-radius:3px;background:#ffffff2b}
-.hero__dot--1{animation:heroDot1 14s infinite}
-.hero__dot--2{animation:heroDot2 14s infinite}
-@keyframes heroDot1{0%,44%{background:var(--psa-orange)}50%,100%{background:#ffffff2b}}
-@keyframes heroDot2{0%,46%{background:#ffffff2b}50%,94%{background:var(--psa-orange)}100%{background:#ffffff2b}}
-@media(prefers-reduced-motion:reduce){.hero__rail{animation:none;transform:none}.hero__dot--1,.hero__dot--2{animation:none}.hero__dot--1{background:var(--psa-orange)}}
+.hero__dot{width:34px;height:5px;border-radius:3px;background:#ffffff2b;border:0;padding:0;cursor:pointer;transition:background .2s}
+.hero__dot:hover{background:#ffffff5c}
+.hero__dot.is-active{background:var(--psa-orange)}
+@media(prefers-reduced-motion:reduce){.hero__rail{transition:none}}
 .wa-float{position:fixed;right:22px;bottom:22px;z-index:9999;width:60px;height:60px;border-radius:50%;background:#25d366;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 22px #00000066}
 .wa-float:hover{transform:scale(1.06)}
 .wa-float svg{width:34px;height:34px;fill:#fff}
@@ -271,8 +267,8 @@ a{color:inherit;text-decoration:none}
     </div>
   </div></div>
   <div class="wrap"><div class="hero__dots">
-    <span class="hero__dot hero__dot--1" aria-hidden="true"></span>
-    <span class="hero__dot hero__dot--2" aria-hidden="true"></span>
+    <button class="hero__dot is-active" type="button" aria-label="Slide para empresas"></button>
+    <button class="hero__dot" type="button" aria-label="Slide para agências"></button>
   </div></div>
 </section>
 
@@ -625,6 +621,30 @@ a{color:inherit;text-decoration:none}
 <a class="wa-float" href="https://api.whatsapp.com/send/?phone=5511964889660&amp;text=Ol%C3%A1%2C+vim+pela+Auto+Curadoria+e+gostaria+de+mais+informa%C3%A7%C3%B5es&amp;type=phone_number&amp;app_absent=0" target="_blank" rel="noopener" aria-label="Falar no WhatsApp">
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.945C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 018.413 3.488 11.824 11.824 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.51 5.26l-.999 3.648 3.978-1.044zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
 </a>
+
+<script>
+(function () {
+  var rail = document.querySelector('.hero__rail');
+  var slides = document.querySelectorAll('.hero__slide');
+  var dots = document.querySelectorAll('.hero__dot');
+  var hero = document.querySelector('.hero');
+  if (!rail || slides.length < 2) return;
+  var n = slides.length, i = 0, timer = null;
+  var reduz = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function ir(x) {
+    i = (x % n + n) % n;
+    rail.style.transform = 'translateX(-' + (i * (100 / n)) + '%)';
+    for (var d = 0; d < dots.length; d++) dots[d].classList.toggle('is-active', d === i);
+  }
+  function parar() { if (timer) { clearInterval(timer); timer = null; } }
+  function start() { if (reduz) return; parar(); timer = setInterval(function () { ir(i + 1); }, 6000); }
+  for (var d = 0; d < dots.length; d++) (function (k) {
+    dots[k].addEventListener('click', function () { ir(k); start(); });
+  })(d);
+  if (hero) { hero.addEventListener('mouseenter', parar); hero.addEventListener('mouseleave', start); }
+  ir(0); start();
+})();
+</script>
 
 </body>
 </html>
