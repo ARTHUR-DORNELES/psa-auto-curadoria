@@ -157,7 +157,7 @@ function sistema(faltando, slots, pularTema, continuacao, pularExtra, evento) {
     '- EXCEÇÃO: publicoAlvo pode ter MAIS DE UM valor (o evento pode ter vários públicos). Quando houver mais de um, liste todos separados por vírgula, usando só valores exatos da lista.',
     subs.length ? `- Recortes do tema escolhido (microTema, opcional): ${subs.join(' | ')}` : '',
     '- data no formato YYYY-MM-DD; horario no formato HH:MM.',
-    '- SEMPRE pergunte a DATA do evento (proximoCampo="data") — é uma pergunta importante do fluxo, NÃO pule.',
+    '- SEMPRE pergunte a DATA do evento (proximoCampo="data") — é uma pergunta importante do fluxo, NÃO pule. Pergunte a DATA ANTES do horário.',
     '  Se o cliente ainda não tiver data definida, ele pode tocar em "A definir": aí deixe "data" vazia e siga em frente.',
     '- Pergunte UM ÚNICO campo por vez. Sua mensagem deve perguntar SÓ o campo atual — NUNCA mencione nem combine o próximo campo na mesma frase. Ex.: pergunte o HORÁRIO; só na rodada seguinte pergunte a DURAÇÃO. NÃO faça "horário e duração?" nem "formato e data?" numa pergunta só. Em "proximoCampo" devolva a chave do único próximo campo — que deve ser EXATAMENTE o campo que a sua mensagem está perguntando.',
     '- "microTema" e "contexto" são opcionais, pode pular se o cliente não quiser detalhar.',
@@ -287,17 +287,19 @@ export default async function handler(req, res) {
       if (!slots2._relato && !clienteFalou) {
         widget = { campo: 'relato', tipo: 'texto', multilinha: true,
           placeholder: 'Conte com suas palavras: que evento é, pra quem, quando e onde, formato, e o que motivou a busca por esse tema…' };
-      } else if (faltando2.length === 0 && dataPendente) {
-        // todos os obrigatórios ok, mas a data ainda não foi perguntada -> pergunta a data agora
-        prox = 'data';
-        widget = widgetPara('data', slots2);
-        msgForcada = 'Só mais uma coisa importante: você já tem uma data em mente pro evento? Se ainda não definiu, é só tocar em "A definir".';
       } else {
-        // respeita o campo que o Santiago perguntou (mesmo os opcionais formato/data/microTema),
-        // desde que ainda não esteja preenchido; senão, cai pro próximo obrigatório.
-        prox = (out.proximoCampo && PERGUNTAVEIS.has(out.proximoCampo) && !slots2[out.proximoCampo])
+        // campo que o Santiago quer perguntar (respeita opcionais formato/data/microTema), ou o próximo obrigatório
+        let alvo = (out.proximoCampo && PERGUNTAVEIS.has(out.proximoCampo) && !slots2[out.proximoCampo])
           ? out.proximoCampo
           : faltando2[0];
+        // a DATA vem ANTES do horário: se vamos perguntar horário/duração (ou acabaram os
+        // obrigatórios) e a data ainda não foi perguntada, pergunta a DATA primeiro.
+        if (dataPendente && (alvo === 'horario' || alvo === 'duracao' || !alvo)) alvo = 'data';
+        // se o SERVIDOR forçou a data (o Santiago não estava perguntando isso), troca a mensagem
+        if (alvo === 'data' && out.proximoCampo !== 'data') {
+          msgForcada = 'E você já tem uma data em mente pro evento? Se ainda não definiu, é só tocar em "A definir".';
+        }
+        prox = alvo;
         widget = widgetPara(prox, slots2);
       }
     }
