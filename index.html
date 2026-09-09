@@ -171,8 +171,9 @@ a{color:inherit;text-decoration:none}
 
 /* ---------- preço ---------- */
 /* um plano só: "Prioridade" era redundante, a Auto Curadoria já É o caminho rápido */
-.price{display:grid;grid-template-columns:minmax(0,560px);justify-content:center}
+.price{display:grid;grid-template-columns:repeat(2,minmax(0,440px));gap:var(--s-5);justify-content:center;align-items:start}
 .plan__credito{font-size:var(--t-body-sm);font-weight:700;color:var(--psa-orange);margin-top:-6px}
+.plan__tag{display:inline-block;font-family:var(--font-body);font-size:var(--t-caption);font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 9px;border-radius:20px;background:var(--psa-orange);color:#fff;margin-left:8px;vertical-align:2px}
 @media(max-width:900px){.price{grid-template-columns:1fr}}
 .plan{border:1px solid var(--border-light);border-radius:var(--r-md);padding:var(--s-7);background:#fff;display:grid;gap:14px;align-content:start}
 .plan--hi{border-color:var(--psa-orange);box-shadow:0 8px 32px #f8500017}
@@ -450,8 +451,25 @@ a{color:inherit;text-decoration:none}
       <p class="lead">A Auto Curadoria é uma assinatura mensal: monte quantas curadorias quiser, sem limite. O cachê do palestrante é apresentado à parte, na proposta de cada indicação.</p>
     </div>
     <div class="price">
+      <div class="plan">
+        <span class="eyebrow">Auto Curadoria<span class="plan__tag">Mensal</span></span>
+        <div>
+          <div class="plan__v">R$ 1.150<small> /mês</small></div>
+          <div style="font-family:var(--font-body);font-size:var(--t-body-sm);font-weight:700;color:var(--fg-bone-3);margin-top:8px">cobrança mensal · sem fidelidade</div>
+        </div>
+        <ul>
+          <li><strong>Curadorias ilimitadas</strong></li>
+          <li>Briefing guiado do evento</li>
+          <li>Busca da IA no banco PSA</li>
+          <li>Até 5 nomes por curadoria, com justificativa e ponto de atenção</li>
+          <li>Solicitação de viabilidade de data</li>
+          <li>Solicitação de orçamento conduzida pelo time PSA</li>
+          <li>Fila prioritária: quem preenche o briefing entra na frente</li>
+        </ul>
+        <a class="btn btn--primary" href="https://checkout.profissionaissa.com.br/curadoria/checkout/4fbc7e0d-c39c-4241-9334-ef62c2326b55" style="justify-self:start">Adquirir agora →</a>
+      </div>
       <div class="plan plan--hi">
-        <span class="eyebrow">Auto Curadoria</span>
+        <span class="eyebrow">Auto Curadoria<span class="plan__tag">Anual · melhor valor</span></span>
         <div>
           <div class="plan__v">R$ 996<small> /mês</small></div>
           <div style="font-family:var(--font-body);font-size:var(--t-body-sm);font-weight:700;color:var(--fg-bone-3);margin-top:8px">R$ 11.952/ano · cobrança recorrente</div>
@@ -502,7 +520,7 @@ a{color:inherit;text-decoration:none}
       </details>
       <details>
         <summary>Como funciona a assinatura?</summary>
-        <p>A Auto Curadoria é uma assinatura mensal (R$ 996/mês, ou R$ 11.952/ano) com curadorias ilimitadas: enquanto o plano estiver ativo, você monta quantas curadorias quiser. O cachê do palestrante não está incluso e é apresentado à parte, na proposta comercial de cada indicação.</p>
+        <p>A Auto Curadoria é uma assinatura com curadorias ilimitadas, em dois planos: <strong>mensal</strong> (R$ 1.150/mês, sem fidelidade) ou <strong>anual</strong> (R$ 996/mês, R$ 11.952/ano). Enquanto o plano estiver ativo, você monta quantas curadorias quiser. O cachê do palestrante não está incluso e é apresentado à parte, na proposta comercial de cada indicação.</p>
       </details>
       <details>
         <summary>Serve para qualquer tipo de evento?</summary>
