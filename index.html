@@ -79,12 +79,18 @@ a{color:inherit;text-decoration:none}
 .hero h1 em{font-style:normal;color:var(--psa-orange)}
 .hero__actions{display:flex;flex-wrap:wrap;gap:var(--s-4);margin-top:var(--s-7)}
 .hero__note{margin-top:var(--s-5);font-size:var(--t-body-sm);color:var(--fg-3)}
-.hero__track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;scrollbar-width:none;-ms-overflow-style:none}
-.hero__track::-webkit-scrollbar{display:none}
-.hero__slide{flex:0 0 100%;min-width:100%;scroll-snap-align:start}
+.hero__track{overflow:hidden}
+.hero__rail{display:flex;width:200%;animation:heroRotate 14s infinite}
+.hero__slide{flex:0 0 50%;width:50%}
+.hero:hover .hero__rail,.hero:hover .hero__dot{animation-play-state:paused}
+@keyframes heroRotate{0%,44%{transform:translateX(0)}50%,94%{transform:translateX(-50%)}100%{transform:translateX(0)}}
 .hero__dots{display:flex;gap:9px;margin-top:var(--s-6)}
-.hero__dot{width:34px;height:5px;border-radius:3px;background:#ffffff2b;transition:background .2s}
-.hero__dot:hover,.hero__dot:focus-visible{background:var(--psa-orange)}
+.hero__dot{width:34px;height:5px;border-radius:3px;background:#ffffff2b}
+.hero__dot--1{animation:heroDot1 14s infinite}
+.hero__dot--2{animation:heroDot2 14s infinite}
+@keyframes heroDot1{0%,44%{background:var(--psa-orange)}50%,100%{background:#ffffff2b}}
+@keyframes heroDot2{0%,46%{background:#ffffff2b}50%,94%{background:var(--psa-orange)}100%{background:#ffffff2b}}
+@media(prefers-reduced-motion:reduce){.hero__rail{animation:none;transform:none}.hero__dot--1,.hero__dot--2{animation:none}.hero__dot--1{background:var(--psa-orange)}}
 .wa-float{position:fixed;right:22px;bottom:22px;z-index:9999;width:60px;height:60px;border-radius:50%;background:#25d366;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 22px #00000066}
 .wa-float:hover{transform:scale(1.06)}
 .wa-float svg{width:34px;height:34px;fill:#fff}
@@ -240,7 +246,7 @@ a{color:inherit;text-decoration:none}
 
 <!-- HERO -->
 <section class="hero">
-  <div class="hero__track">
+  <div class="hero__track"><div class="hero__rail">
     <div class="hero__slide" id="hero-empresas">
       <div class="wrap hero__inner">
         <span class="eyebrow">Para empresas · Auto Curadoria</span>
@@ -255,7 +261,7 @@ a{color:inherit;text-decoration:none}
     <div class="hero__slide" id="hero-agencias">
       <div class="wrap hero__inner">
         <span class="eyebrow">Para agências · Auto Curadoria</span>
-        <h1>Vários eventos?<br><em>A curadoria dá conta.</em></h1>
+        <h1>Vários eventos?<br><em>A gente cura.</em></h1>
         <p class="lead">Sua agência monta a curadoria de cada cliente em minutos e recebe os nomes que dão match com cada evento. <strong>Escale o atendimento sem travar na busca por palestrante.</strong></p>
         <div class="hero__actions">
           <a class="btn btn--primary" href="/ferramenta">Faça agora! →</a>
@@ -263,10 +269,10 @@ a{color:inherit;text-decoration:none}
         </div>
       </div>
     </div>
-  </div>
+  </div></div>
   <div class="wrap"><div class="hero__dots">
-    <a href="#hero-empresas" class="hero__dot" aria-label="Slide para empresas"></a>
-    <a href="#hero-agencias" class="hero__dot" aria-label="Slide para agências"></a>
+    <span class="hero__dot hero__dot--1" aria-hidden="true"></span>
+    <span class="hero__dot hero__dot--2" aria-hidden="true"></span>
   </div></div>
 </section>
 
