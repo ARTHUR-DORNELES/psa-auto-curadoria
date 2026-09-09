@@ -188,6 +188,10 @@ export default async function handler(req, res) {
   // O Santiago não pergunta esses.
   const pularSet = new Set(pular);
   const OBRIG = OBRIGATORIOS.filter(c => !pularSet.has(c));
+  // campos que o Santiago PODE perguntar (obrigatórios + os opcionais formato/data/microTema).
+  // Sem isso, ao perguntar um opcional o servidor forçava o widget pro próximo obrigatório e
+  // a resposta caía no campo errado (ex.: perguntava formato/data mas mostrava seletor de hora).
+  const PERGUNTAVEIS = new Set([...OBRIG, ...['formato', 'data', 'microTema'].filter(c => !pularSet.has(c))]);
   const pularTema = pularSet.has('macroTema');
   const pularExtra = [...pularSet].filter(c => c !== 'macroTema' && c !== 'microTema').map(c => rotuloCampo[c] || c).join(', ');
   const mensagens = (historico.length ? historico : [{ role: 'user', content: 'Vamos começar.' }])
@@ -280,7 +284,11 @@ export default async function handler(req, res) {
         widget = { campo: 'relato', tipo: 'texto', multilinha: true,
           placeholder: 'Conte com suas palavras: que evento é, pra quem, quando e onde, formato, e o que motivou a busca por esse tema…' };
       } else {
-        prox = faltando2.includes(out.proximoCampo) ? out.proximoCampo : faltando2[0];
+        // respeita o campo que o Santiago perguntou (mesmo os opcionais formato/data/microTema),
+        // desde que ainda não esteja preenchido; senão, cai pro próximo obrigatório.
+        prox = (out.proximoCampo && PERGUNTAVEIS.has(out.proximoCampo) && !slots2[out.proximoCampo])
+          ? out.proximoCampo
+          : faltando2[0];
         widget = widgetPara(prox, slots2);
       }
     }
