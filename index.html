@@ -643,7 +643,7 @@ a{color:inherit;text-decoration:none}
     for (var d = 0; d < dots.length; d++) dots[d].classList.toggle('is-active', d === i);
   }
   function parar() { if (timer) { clearInterval(timer); timer = null; } }
-  function start() { if (reduz) return; parar(); timer = setInterval(function () { ir(i + 1); }, 6000); }
+  function start() { parar(); timer = setInterval(function () { ir(i + 1); }, 10000); }
   for (var d = 0; d < dots.length; d++) (function (k) {
     dots[k].addEventListener('click', function () { ir(k); start(); });
   })(d);
