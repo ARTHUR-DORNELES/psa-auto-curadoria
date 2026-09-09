@@ -61,7 +61,7 @@ function widgetPara(campo, slots) {
   if (ENUM[campo]) return { campo, tipo: 'chips', opcoes: ENUM[campo] };
   if (campo === 'cidade') return { campo, tipo: 'busca', opcoes: CIDADES[slots.estado] || [] };   // autocomplete (lista grande)
   if (campo === 'microTema') return { campo, tipo: 'chips', opcoes: subtemasDe(slots.macroTema) };
-  if (campo === 'data') return { campo, tipo: 'data', min: hojeISO() };   // trava datas passadas no seletor
+  if (campo === 'data') return { campo, tipo: 'data', min: hojeISO(), atalhos: ['A definir'] };   // trava datas passadas; "A definir" pula
   if (campo === 'horario') return { campo, tipo: 'hora' };
   // "já tem palestrante em mente?" -> texto livre com atalho "Não tenho"
   if (campo === 'palestranteDesejado') return { campo, tipo: 'texto', atalhos: ['Não tenho preferência'], placeholder: 'Nome do palestrante (ou toque em "Não tenho")' };
@@ -157,8 +157,8 @@ function sistema(faltando, slots, pularTema, continuacao, pularExtra, evento) {
     '- EXCEÇÃO: publicoAlvo pode ter MAIS DE UM valor (o evento pode ter vários públicos). Quando houver mais de um, liste todos separados por vírgula, usando só valores exatos da lista.',
     subs.length ? `- Recortes do tema escolhido (microTema, opcional): ${subs.join(' | ')}` : '',
     '- data no formato YYYY-MM-DD; horario no formato HH:MM.',
-    '- A DATA do evento é OPCIONAL: pergunte, mas se o cliente disser que ainda não tem/"a definir",',
-    '  deixe "data" vazia e siga em frente (a data será pedida depois, se ele solicitar disponibilidade).',
+    '- SEMPRE pergunte a DATA do evento (proximoCampo="data") — é uma pergunta importante do fluxo, NÃO pule.',
+    '  Se o cliente ainda não tiver data definida, ele pode tocar em "A definir": aí deixe "data" vazia e siga em frente.',
     '- Pergunte UM ÚNICO campo por vez. Sua mensagem deve perguntar SÓ o campo atual — NUNCA mencione nem combine o próximo campo na mesma frase. Ex.: pergunte o HORÁRIO; só na rodada seguinte pergunte a DURAÇÃO. NÃO faça "horário e duração?" nem "formato e data?" numa pergunta só. Em "proximoCampo" devolva a chave do único próximo campo — que deve ser EXATAMENTE o campo que a sua mensagem está perguntando.',
     '- "microTema" e "contexto" são opcionais, pode pular se o cliente não quiser detalhar.',
     '- Perto do fim, faça também estas duas perguntas (uma por vez): (a) se o cliente já tem',
@@ -272,17 +272,26 @@ export default async function handler(req, res) {
       });
     }
 
+    // a DATA é perguntada sempre (mesmo sendo opcional responder): marca quando já foi perguntada
+    // (o cliente respondeu ao widget de data, com uma data ou com "A definir").
+    if (campoRespondido === 'data' || slots2.data) slots2._dataOk = true;
     const faltando2 = OBRIG.filter(c => !slots2[c]);
-    const completo = faltando2.length === 0;
+    const dataPendente = !pularSet.has('data') && !slots2._dataOk;   // ainda não perguntamos a data
+    const completo = faltando2.length === 0 && !dataPendente;
 
     // o SERVIDOR decide o próximo campo/widget. Na abertura (cliente ainda não descreveu
     // o evento), mostra um campo LIVRE pra pessoa contar tudo de uma vez.
-    let prox = '', widget = null;
+    let prox = '', widget = null, msgForcada = '';
     if (!completo) {
       const clienteFalou = historico.some(m => m.role === 'user');
       if (!slots2._relato && !clienteFalou) {
         widget = { campo: 'relato', tipo: 'texto', multilinha: true,
           placeholder: 'Conte com suas palavras: que evento é, pra quem, quando e onde, formato, e o que motivou a busca por esse tema…' };
+      } else if (faltando2.length === 0 && dataPendente) {
+        // todos os obrigatórios ok, mas a data ainda não foi perguntada -> pergunta a data agora
+        prox = 'data';
+        widget = widgetPara('data', slots2);
+        msgForcada = 'Só mais uma coisa importante: você já tem uma data em mente pro evento? Se ainda não definiu, é só tocar em "A definir".';
       } else {
         // respeita o campo que o Santiago perguntou (mesmo os opcionais formato/data/microTema),
         // desde que ainda não esteja preenchido; senão, cai pro próximo obrigatório.
@@ -293,7 +302,7 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ mensagem: semTravessao(out.mensagem || ''), slots: slots2, widget, completo });
+    return res.status(200).json({ mensagem: semTravessao(msgForcada || out.mensagem || ''), slots: slots2, widget, completo });
   } catch (e) {
     console.error('CHAT_FALHOU', e.message);
     return res.status(200).json({ mensagem: 'Tive um probleminha aqui do meu lado. Pode repetir, por favor?', slots, widget: null, erro: true });
