@@ -159,7 +159,7 @@ function sistema(faltando, slots, pularTema, continuacao, pularExtra, evento) {
     '- data no formato YYYY-MM-DD; horario no formato HH:MM.',
     '- A DATA do evento é OPCIONAL: pergunte, mas se o cliente disser que ainda não tem/"a definir",',
     '  deixe "data" vazia e siga em frente (a data será pedida depois, se ele solicitar disponibilidade).',
-    '- Pergunte UM assunto por vez. Em "proximoCampo" devolva a chave do próximo campo a captar.',
+    '- Pergunte UM ÚNICO campo por vez. Sua mensagem deve perguntar SÓ o campo atual — NUNCA mencione nem combine o próximo campo na mesma frase. Ex.: pergunte o HORÁRIO; só na rodada seguinte pergunte a DURAÇÃO. NÃO faça "horário e duração?" nem "formato e data?" numa pergunta só. Em "proximoCampo" devolva a chave do único próximo campo — que deve ser EXATAMENTE o campo que a sua mensagem está perguntando.',
     '- "microTema" e "contexto" são opcionais, pode pular se o cliente não quiser detalhar.',
     '- Perto do fim, faça também estas duas perguntas (uma por vez): (a) se o cliente já tem',
     '  um palestrante específico em mente (campo palestranteDesejado); se ele não tiver, tudo bem,',
