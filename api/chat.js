@@ -68,6 +68,35 @@ function widgetPara(campo, slots) {
   return { campo, tipo: 'texto' };
 }
 
+// pergunta canônica pra um campo — usada quando o servidor decide o próximo campo
+// e a fala do modelo era sobre OUTRO (aí a fala não pode ser mostrada, senão a pergunta
+// não bate com o widget). Tom leve, uma pergunta só.
+function perguntaCanonica(campo, slots) {
+  const M = {
+    nome: 'Pra registrar certinho, qual o seu nome?',
+    empresa: 'E de qual empresa você fala?',
+    email: 'Qual o melhor e-mail pra eu te enviar a curadoria?',
+    telefone: 'Pra fechar, me passa um telefone de contato?',
+    macroTema: 'Qual o tema central do evento?',
+    microTema: 'Quer afinar o recorte do tema?',
+    publicoAlvo: 'Quem é o público desse evento?',
+    formato: 'O evento é presencial, online ou híbrido?',
+    data: 'E você já tem uma data em mente pro evento? Se ainda não definiu, é só tocar em "A definir".',
+    horario: 'Qual o horário previsto pra palestra?',
+    duracao: 'E qual a duração prevista?',
+    localEvento: 'Qual o nome do espaço ou local onde vai acontecer?',
+    estado: 'Em qual estado vai ser?',
+    cidade: 'E em qual cidade?',
+    orcamento: 'Qual a faixa de orçamento prevista pra palestra?',
+    vendaIngresso: 'Esse evento vai ter venda de ingresso?',
+    motivacao: 'O que motivou a busca por esse tema agora?',
+    sentimento: 'Como você quer que o público saia do evento?',
+    palestranteDesejado: 'Você já tem algum palestrante em mente? Se não tiver, tudo bem.',
+    empresaPalestra: 'Pra qual empresa é essa palestra?',
+  };
+  return M[campo] || `Me conta ${rotuloCampo[campo] || 'mais um detalhe'}?`;
+}
+
 // backstop: a resposta do usuário ao widget é aceitável para aquele campo? (validação leve)
 function aceitaBackstop(campo, val, slots) {
   if (SUGESTAO.has(campo)) return String(val || '').trim().length > 0;   // aceita qualquer texto
@@ -302,6 +331,14 @@ export default async function handler(req, res) {
         // se o SERVIDOR forçou a data (o Santiago não estava perguntando isso), troca a mensagem
         if (alvo === 'data' && out.proximoCampo !== 'data') {
           msgForcada = 'E você já tem uma data em mente pro evento? Se ainda não definiu, é só tocar em "A definir".';
+        }
+        // GERAL: se o servidor escolheu um campo diferente do que o Santiago perguntou na
+        // fala (alvo !== proximoCampo), a mensagem do modelo é sobre OUTRO campo e não bateria
+        // com o widget. Força uma pergunta canônica pro campo do widget, pra fala e widget
+        // sempre casarem (cobre o fim do fluxo: nome/empresa/email/telefone/palestrante, e o
+        // caso do modelo dizer "é só isso" enquanto ainda falta obrigatório).
+        if (alvo && alvo !== out.proximoCampo && !msgForcada) {
+          msgForcada = perguntaCanonica(alvo, slots2);
         }
         prox = alvo;
         widget = widgetPara(prox, slots2);
