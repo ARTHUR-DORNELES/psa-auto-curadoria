@@ -251,9 +251,13 @@ export default async function handler(req, res) {
         slots2._relato = true;
         slots2.contexto = slots2.contexto ? `${slots2.contexto}\n${v}` : v;
       }
-    } else if (campoRespondido && !slots2[campoRespondido]) {
+    } else if (campoRespondido && !slots2[campoRespondido] && out.proximoCampo !== campoRespondido) {
       // captura determinística: se o modelo não pegou o campo que o widget pediu, usa a
       // resposta do usuário (o widget perguntou exatamente aquele campo).
+      // EXCEÇÃO: se o Santiago está RE-perguntando o mesmo campo (proximoCampo === campoRespondido),
+      // é porque a resposta não serviu (ex.: pedimos o NOME DO ESPAÇO e veio a cidade "são paulo sp").
+      // Capturar à força aqui marcaria o campo como resolvido e faria o fluxo pular pro próximo
+      // (o widget saltava do local pro orçamento). Então NÃO captura: deixa o campo em aberto.
       const v = ultUser();
       if (v && aceitaBackstop(campoRespondido, v, slots2)) slots2[campoRespondido] = v;
     }
