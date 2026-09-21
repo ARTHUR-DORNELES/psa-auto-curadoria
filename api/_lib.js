@@ -595,6 +595,29 @@ export async function anexarFotos(indicacoes) {
   return indicacoes;
 }
 
+// Enriquecimento LEVE: só o link da wiki (badge "W."), sem re-baixar o verbete.
+// Usado pra curadorias já geradas (antes do campo `wiki` existir): busca só as duas
+// propriedades por id, num batch. Prefere a apresentação; cai na wiki interna.
+export async function anexarWikiLinks(indicacoes) {
+  const pendentes = (indicacoes || []).filter(i => !i.wiki);
+  const ids = [...new Set(pendentes.map(i => String(i.id_contato || '').trim()).filter(x => /^\d+$/.test(x)))];
+  if (!ids.length) return indicacoes;
+  const byId = {};
+  try {
+    const r = await hs('/crm/v3/objects/contacts/batch/read', 'POST', {
+      properties: ['palestrante_wiki_url', 'palestrante_wiki_apresentacao_url'],
+      inputs: ids.map(id => ({ id })),
+    });
+    for (const c of (r.results || [])) byId[c.id] = c.properties || {};
+  } catch (e) { console.error('batch de wiki-links falhou:', e.message); }
+  for (const ind of pendentes) {
+    const p = byId[String(ind.id_contato || '')] || {};
+    const link = String(p.palestrante_wiki_apresentacao_url || '').trim() || String(p.palestrante_wiki_url || '').trim();
+    if (/^https?:\/\//i.test(link)) ind.wiki = link;
+  }
+  return indicacoes;
+}
+
 // Propriedade de negócio onde a automação grava os 5 nomes da IA Curadoria.
 // Nome configurável para não travar o produto numa escolha minha.
 export const PROP_NOMES = process.env.PROP_CURADORIA_NOMES || 'ia_curadoria_nomes';

@@ -1,4 +1,4 @@
-import { redis, chave, chaveProjeto, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, limparNomesDoNegocio, finalizarCuradoria, chaveDeNome, respostasDisponibilidade, anexarBriefingAoNegocio, registrarNomesNaoEncontrados } from './_lib.js';
+import { redis, chave, chaveProjeto, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, anexarWikiLinks, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, limparNomesDoNegocio, finalizarCuradoria, chaveDeNome, respostasDisponibilidade, anexarBriefingAoNegocio, registrarNomesNaoEncontrados } from './_lib.js';
 
 const ACOES = {
   curador: 'CLIENTE PEDIU ATENDIMENTO DE CURADOR — assumir o processo pelo caminho tradicional.',
@@ -87,6 +87,7 @@ export default async function handler(req, res) {
       }
       reg.fotosBuscadas = true;   // já rodou o anexarFotos acima
       reg.redesBuscadas = true;   // anexarFotos também traz as redes sociais do verbete
+      reg.wikiBuscadas = true;    // anexarFotos também seta o link da wiki (badge "W.")
       if (!CHECKOUT_URL) reg.pago = true;   // sem checkout, entrega direto
       // Modelo de assinatura: NÃO consome mais o acesso (curadorias ilimitadas). A finalização
       // do negócio anterior acontece no momento da REFAÇÃO (POST 'refazer'), não aqui.
@@ -99,6 +100,14 @@ export default async function handler(req, res) {
       try { await anexarFotos(reg.resultado.indicacoes || []); } catch (e) { console.error('anexarFotos tardio falhou:', e.message); }
       reg.fotosBuscadas = true;
       reg.redesBuscadas = true;
+      await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
+    }
+
+    // enriquecimento tardio do link da wiki (badge "W."): curadorias geradas antes desse
+    // campo existir. Busca só a URL da wiki por id (barato, sem re-ler o verbete).
+    if (reg.resultado && !reg.wikiBuscadas) {
+      try { await anexarWikiLinks(reg.resultado.indicacoes || []); } catch (e) { console.error('anexarWikiLinks tardio falhou:', e.message); }
+      reg.wikiBuscadas = true;
       await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
     }
 
