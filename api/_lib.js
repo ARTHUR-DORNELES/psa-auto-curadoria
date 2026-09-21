@@ -618,6 +618,28 @@ export async function anexarWikiLinks(indicacoes) {
   return indicacoes;
 }
 
+// Status de DOCUMENTAÇÃO (selo verde/vermelho no card): lido FRESCO a cada load,
+// NÃO cacheado, porque muda no HubSpot ao longo do tempo. Propriedade booleana
+// `palestrante_documentacao_disponivel` (marcado/true/sim = disponível).
+export async function anexarDocStatus(indicacoes) {
+  for (const ind of (indicacoes || [])) ind.docDisponivel = false;
+  const ids = [...new Set((indicacoes || []).map(i => String(i.id_contato || '').trim()).filter(x => /^\d+$/.test(x)))];
+  if (!ids.length) return indicacoes;
+  const byId = {};
+  try {
+    const r = await hs('/crm/v3/objects/contacts/batch/read', 'POST', {
+      properties: ['palestrante_documentacao_disponivel'],
+      inputs: ids.map(id => ({ id })),
+    });
+    for (const c of (r.results || [])) byId[c.id] = c.properties || {};
+  } catch (e) { console.error('batch de doc-status falhou:', e.message); }
+  for (const ind of (indicacoes || [])) {
+    const v = String((byId[String(ind.id_contato || '')] || {}).palestrante_documentacao_disponivel || '').trim().toLowerCase();
+    ind.docDisponivel = /^(true|sim|yes|1|dispon)/.test(v);
+  }
+  return indicacoes;
+}
+
 // Propriedade de negócio onde a automação grava os 5 nomes da IA Curadoria.
 // Nome configurável para não travar o produto numa escolha minha.
 export const PROP_NOMES = process.env.PROP_CURADORIA_NOMES || 'ia_curadoria_nomes';

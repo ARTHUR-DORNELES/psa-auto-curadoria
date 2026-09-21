@@ -140,6 +140,11 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .ind__rede{display:inline-flex;transition:filter .15s,transform .15s}
 .ind__rede:hover{filter:brightness(1.1);transform:translateY(-1px)}
 .ind__rede svg{width:.72em;height:.72em;display:block}
+.ind__doc{margin:8px 0 2px}
+.ind__doc-pill{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;line-height:1;padding:5px 11px;border-radius:999px;border:1px solid}
+.ind__doc-pill svg{flex:0 0 auto}
+.ind__doc-pill--ok{color:#37d67a;background:rgba(55,214,122,.12);border-color:rgba(55,214,122,.4)}
+.ind__doc-pill--no{color:#ff6060;background:rgba(255,96,96,.12);border-color:rgba(255,96,96,.4)}
 .ind ul{list-style:none;display:grid;gap:10px;margin-bottom:var(--s-4)}
 .ind li{font-size:var(--t-body-sm);color:var(--fg-2);padding-left:20px;position:relative}
 .ind li::before{content:"";position:absolute;left:0;top:9px;width:8px;height:2px;background:var(--psa-orange)}
@@ -1920,6 +1925,9 @@ function htmlNomes(d) {
             ${redesIcones(ind.redes, ind.wiki)}
             <span class="ind__fit">aderência ${esc(ind.aderencia)}</span>
           </div>
+          <div class="ind__doc"><span class="ind__doc-pill ind__doc-pill--${ind.docDisponivel ? 'ok' : 'no'}">${ind.docDisponivel
+            ? '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.2 8.6l3 3 6.6-7"/></svg>Documentação disponível'
+            : '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>Documentação indisponível'}</span></div>
           <div class="ind__meta">
             ${ind.perfil ? `<strong>${esc(ind.perfil)}</strong>` : ''}
             ${ind.valorVenda

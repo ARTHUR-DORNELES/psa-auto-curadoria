@@ -1,4 +1,4 @@
-import { redis, chave, chaveProjeto, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, anexarWikiLinks, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, limparNomesDoNegocio, finalizarCuradoria, chaveDeNome, respostasDisponibilidade, anexarBriefingAoNegocio, registrarNomesNaoEncontrados } from './_lib.js';
+import { redis, chave, chaveProjeto, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, anexarWikiLinks, anexarDocStatus, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, limparNomesDoNegocio, finalizarCuradoria, chaveDeNome, respostasDisponibilidade, anexarBriefingAoNegocio, registrarNomesNaoEncontrados } from './_lib.js';
 
 const ACOES = {
   curador: 'CLIENTE PEDIU ATENDIMENTO DE CURADOR — assumir o processo pelo caminho tradicional.',
@@ -141,6 +141,8 @@ export default async function handler(req, res) {
       return res.status(200).json({ id, pronto: true, pago: false, teaser: teaser(reg.resultado) });
     }
 
+    // status de documentação (selo verde/vermelho): lido FRESCO a cada load (muda no HubSpot).
+    try { await anexarDocStatus(reg.resultado.indicacoes || []); } catch (e) { console.error('anexarDocStatus falhou:', e.message); }
     const cliente = paraCliente(reg.resultado);
     // resposta do palestrante (disponível? + valor) no card — só depois que o cliente
     // pediu disponibilidade e o palestrante respondeu no tíquete (disponibilidade/valor_total).
