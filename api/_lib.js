@@ -621,21 +621,25 @@ export async function anexarWikiLinks(indicacoes) {
 // Status de DOCUMENTAÇÃO (selo verde/vermelho no card): lido FRESCO a cada load,
 // NÃO cacheado, porque muda no HubSpot ao longo do tempo. Propriedade booleana
 // `palestrante_documentacao_disponivel` (marcado/true/sim = disponível).
+// No mesmo batch também marca CONTATO DE TESTE (slug começando com "teste") em
+// `ind._teste`, pra o resultado filtrar (contato de teste não pode vazar pro cliente).
 export async function anexarDocStatus(indicacoes) {
-  for (const ind of (indicacoes || [])) ind.docDisponivel = false;
+  for (const ind of (indicacoes || [])) { ind.docDisponivel = false; ind._teste = false; }
   const ids = [...new Set((indicacoes || []).map(i => String(i.id_contato || '').trim()).filter(x => /^\d+$/.test(x)))];
   if (!ids.length) return indicacoes;
   const byId = {};
   try {
     const r = await hs('/crm/v3/objects/contacts/batch/read', 'POST', {
-      properties: ['palestrante_documentacao_disponivel'],
+      properties: ['palestrante_documentacao_disponivel', 'slug'],
       inputs: ids.map(id => ({ id })),
     });
     for (const c of (r.results || [])) byId[c.id] = c.properties || {};
   } catch (e) { console.error('batch de doc-status falhou:', e.message); }
   for (const ind of (indicacoes || [])) {
-    const v = String((byId[String(ind.id_contato || '')] || {}).palestrante_documentacao_disponivel || '').trim().toLowerCase();
+    const p = byId[String(ind.id_contato || '')] || {};
+    const v = String(p.palestrante_documentacao_disponivel || '').trim().toLowerCase();
     ind.docDisponivel = /^(true|sim|yes|1|dispon)/.test(v);
+    ind._teste = /^teste[-_ ]/i.test(String(p.slug || '').trim());
   }
   return indicacoes;
 }

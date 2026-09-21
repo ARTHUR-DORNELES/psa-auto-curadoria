@@ -137,12 +137,16 @@ export default async function handler(req, res) {
       }
     }
 
+    // status de documentação (selo verde/vermelho) + marca contatos de TESTE.
+    // Lido FRESCO a cada load (muda no HubSpot). Depois filtra os de teste: contato
+    // de teste (slug "teste...") nunca pode aparecer numa curadoria de cliente.
+    try { await anexarDocStatus(reg.resultado.indicacoes || []); } catch (e) { console.error('anexarDocStatus falhou:', e.message); }
+    reg.resultado.indicacoes = (reg.resultado.indicacoes || []).filter(i => !i._teste);
+
     if (!reg.pago) {
       return res.status(200).json({ id, pronto: true, pago: false, teaser: teaser(reg.resultado) });
     }
 
-    // status de documentação (selo verde/vermelho): lido FRESCO a cada load (muda no HubSpot).
-    try { await anexarDocStatus(reg.resultado.indicacoes || []); } catch (e) { console.error('anexarDocStatus falhou:', e.message); }
     const cliente = paraCliente(reg.resultado);
     // resposta do palestrante (disponível? + valor) no card — só depois que o cliente
     // pediu disponibilidade e o palestrante respondeu no tíquete (disponibilidade/valor_total).
