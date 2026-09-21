@@ -1781,10 +1781,11 @@ const REDE_ICON = {
   tiktok: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="5" fill="#000"/><g transform="translate(2.9 2.9) scale(.76)"><path fill="#25F4EE" d="M15.3 5.06a4.28 4.28 0 0 0 .93 1.9 4.28 4.28 0 0 0 1.6 1.13v.94a5.9 5.9 0 0 1-2.9-1.06v6.5a5.5 5.5 0 1 1-5.5-5.5c.16 0 .32.01.48.03v3.1a2.4 2.4 0 1 0 1.68 2.29V3h2.9c0 .25.02.5.06.74z"/><path fill="#FE2C55" d="M16.9 6.2a4.28 4.28 0 0 0 1.6 1.13v.94a5.9 5.9 0 0 1-2.9-1.06v6.5a5.5 5.5 0 0 1-8.6 4.53 5.5 5.5 0 0 0 9.24-4V7.74a5.9 5.9 0 0 0 2.9 1.06v-.94a4.28 4.28 0 0 1-2.24-.66z"/><path fill="#fff" d="M8.5 9.04a5.5 5.5 0 0 0-1.5 10.2 5.5 5.5 0 0 1 3.98-9.17c.16 0 .32.01.48.03v3.1a2.4 2.4 0 0 0-.48-.05 2.4 2.4 0 0 0-.98 4.59 2.4 2.4 0 0 1-1.5-2.22V9.07a5.6 5.6 0 0 0-.48-.03z"/><path fill="#fff" d="M15.3 5.06c.04.24.06.49.06.74h-2.9v10.4a2.4 2.4 0 0 1-3.88 1.88 2.4 2.4 0 0 0 4.18-1.62V6.06h2.6c-.03-.33-.06-.66-.06-1z"/></g></svg>',
 };
 const REDE_ROTULO = { instagram: 'Instagram', linkedin: 'LinkedIn', youtube: 'YouTube', facebook: 'Facebook', tiktok: 'TikTok' };
-function redesIcones(redes) {
-  if (!redes) return '';
-  const itens = Object.keys(REDE_ICON).filter(k => redes[k]).map(k =>
-    `<a class="ind__rede ind__rede--${k}" href="${esc(redes[k])}" target="_blank" rel="noopener noreferrer" title="${REDE_ROTULO[k]}" aria-label="${REDE_ROTULO[k]}">${REDE_ICON[k]}</a>`);
+function redesIcones(redes, wiki) {
+  const itens = redes ? Object.keys(REDE_ICON).filter(k => redes[k]).map(k =>
+    `<a class="ind__rede ind__rede--${k}" href="${esc(redes[k])}" target="_blank" rel="noopener noreferrer" title="${REDE_ROTULO[k]}" aria-label="${REDE_ROTULO[k]}">${REDE_ICON[k]}</a>`) : [];
+  // badge "W." da PSA Wiki (fonte de display da PSA), apontando pra wiki do palestrante
+  if (wiki) itens.push(`<a class="ind__rede ind__rede--wiki" href="${esc(wiki)}" target="_blank" rel="noopener noreferrer" title="PSA Wiki" aria-label="PSA Wiki"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="6" fill="#f85000"/><text x="11.7" y="12.7" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="brutaCompressed,'Barlow Condensed','Oswald',sans-serif" font-weight="800" font-size="14.5">W.</text></svg></a>`);
   return itens.length ? `<span class="ind__redes">${itens.join('')}</span>` : '';
 }
 
@@ -1916,7 +1917,7 @@ function htmlNomes(d) {
           <div class="ind__top">
             <span class="ind__rank">INDICAÇÃO 0${n + 1}</span>
             <span class="ind__nome">${esc(ind.nome)}</span>
-            ${redesIcones(ind.redes)}
+            ${redesIcones(ind.redes, ind.wiki)}
             <span class="ind__fit">aderência ${esc(ind.aderencia)}</span>
           </div>
           <div class="ind__meta">

@@ -572,7 +572,7 @@ export async function anexarFotos(indicacoes) {
   const byId = {};
   try {
     const r = await hs('/crm/v3/objects/contacts/batch/read', 'POST', {
-      properties: ['mande_uma_foto_bem_bonita_pra_gente_', 'palestrante_wiki_url'],
+      properties: ['mande_uma_foto_bem_bonita_pra_gente_', 'palestrante_wiki_url', 'palestrante_wiki_apresentacao_url'],
       inputs: ids.map(id => ({ id })),
     });
     for (const c of (r.results || [])) byId[c.id] = c.properties || {};
@@ -587,6 +587,10 @@ export async function anexarFotos(indicacoes) {
     else { const direta = String(p.mande_uma_foto_bem_bonita_pra_gente_ || '').trim(); if (_ehImagem(direta)) ind.foto = direta; }
     // redes sociais do palestrante (só as que o verbete tem)
     if (wiki.redes && Object.keys(wiki.redes).length) ind.redes = wiki.redes;
+    // link da wiki (badge "W." no card): prefere a versão de APRESENTAÇÃO (peça limpa
+    // pro cliente); cai na wiki interna só se não houver apresentação.
+    const _wikiLink = String(p.palestrante_wiki_apresentacao_url || '').trim() || String(p.palestrante_wiki_url || '').trim();
+    if (/^https?:\/\//i.test(_wikiLink)) ind.wiki = _wikiLink;
   }));
   return indicacoes;
 }
