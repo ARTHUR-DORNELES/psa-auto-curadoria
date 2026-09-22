@@ -378,7 +378,7 @@ export async function acaoCuradoria(bruto, uuid, acao) {
     if (!dealId) return { ok: false, erro: 'curadoria sem negócio associado' };
     // dono: os contatos do CPF/CNPJ têm de incluir o contato que criou esta curadoria
     const contatos = await hs('/crm/v3/objects/contacts/search', 'POST', {
-      filterGroups: [{ filters: [{ propertyName: doc.tipo, operator: 'EQ', value: doc.valor }] }],
+      filterGroups: [{ filters: [{ propertyName: doc.tipo, operator: 'IN', values: docVariantes(doc) }] }],
       properties: [doc.tipo], limit: 100,
     });
     const ids = (contatos.results || []).map((c) => String(c.id));
@@ -1158,6 +1158,23 @@ export function normalizaDocumento(bruto) {
   return null;
 }
 
+// A busca do HubSpot é EXATA: se o CNPJ/CPF foi salvo com máscara (ponto/barra/traço),
+// o EQ por dígitos não casa. Gera as variantes de formato conhecidas p/ buscar com IN,
+// tolerando cadastro salvo com "." "/" "-" além de só dígitos.
+export function docVariantes(doc) {
+  if (!doc) return [];
+  const d = doc.valor;
+  const out = new Set([d]);
+  if (doc.tipo === 'cnpj' && d.length === 14) {
+    out.add(d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')); // 12.345.678/0001-99
+    out.add(d.replace(/^(\d{8})(\d{4})(\d{2})$/, '$1/$2-$3'));                     // 12345678/0001-99
+    out.add(d.replace(/^(\d{8})(\d{4})(\d{2})$/, '$1/$2$3'));                      // 12345678/000199
+  } else if (doc.tipo === 'cpf' && d.length === 11) {
+    out.add(d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4'));           // 310.977.118-70
+  }
+  return [...out];
+}
+
 /**
  * Acha o negócio "Pago" MAIS ANTIGO (fila) na pipeline Auto Curadoria para um CPF/CNPJ.
  * Casa o documento no contato (cpf ou cnpj), depois busca o negócio Pago associado.
@@ -1171,7 +1188,7 @@ async function _negocioAutoCuradoriaPorDoc(bruto, stage, direction, extraProps =
 
   // 1) contatos com esse cpf/cnpj (o checkout grava só dígitos, ex.: "01608209016")
   const contatos = await hs('/crm/v3/objects/contacts/search', 'POST', {
-    filterGroups: [{ filters: [{ propertyName: doc.tipo, operator: 'EQ', value: doc.valor }] }],
+    filterGroups: [{ filters: [{ propertyName: doc.tipo, operator: 'IN', values: docVariantes(doc) }] }],
     properties: [doc.tipo],
     limit: 100,
   });
@@ -1253,7 +1270,7 @@ export async function listarCuradorias(bruto) {
   if (!doc) return [];
   try {
     const contatos = await hs('/crm/v3/objects/contacts/search', 'POST', {
-      filterGroups: [{ filters: [{ propertyName: doc.tipo, operator: 'EQ', value: doc.valor }] }],
+      filterGroups: [{ filters: [{ propertyName: doc.tipo, operator: 'IN', values: docVariantes(doc) }] }],
       properties: [doc.tipo], limit: 100,
     });
     const ids = (contatos.results || []).map((c) => c.id);
