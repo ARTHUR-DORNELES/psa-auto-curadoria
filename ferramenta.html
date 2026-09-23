@@ -1805,7 +1805,7 @@ function renderTeaser(j) {
         <div class="ind__top">
           <span class="ind__rank">INDICAÇÃO 0${n + 1}</span>
           <span class="ind__nome borrado">Nome do palestrante</span>
-          <span class="ind__fit">aderência ${esc(ind.aderencia)}</span>
+          <span class="ind__fit ind__nps">NPS ${esc(ind.nps ?? '—')}</span>
         </div>
         <p style="color:var(--fg-2);font-size:14px;margin-bottom:12px"><strong>${esc(ind.perfil)}</strong></p>
         <ul>
@@ -1923,7 +1923,7 @@ function htmlNomes(d) {
             <span class="ind__rank">INDICAÇÃO 0${n + 1}</span>
             <span class="ind__nome">${esc(ind.nome)}</span>
             ${redesIcones(ind.redes, ind.wiki)}
-            <span class="ind__fit">aderência ${esc(ind.aderencia)}</span>
+            <span class="ind__fit ind__nps">NPS ${esc(ind.nps ?? '—')}</span>
           </div>
           <div class="ind__doc"><span class="ind__doc-pill ind__doc-pill--${ind.docDisponivel ? 'ok' : 'no'}">${ind.docDisponivel
             ? '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.2 8.6l3 3 6.6-7"/></svg>Documentação disponível'
