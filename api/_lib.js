@@ -75,6 +75,17 @@ export function semNumerosInternos(texto) {
     .trim();
 }
 
+// Renato não quer travessão no meio da frase (acha que denuncia texto de IA).
+// Troca o traço cercado por espaco (— – ou -) por virgula; hifen de palavra
+// composta ("bem-estar") nao tem espaco em volta, entao e preservado.
+export function semTravessao(texto) {
+  return String(texto || '')
+    .replace(/\s+[—–-]\s+/g, ', ')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([,.;:!?])/g, '$1')
+    .trim();
+}
+
 
 // ── HubSpot ────────────────────────────────────────────────────────────────
 export async function hs(caminho, metodo, corpo, token) {
@@ -684,7 +695,7 @@ export function lerNomes(bruto) {
 
   // Ponto único de entrada do texto da automação: tudo que vem daqui é lavado
   // antes de existir no sistema. O nome do palestrante é o único campo intocado.
-  const limpar = t => semTermosInternos(semNumerosInternos(t));
+  const limpar = t => semTravessao(semTermosInternos(semNumerosInternos(t)));
 
   const normalizar = n => {
     const cru = [n.valor, n.cache, n.cachê, n.perfil, n.atencao, n.atenção,
