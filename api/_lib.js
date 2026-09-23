@@ -624,13 +624,13 @@ export async function anexarWikiLinks(indicacoes) {
 // No mesmo batch também marca CONTATO DE TESTE (slug começando com "teste") em
 // `ind._teste`, pra o resultado filtrar (contato de teste não pode vazar pro cliente).
 export async function anexarDocStatus(indicacoes) {
-  for (const ind of (indicacoes || [])) { ind.docDisponivel = false; ind._teste = false; }
+  for (const ind of (indicacoes || [])) { ind.docDisponivel = false; ind._teste = false; ind.nps = null; }
   const ids = [...new Set((indicacoes || []).map(i => String(i.id_contato || '').trim()).filter(x => /^\d+$/.test(x)))];
   if (!ids.length) return indicacoes;
   const byId = {};
   try {
     const r = await hs('/crm/v3/objects/contacts/batch/read', 'POST', {
-      properties: ['palestrante_documentacao_disponivel', 'slug'],
+      properties: ['palestrante_documentacao_disponivel', 'slug', 'palestrante_nps'],
       inputs: ids.map(id => ({ id })),
     });
     for (const c of (r.results || [])) byId[c.id] = c.properties || {};
@@ -640,6 +640,8 @@ export async function anexarDocStatus(indicacoes) {
     const v = String(p.palestrante_documentacao_disponivel || '').trim().toLowerCase();
     ind.docDisponivel = /^(true|sim|yes|1|dispon)/.test(v);
     ind._teste = /^teste[-_ ]/i.test(String(p.slug || '').trim());
+    const nps = String(p.palestrante_nps == null ? '' : p.palestrante_nps).trim();
+    ind.nps = nps !== '' ? nps : null;
   }
   return indicacoes;
 }
