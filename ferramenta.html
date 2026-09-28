@@ -151,9 +151,18 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .ind__atencao{font-size:var(--t-caption);color:var(--fg-3);border-top:1px solid var(--border-subtle);padding-top:14px}
 .ind__meta{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:12px;color:var(--fg-2);font-size:14px}
 .ind__faixa{font-family:var(--font-mono);font-size:var(--t-caption);color:var(--psa-orange);border:1px solid #f8500055;border-radius:var(--r-pill);padding:4px 12px;white-space:nowrap}
-.ind__nps-aud{display:inline-flex;align-items:center;gap:8px;margin:0 0 0 auto;font-family:var(--font-mono);font-size:var(--t-caption);border:1px solid #37d67a55;background:rgba(55,214,122,.10);border-radius:var(--r-pill);padding:5px 12px}
+.ind__prova{margin:0 0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:7px}
+.ind__nps-aud{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:var(--t-caption);border:1px solid #37d67a55;background:rgba(55,214,122,.10);border-radius:var(--r-pill);padding:5px 12px}
 .ind__nps-lbl{color:#37d67a;font-weight:700;letter-spacing:.3px}
 .ind__nps-val{color:#fff;font-weight:800;font-size:14px}
+.ind__dep-btn{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:var(--t-caption);color:#37d67a;background:transparent;border:1px solid #37d67a33;border-radius:var(--r-pill);padding:5px 12px;cursor:pointer;white-space:nowrap}
+.ind__dep-btn:hover{background:rgba(55,214,122,.10);border-color:#37d67a66}
+.dep-lista{list-style:none;margin:0;padding:0}
+.dep-item{padding:16px 0;border-top:1px solid var(--border-strong)}
+.dep-item:first-child{border-top:none;padding-top:4px}
+.dep-txt{color:var(--fg-1);font-size:15px;line-height:1.55;margin:0}
+.dep-meta{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--fg-3);margin-top:8px}
+.dep-tag{color:#37d67a;font-weight:700}
 .ind__dados{display:flex;flex-wrap:wrap;gap:var(--s-5);font-family:var(--font-mono);font-size:var(--t-caption);color:var(--fg-3);margin-top:14px}
 .borrado{filter:blur(6px);user-select:none;pointer-events:none}
 .ind__lacre{display:flex;align-items:center;gap:10px;font-size:var(--t-caption);color:var(--fg-3);margin-top:var(--s-4);font-family:var(--font-mono)}
@@ -1925,7 +1934,10 @@ function htmlNomes(d) {
             <span class="ind__rank">INDICAÇÃO 0${n + 1}</span>
             <span class="ind__nome">${esc(ind.nome)}</span>
             ${redesIcones(ind.redes, ind.wiki)}
-            ${ind.nps != null && String(ind.nps) !== '' ? `<div class="ind__nps-aud"><span class="ind__nps-lbl">NPS Auditado</span><span class="ind__nps-val">${esc(ind.nps)}</span></div>` : ''}
+            ${(ind.nps != null && String(ind.nps) !== '') || (ind.depoimentos || []).length ? `<div class="ind__prova">
+              ${ind.nps != null && String(ind.nps) !== '' ? `<div class="ind__nps-aud"><span class="ind__nps-lbl">NPS Auditado</span><span class="ind__nps-val">${esc(ind.nps)}</span></div>` : ''}
+              ${(ind.depoimentos || []).length ? `<button type="button" class="ind__dep-btn btn-dep" data-idx="${n}">Ver ${ind.depoimentos.length} depoimento${ind.depoimentos.length > 1 ? 's' : ''}</button>` : ''}
+            </div>` : ''}
                       </div>
           <div class="ind__doc"><span class="ind__doc-pill ind__doc-pill--${ind.docDisponivel ? 'ok' : 'no'}">${ind.docDisponivel
             ? '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.2 8.6l3 3 6.6-7"/></svg>Documentação disponível'
@@ -2024,6 +2036,50 @@ function wireNomes(d) {
       setTimeout(() => { try { inp.focus(); } catch (e) {} }, 60);
     });
   }
+
+  // Depoimentos: o que a plateia e os contratantes escreveram, do mais recente
+  // para o mais antigo. Vêm prontos do servidor (propriedade do contato no
+  // HubSpot, gravada pelo workflow "Roster NPS"); aqui é só desenhar.
+  function abrirDepoimentos(nome, lista) {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#000000b3;backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px';
+    const itens = (lista || []).map(dp => {
+      const meta = [
+        dp.autor,
+        dp.cargo,
+        dp.empresa,
+        dp.data && /^\d{4}-\d{2}-\d{2}$/.test(dp.data) ? dp.data.split('-').reverse().join('/') : null,
+      ].filter(Boolean).map(esc).join(' · ');
+      const tag = dp.origem === 'contratante' ? 'Contratante' : 'Plateia';
+      return `<li class="dep-item">
+        <p class="dep-txt">&ldquo;${esc(dp.texto)}&rdquo;</p>
+        <div class="dep-meta"><span class="dep-tag">${tag}</span>${meta ? ' · ' + meta : ''}</div>
+      </li>`;
+    }).join('');
+    ov.innerHTML = `
+      <div role="dialog" aria-modal="true" aria-label="Depoimentos" style="background:#0e1420;border:1px solid var(--border-strong);border-radius:16px;padding:24px;max-width:640px;width:100%;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 24px 60px #0009">
+        <div style="font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#37d67a">Depoimentos</div>
+        <h3 style="font-family:var(--font-display-wide);text-transform:uppercase;font-size:22px;line-height:1;margin:8px 0 6px;color:var(--fg-1)">${esc(nome || '')}</h3>
+        <p style="color:var(--fg-2);font-size:13px;line-height:1.5;margin:0 0 14px">Quem assistiu e quem contratou, do mais recente para o mais antigo.</p>
+        <ul class="dep-lista" style="overflow-y:auto;padding-right:4px">${itens}</ul>
+        <div style="display:flex;justify-content:flex-end;margin-top:16px">
+          <button type="button" id="depFechar" style="background:transparent;border:1px solid var(--border-strong);color:var(--fg-1);border-radius:999px;padding:11px 22px;font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Fechar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    const fim = () => { ov.remove(); document.removeEventListener('keydown', onEsc); };
+    const onEsc = (e) => { if (e.key === 'Escape') fim(); };
+    ov.querySelector('#depFechar').addEventListener('click', fim);
+    ov.addEventListener('click', (e) => { if (e.target === ov) fim(); });
+    document.addEventListener('keydown', onEsc);
+  }
+
+  $('#resultado').querySelectorAll('.btn-dep').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ind = r.indicacoes[Number(btn.dataset.idx)];
+      if (ind) abrirDepoimentos(ind.nome, ind.depoimentos);
+    });
+  });
 
   $('#resultado').querySelectorAll('.btn-disp').forEach(btn => {
     btn.addEventListener('click', async () => {

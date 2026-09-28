@@ -635,13 +635,13 @@ export async function anexarWikiLinks(indicacoes) {
 // No mesmo batch também marca CONTATO DE TESTE (slug começando com "teste") em
 // `ind._teste`, pra o resultado filtrar (contato de teste não pode vazar pro cliente).
 export async function anexarDocStatus(indicacoes) {
-  for (const ind of (indicacoes || [])) { ind.docDisponivel = false; ind._teste = false; ind.nps = null; }
+  for (const ind of (indicacoes || [])) { ind.docDisponivel = false; ind._teste = false; ind.nps = null; ind.depoimentos = []; }
   const ids = [...new Set((indicacoes || []).map(i => String(i.id_contato || '').trim()).filter(x => /^\d+$/.test(x)))];
   if (!ids.length) return indicacoes;
   const byId = {};
   try {
     const r = await hs('/crm/v3/objects/contacts/batch/read', 'POST', {
-      properties: ['palestrante_documentacao_disponivel', 'slug', 'palestrante_nps'],
+      properties: ['palestrante_documentacao_disponivel', 'slug', 'palestrante_nps', 'palestrante_depoimentos'],
       inputs: ids.map(id => ({ id })),
     });
     for (const c of (r.results || [])) byId[c.id] = c.properties || {};
@@ -653,6 +653,25 @@ export async function anexarDocStatus(indicacoes) {
     ind._teste = /^teste[-_ ]/i.test(String(p.slug || '').trim());
     const nps = String(p.palestrante_nps == null ? '' : p.palestrante_nps).trim();
     ind.nps = nps !== '' ? nps : null;
+    // Até 5 depoimentos, gravados pelo workflow "Roster NPS" do n8n. Vêm por
+    // aqui, e não pelo Redis, porque o Redis da LP é outro: a chave do arquivo
+    // central (pcur:pal:*) não existe nele. O HubSpot é o que os dois lados veem.
+    ind.depoimentos = [];
+    try {
+      const lista = JSON.parse(p.palestrante_depoimentos || '[]');
+      if (Array.isArray(lista)) {
+        ind.depoimentos = lista
+          .filter((x) => x && String(x.texto || '').trim())
+          .map((x) => ({
+            texto: String(x.texto).trim(),
+            autor: x.autor || null,
+            cargo: x.cargo || null,
+            empresa: x.empresa || null,
+            origem: x.origem === 'contratante' ? 'contratante' : 'plateia',
+            data: x.data || null,
+          }));
+      }
+    } catch (e) { /* campo com lixo: segue sem depoimento, não derruba o card */ }
   }
   return indicacoes;
 }
