@@ -157,12 +157,11 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .ind__nps-val{color:#fff;font-weight:800;font-size:14px}
 .ind__dep-btn{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:var(--t-caption);color:#37d67a;background:transparent;border:1px solid #37d67a33;border-radius:var(--r-pill);padding:5px 12px;cursor:pointer;white-space:nowrap}
 .ind__dep-btn:hover{background:rgba(55,214,122,.10);border-color:#37d67a66}
-.dep-lista{list-style:none;margin:0;padding:0}
-.dep-item{padding:16px 0;border-top:1px solid var(--border-strong)}
-.dep-item:first-child{border-top:none;padding-top:4px}
-.dep-txt{color:var(--fg-1);font-size:15px;line-height:1.55;margin:0}
-.dep-meta{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--fg-3);margin-top:8px}
-.dep-tag{color:#37d67a;font-weight:700}
+/* O pop-up de depoimentos NÃO tem classe: ele nasce no <body>, fora da raiz
+   #psa-auto-curadoria, e o build do embed escopa todo o CSS dentro dela. Regra
+   de classe ali dentro é letra morta (marcador de lista voltando, fonte caindo
+   pra serifa). Por isso ele é todo inline, igual o modal de data. As variáveis
+   CSS funcionam, essas são globais. */
 .ind__dados{display:flex;flex-wrap:wrap;gap:var(--s-5);font-family:var(--font-mono);font-size:var(--t-caption);color:var(--fg-3);margin-top:14px}
 .borrado{filter:blur(6px);user-select:none;pointer-events:none}
 .ind__lacre{display:flex;align-items:center;gap:10px;font-size:var(--t-caption);color:var(--fg-3);margin-top:var(--s-4);font-family:var(--font-mono)}
@@ -2043,7 +2042,10 @@ function wireNomes(d) {
   function abrirDepoimentos(nome, lista) {
     const ov = document.createElement('div');
     ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#000000b3;backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px';
-    const itens = (lista || []).map(dp => {
+    // A fonte precisa vir explícita: fora da raiz do embed o texto herda a do
+    // HubSpot, que é serifada, e o depoimento sai com cara de outro site.
+    const SANS = 'var(--font-body, -apple-system, BlinkMacSystemFont, Inter, Arial, sans-serif)';
+    const itens = (lista || []).map((dp, i) => {
       const meta = [
         dp.autor,
         dp.cargo,
@@ -2051,17 +2053,18 @@ function wireNomes(d) {
         dp.data && /^\d{4}-\d{2}-\d{2}$/.test(dp.data) ? dp.data.split('-').reverse().join('/') : null,
       ].filter(Boolean).map(esc).join(' · ');
       const tag = dp.origem === 'contratante' ? 'Contratante' : 'Plateia';
-      return `<li class="dep-item">
-        <p class="dep-txt">&ldquo;${esc(dp.texto)}&rdquo;</p>
-        <div class="dep-meta"><span class="dep-tag">${tag}</span>${meta ? ' · ' + meta : ''}</div>
+      const borda = i === 0 ? '' : 'border-top:1px solid var(--border-strong);';
+      return `<li style="list-style:none;margin:0;${borda}padding:${i === 0 ? '4px' : '16px'} 0 16px">
+        <p style="margin:0;font-family:${SANS};font-size:15px;line-height:1.55;color:var(--fg-1)">&ldquo;${esc(dp.texto)}&rdquo;</p>
+        <div style="margin-top:8px;font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--fg-3)"><span style="color:#37d67a;font-weight:700">${tag}</span>${meta ? ' · ' + meta : ''}</div>
       </li>`;
     }).join('');
     ov.innerHTML = `
       <div role="dialog" aria-modal="true" aria-label="Depoimentos" style="background:#0e1420;border:1px solid var(--border-strong);border-radius:16px;padding:24px;max-width:640px;width:100%;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 24px 60px #0009">
         <div style="font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#37d67a">Depoimentos</div>
         <h3 style="font-family:var(--font-display-wide);text-transform:uppercase;font-size:22px;line-height:1;margin:8px 0 6px;color:var(--fg-1)">${esc(nome || '')}</h3>
-        <p style="color:var(--fg-2);font-size:13px;line-height:1.5;margin:0 0 14px">Quem assistiu e quem contratou, do mais recente para o mais antigo.</p>
-        <ul class="dep-lista" style="overflow-y:auto;padding-right:4px">${itens}</ul>
+        <p style="margin:0 0 14px;font-family:${SANS};font-size:13px;line-height:1.5;color:var(--fg-2)">Quem assistiu e quem contratou, do mais recente para o mais antigo.</p>
+        <ul style="list-style:none;margin:0;padding:0 4px 0 0;overflow-y:auto">${itens}</ul>
         <div style="display:flex;justify-content:flex-end;margin-top:16px">
           <button type="button" id="depFechar" style="background:transparent;border:1px solid var(--border-strong);color:var(--fg-1);border-radius:999px;padding:11px 22px;font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Fechar</button>
         </div>
