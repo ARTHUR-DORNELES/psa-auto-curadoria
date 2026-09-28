@@ -140,7 +140,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .ind__rede{display:inline-flex;transition:filter .15s,transform .15s}
 .ind__rede:hover{filter:brightness(1.1);transform:translateY(-1px)}
 .ind__rede svg{width:.72em;height:.72em;display:block}
-.ind__doc{margin:8px 0 12px}
+.ind__doc{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:8px 0 12px}
 .ind__doc-pill{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;line-height:1;padding:5px 11px;border-radius:999px;border:1px solid}
 .ind__doc-pill svg{flex:0 0 auto}
 .ind__doc-pill--ok{color:#37d67a;background:rgba(55,214,122,.12);border-color:rgba(55,214,122,.4)}
@@ -151,12 +151,11 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .ind__atencao{font-size:var(--t-caption);color:var(--fg-3);border-top:1px solid var(--border-subtle);padding-top:14px}
 .ind__meta{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:12px;color:var(--fg-2);font-size:14px}
 .ind__faixa{font-family:var(--font-mono);font-size:var(--t-caption);color:var(--psa-orange);border:1px solid #f8500055;border-radius:var(--r-pill);padding:4px 12px;white-space:nowrap}
-.ind__prova{margin:0 0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:7px}
-.ind__nps-aud{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:var(--t-caption);border:1px solid #37d67a55;background:rgba(55,214,122,.10);border-radius:var(--r-pill);padding:5px 12px}
+.ind__nps-aud{display:inline-flex;align-items:center;gap:8px;margin:0 0 0 auto;font-family:var(--font-mono);font-size:var(--t-caption);border:1px solid #37d67a55;background:rgba(55,214,122,.10);border-radius:var(--r-pill);padding:5px 12px}
 .ind__nps-lbl{color:#37d67a;font-weight:700;letter-spacing:.3px}
 .ind__nps-val{color:#fff;font-weight:800;font-size:14px}
-.ind__dep-btn{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:var(--t-caption);color:#37d67a;background:transparent;border:1px solid #37d67a33;border-radius:var(--r-pill);padding:5px 12px;cursor:pointer;white-space:nowrap}
-.ind__dep-btn:hover{background:rgba(55,214,122,.10);border-color:#37d67a66}
+.ind__dep-btn{display:inline-flex;align-items:center;gap:8px;margin:0 0 0 auto;font-family:var(--font-mono);font-size:var(--t-caption);font-weight:700;letter-spacing:.3px;color:var(--psa-orange);background:#f850001a;border:1px solid #f8500055;border-radius:var(--r-pill);padding:5px 12px;cursor:pointer;white-space:nowrap}
+.ind__dep-btn:hover{background:#f8500029;border-color:#f8500099}
 .ind__dados{display:flex;flex-wrap:wrap;gap:var(--s-5);font-family:var(--font-mono);font-size:var(--t-caption);color:var(--fg-3);margin-top:14px}
 .borrado{filter:blur(6px);user-select:none;pointer-events:none}
 .ind__lacre{display:flex;align-items:center;gap:10px;font-size:var(--t-caption);color:var(--fg-3);margin-top:var(--s-4);font-family:var(--font-mono)}
@@ -1928,14 +1927,11 @@ function htmlNomes(d) {
             <span class="ind__rank">INDICAÇÃO 0${n + 1}</span>
             <span class="ind__nome">${esc(ind.nome)}</span>
             ${redesIcones(ind.redes, ind.wiki)}
-            ${(ind.nps != null && String(ind.nps) !== '') || (ind.depoimentos || []).length ? `<div class="ind__prova">
-              ${ind.nps != null && String(ind.nps) !== '' ? `<div class="ind__nps-aud"><span class="ind__nps-lbl">NPS Auditado</span><span class="ind__nps-val">${esc(ind.nps)}</span></div>` : ''}
-              ${(ind.depoimentos || []).length ? `<button type="button" class="ind__dep-btn btn-dep" data-idx="${n}">Ver ${ind.depoimentos.length} depoimento${ind.depoimentos.length > 1 ? 's' : ''}</button>` : ''}
-            </div>` : ''}
+            ${ind.nps != null && String(ind.nps) !== '' ? `<div class="ind__nps-aud"><span class="ind__nps-lbl">NPS Auditado</span><span class="ind__nps-val">${esc(ind.nps)}</span></div>` : ''}
                       </div>
           <div class="ind__doc"><span class="ind__doc-pill ind__doc-pill--${ind.docDisponivel ? 'ok' : 'no'}">${ind.docDisponivel
             ? '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.2 8.6l3 3 6.6-7"/></svg>Documentação disponível'
-            : '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>Documentação indisponível'}</span></div>
+            : '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>Documentação indisponível'}</span>${(ind.depoimentos || []).length ? `<button type="button" class="ind__dep-btn btn-dep" data-idx="${n}">Ver ${ind.depoimentos.length} depoimento${ind.depoimentos.length > 1 ? 's' : ''}</button>` : ''}</div>
           <div class="ind__meta">
             ${ind.perfil ? `<strong>${esc(ind.perfil)}</strong>` : ''}
             ${ind.valorVenda
