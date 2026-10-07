@@ -160,12 +160,32 @@ export default async function handler(req, res) {
       for (const pal of palestrantes) {
         const cid = String(pal.contactId || '').trim();
         if (!/^\d+$/.test(cid)) { falhas.push(pal.nome || cid); continue; }
-        try {
-          await hs(`/crm/v3/objects/contacts/${cid}`, 'PATCH', { properties: { ...(pal.props || {}), pesq_disparar: 'true' } });
-          disparados.push(pal.nome || cid);
-        } catch (e) { console.error('disparo (aprovação) falhou p/', cid, e.message); falhas.push(pal.nome || cid); }
+        const props = { ...(pal.props || {}), pesq_disparar: 'true' };
+        // tenta até 3x: o portal estoura cota/limite de API com frequência (falha transitória)
+        let ok = false, ultimoErro = '';
+        for (let tent = 0; tent < 3 && !ok; tent++) {
+          try {
+            await hs(`/crm/v3/objects/contacts/${cid}`, 'PATCH', { properties: props });
+            ok = true;
+          } catch (e) {
+            ultimoErro = (e && e.message) || String(e);
+            if (tent < 2) await new Promise((r) => setTimeout(r, 600 * (tent + 1)));
+          }
+        }
+        if (ok) disparados.push(pal.nome || cid);
+        else { console.error('disparo (aprovação) falhou p/', cid, ultimoErro); falhas.push(pal.nome || cid); }
       }
-      console.log('aprovacoes: APROVADO', dealId, 'por', aprovador, '-> disparados', disparados.length);
+      // SÓ marca aprovado se algo foi realmente disparado; senão mantém pendente p/ tentar de novo
+      if (!disparados.length) {
+        console.error('aprovacoes: NADA disparado p/', dealId, '-> mantém pendente. falhas:', falhas.join(', '));
+        return res.status(502).json({
+          ok: false,
+          status: 'pendente',
+          erro: 'Não consegui disparar agora (possível limite de API do HubSpot). O pedido continua pendente, tente aprovar de novo em instantes.',
+          falhas,
+        });
+      }
+      console.log('aprovacoes: APROVADO', dealId, 'por', aprovador, '-> disparados', disparados.length, 'falhas', falhas.length);
       await hs(`/crm/v3/objects/deals/${dealId}`, 'PATCH', { properties: { [STATUS]: 'aprovado' } });
       return res.status(200).json({ ok: true, status: 'aprovado', disparados, falhas, por: aprovador });
     } catch (e) {
