@@ -173,15 +173,25 @@ export default async function handler(req, res) {
           }
         }
         if (ok) disparados.push(pal.nome || cid);
-        else { console.error('disparo (aprovação) falhou p/', cid, ultimoErro); falhas.push(pal.nome || cid); }
+        else {
+          console.error('disparo (aprovação) falhou p/', cid, ultimoErro);
+          // extrai um motivo legível (ex.: telefone inválido) do erro do HubSpot
+          const motivo = /telefone|phone|não é válido|not a valid|country code/i.test(ultimoErro)
+            ? 'telefone inválido'
+            : (ultimoErro || 'falha').slice(0, 120);
+          falhas.push(`${pal.nome || cid} (${motivo})`);
+        }
       }
-      // SÓ marca aprovado se algo foi realmente disparado; senão mantém pendente p/ tentar de novo
+      // SÓ marca aprovado se algo foi realmente disparado; senão mantém pendente p/ corrigir e tentar de novo
       if (!disparados.length) {
         console.error('aprovacoes: NADA disparado p/', dealId, '-> mantém pendente. falhas:', falhas.join(', '));
+        const soTelefone = falhas.length && falhas.every((f) => /telefone inválido/.test(f));
         return res.status(502).json({
           ok: false,
           status: 'pendente',
-          erro: 'Não consegui disparar agora (possível limite de API do HubSpot). O pedido continua pendente, tente aprovar de novo em instantes.',
+          erro: soTelefone
+            ? `Não disparou: telefone inválido (${falhas.join(', ')}). Corrija o número do palestrante e aprove de novo.`
+            : `Não consegui disparar agora (${falhas.join(', ')}). O pedido continua pendente, tente de novo em instantes.`,
           falhas,
         });
       }
