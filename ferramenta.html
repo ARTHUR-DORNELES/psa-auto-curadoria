@@ -369,6 +369,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
     <div id="boxSenha" style="display:none">
       <p class="sub" id="senhaSub">Crie sua senha para entrar.</p>
       <div class="campos">
+        <div><label for="novoCelular">Celular com DDD <span>*</span></label><input id="novoCelular" type="tel" inputmode="tel" autocomplete="tel" placeholder="+55 41 99999-9999"></div>
         <div><label for="novaSenha">Nova senha <span>*</span></label><input id="novaSenha" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres, com letras e números"></div>
         <div><label for="novaSenha2">Repita a senha <span>*</span></label><input id="novaSenha2" type="password" autocomplete="new-password"></div>
       </div>
@@ -385,6 +386,14 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
         <button type="button" data-aba="usuarios" id="btnUsuarios">Usuários <span id="abaUsuQtd"></span></button>
       </div>
       <p class="erro" id="eLogado"></p>
+
+      <div id="boxMeuCelular" style="display:none;margin-top:var(--s-5);border:1px solid var(--psa-orange);border-radius:var(--r-md);padding:18px 20px;background:#ff6b0010">
+        <strong style="display:block;font-size:17px;margin-bottom:4px">Falta seu celular</strong>
+        <p class="sub" style="margin:0 0 var(--s-4)">Precisamos do seu celular para falar com você sobre as curadorias. Leva 5 segundos.</p>
+        <div class="campos"><div><label for="meuCelular">Celular com DDD <span>*</span></label><input id="meuCelular" type="tel" inputmode="tel" autocomplete="tel" placeholder="+55 41 99999-9999"></div></div>
+        <p class="erro" id="eMeuCelular"></p>
+        <div class="acoes"><button class="btn btn--primary" id="btnMeuCelular">Salvar celular →</button></div>
+      </div>
 
       <div id="escolha">
         <div class="acoes" style="margin-top:var(--s-5)">
@@ -405,6 +414,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
           <div class="campos" style="margin-top:var(--s-4)">
             <div><label for="usuNome">Nome <span>*</span></label><input id="usuNome" autocomplete="off"></div>
             <div><label for="usuEmail">E-mail <span>*</span></label><input id="usuEmail" type="email" autocomplete="off"></div>
+            <div><label for="usuCelular">Celular com DDD</label><input id="usuCelular" type="tel" inputmode="tel" autocomplete="off" placeholder="+55 41 99999-9999 (ou a pessoa informa no 1º acesso)"></div>
             <div><label for="usuPapel">Perfil</label><select id="usuPapel"><option value="usuario">Usuário: vê só as curadorias dele</option><option value="admin">Administrador: vê todas e gerencia usuários</option></select></div>
           </div>
           <p class="erro" id="eUsu"></p>
@@ -767,6 +777,14 @@ $('#documento').addEventListener('input', () => {
 });
 comEnter('#documento', '#btnPrimeiro');
 
+// celular: +55 DDD 9XXXX-XXXX (o servidor valida de novo e grava em +55DDDnúmero)
+function digCelular(v) { let d = String(v || '').replace(/\D/g, ''); if (d.length === 13 && d.startsWith('55')) d = d.slice(2); return d; }
+function celularOk(v) { return /^[1-9][1-9]9\d{8}$/.test(digCelular(v)); }
+function fmtCelular(v) {
+  const d = digCelular(v);
+  return d.length === 11 ? `+55 (${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}` : String(v || '');
+}
+
 // criar senha a partir do link do e-mail (?acesso=<token>)
 let tokenLink = '';
 async function abrirLinkDeAcesso(t) {
@@ -781,15 +799,17 @@ async function abrirLinkDeAcesso(t) {
     $('#gateTitulo').innerHTML = j.tipo === 'senha' ? 'Nova senha.' : 'Bem-vindo<br>à Auto Curadoria.';
     $('#senhaSub').textContent = `${nome ? nome + ', c' : 'C'}rie sua senha para entrar com ${j.email}.`;
     $('#loginEmail').value = j.email;
+    $('#novoCelular').value = j.celular ? fmtCelular(j.celular) : '+55 ';
     $('#btnSalvarSenha').disabled = false;
   } catch (e) { $('#eSenha').textContent = 'Não conseguimos abrir o link agora. Recarregue a página.'; }
 }
 $('#btnSalvarSenha').addEventListener('click', async () => {
-  const s1 = $('#novaSenha').value, s2 = $('#novaSenha2').value;
+  const s1 = $('#novaSenha').value, s2 = $('#novaSenha2').value, cel = $('#novoCelular').value.trim();
+  if (!celularOk(cel)) { $('#eSenha').textContent = 'Informe seu celular com DDD, ex.: +55 41 99999-9999.'; return; }
   if (s1 !== s2) { $('#eSenha').textContent = 'As senhas não são iguais.'; return; }
   $('#btnSalvarSenha').disabled = true;
   try {
-    const j = await postJSON('/api/conta', { acao: 'definir-senha', token: tokenLink, senha: s1 });
+    const j = await postJSON('/api/conta', { acao: 'definir-senha', token: tokenLink, senha: s1, celular: cel });
     if (!j.ok) { $('#eSenha').textContent = j.erro; $('#btnSalvarSenha').disabled = false; return; }
     guardarSessao(j.sessao);
     // tira o token da barra de endereço (não fica no histórico nem é reusado)
@@ -836,8 +856,12 @@ async function abrirPainel() {
   $('#contaNome').title = u.email || '';
   $('#contaPapel').textContent = u.papel === 'admin' ? 'Administrador' : 'Usuário';
   $('#contaHeader').style.display = '';
+  // sem celular: pede antes de tudo (abas e lista ficam escondidas até salvar)
+  const semCel = !u.celular;
+  $('#boxMeuCelular').style.display = semCel ? '' : 'none';
+  if (semCel) { $('#meuCelular').value = '+55 '; $('#escolha').style.display = 'none'; }
   // abas só para admin (usuário comum só tem as curadorias dele)
-  $('#abasConta').style.display = u.papel === 'admin' ? '' : 'none';
+  $('#abasConta').style.display = u.papel === 'admin' && !semCel ? '' : 'none';
   if (u.papel === 'admin') {
     postJSON('/api/conta', { acao: 'usuarios', op: 'listar', sessao: sessaoAtual })
       .then((r) => { if (r && r.ok) $('#abaUsuQtd').textContent = `${r.usados}/${r.limite}`; }).catch(() => {});
@@ -982,7 +1006,7 @@ async function carregarUsuarios() {
     row.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;border:1px solid var(--border);border-radius:var(--r-md);padding:12px 16px';
     const pend = u.status !== 'ativo';
     row.innerHTML = `<div style="min-width:0"><div style="font-weight:600">${escHTML(u.nome || u.email)}${eu ? ' <span style="opacity:.6;font-weight:400">(você)</span>' : ''}</div>
-      <div style="font-size:12px;color:var(--fg-3)">${escHTML(u.email)} · ${PAPEL[u.papel] || u.papel}${pend ? ' · <span style="color:var(--psa-yellow)">convite pendente</span>' : ''}</div>
+      <div style="font-size:12px;color:var(--fg-3)">${escHTML(u.email)} · ${u.celular ? escHTML(fmtCelular(u.celular)) : '<span style="color:var(--psa-yellow)">sem celular</span>'} · ${PAPEL[u.papel] || u.papel}${pend ? ' · <span style="color:var(--psa-yellow)">convite pendente</span>' : ''}</div>
       <div style="font-size:12px;color:var(--fg-2);margin-top:2px">${quandoAcessou(u.ultimoAcesso)} · <strong style="color:var(--fg-1)">${u.curadorias || 0}</strong> ${u.curadorias === 1 ? 'curadoria criada' : 'curadorias criadas'}</div></div>`;
     const acoes = document.createElement('div');
     acoes.style.cssText = 'display:flex;gap:14px;flex-wrap:wrap';
@@ -998,6 +1022,12 @@ async function carregarUsuarios() {
       if (!r.ok) { alert(r.erro || 'Não foi possível.'); return null; }
       return r;
     };
+    link(u.celular ? 'Editar celular' : 'Informar celular', 'var(--fg-2)', async () => {
+      const v = prompt(`Celular de ${u.nome || u.email} (com DDD):`, u.celular ? fmtCelular(u.celular) : '+55 ');
+      if (v === null) return;
+      if (!celularOk(v)) { alert('Celular inválido. Use +55, DDD e número, ex.: +55 41 99999-9999.'); return; }
+      if (await op({ op: 'celular', celular: v })) carregarUsuarios();
+    });
     if (pend) link('Reenviar convite', 'var(--fg-2)', async () => { const r = await op({ op: 'reenviar' }); if (r) mostrarLinkConvite(u.email, r); });
     if (!eu) link(u.papel === 'admin' ? 'Tornar usuário' : 'Tornar administrador', 'var(--fg-2)', async () => {
       if (await op({ op: 'papel', papel: u.papel === 'admin' ? 'usuario' : 'admin' })) carregarUsuarios();
@@ -1022,6 +1052,21 @@ function mostrarLinkConvite(email, r) {
     btn.textContent = 'Copiado';
   });
 }
+$('#btnMeuCelular').addEventListener('click', async () => {
+  const v = $('#meuCelular').value.trim();
+  $('#eMeuCelular').textContent = '';
+  if (!celularOk(v)) { $('#eMeuCelular').textContent = 'Celular inválido. Use +55, DDD e número, ex.: +55 41 99999-9999.'; return; }
+  $('#btnMeuCelular').disabled = true;
+  try {
+    const r = await postJSON('/api/conta', { acao: 'meu-celular', sessao: sessaoAtual, celular: v });
+    if (!r.ok && r.motivo === 'sessao') return sessaoCaiu(r.erro);
+    if (!r.ok) { $('#eMeuCelular').textContent = r.erro || 'Não foi possível salvar.'; return; }
+    await abrirPainel();
+  } catch (e) { $('#eMeuCelular').textContent = 'Não conseguimos salvar agora. Tente de novo.'; }
+  finally { $('#btnMeuCelular').disabled = false; }
+});
+comEnter('#meuCelular', '#btnMeuCelular');
+
 // abas do painel (admin): Curadorias | Usuários
 function abaConta(aba) {
   document.querySelectorAll('#abasConta button').forEach((b) => b.classList.toggle('on', b.dataset.aba === aba));
@@ -1034,13 +1079,15 @@ document.querySelectorAll('#abasConta button').forEach((b) => b.addEventListener
 }));
 $('#btnConvidar').addEventListener('click', async () => {
   const nome = $('#usuNome').value.trim(), email = $('#usuEmail').value.trim(), papel = $('#usuPapel').value;
+  const celular = digCelular($('#usuCelular').value) ? $('#usuCelular').value.trim() : '';
   $('#eUsu').textContent = '';
   if (!nome || !email) { $('#eUsu').textContent = 'Informe nome e e-mail.'; return; }
+  if (celular && !celularOk(celular)) { $('#eUsu').textContent = 'Celular inválido. Use +55, DDD e número, ex.: +55 41 99999-9999.'; return; }
   $('#btnConvidar').disabled = true;
   try {
-    const r = await postJSON('/api/conta', { acao: 'usuarios', op: 'convidar', sessao: sessaoAtual, nome, email, papel });
+    const r = await postJSON('/api/conta', { acao: 'usuarios', op: 'convidar', sessao: sessaoAtual, nome, email, celular, papel });
     if (!r.ok) { $('#eUsu').textContent = r.erro || 'Não foi possível convidar.'; $('#btnConvidar').disabled = false; return; }
-    $('#usuNome').value = ''; $('#usuEmail').value = ''; $('#usuPapel').value = 'usuario';
+    $('#usuNome').value = ''; $('#usuEmail').value = ''; $('#usuCelular').value = ''; $('#usuPapel').value = 'usuario';
     await carregarUsuarios();
     mostrarLinkConvite(email, r);
   } catch (e) { $('#eUsu').textContent = 'Não conseguimos convidar agora.'; $('#btnConvidar').disabled = false; }

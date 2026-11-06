@@ -36,6 +36,17 @@ const kLink = (t) => `ac:link:${t}`;
 
 export const normEmail = (e) => String(e || '').trim().toLowerCase();
 export const emailValido = (e) => /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(normEmail(e));
+
+// Celular brasileiro em E.164 (+55 + DDD + 9 + 8 dígitos). Aceita com ou sem +55,
+// com espaços, parênteses e traço. Devolve '' se não for um celular válido.
+export function normCelular(bruto) {
+  let d = String(bruto || '').replace(/\D/g, '');
+  if (d.length === 13 && d.startsWith('55')) d = d.slice(2);
+  if (d.length !== 11) return '';
+  if (!/^[1-9][1-9]9\d{8}$/.test(d)) return '';
+  return `+55${d}`;
+}
+export const ERRO_CELULAR = 'Celular inválido. Use +55, DDD e número, ex.: +55 41 99999-9999.';
 const token = () => crypto.randomBytes(24).toString('base64url');
 
 // ── senha ───────────────────────────────────────────────────────────────────
@@ -73,7 +84,7 @@ async function gravarUsuario(doc, u) {
   await redis().hset(kUsuarios(doc), u.email, JSON.stringify(u));
   await redis().set(kUsuario(u.email), doc);
 }
-export const publico = (u) => ({ email: u.email, nome: u.nome || '', papel: u.papel, status: u.status, criadoEm: u.criadoEm || null, ultimoAcesso: u.ultimoAcesso || null });
+export const publico = (u) => ({ email: u.email, nome: u.nome || '', celular: u.celular || '', papel: u.papel, status: u.status, criadoEm: u.criadoEm || null, ultimoAcesso: u.ultimoAcesso || null });
 
 // "Último acesso": gravado no login, ao criar a senha e a cada abertura do painel.
 // Só regrava se passou 10 min (evita escrever no Redis a cada clique). Nunca lança.
@@ -105,7 +116,7 @@ async function criarLink(doc, email, tipo) {
 // O e-mail sai do HubSpot: a ferramenta grava o link numa propriedade do CONTATO e um
 // workflow (gatilho: auto_curadoria_link mudou, reinscrição ligada) manda o e-mail com o
 // token {{contact.auto_curadoria_link}}. Cria o contato se não existir. Nunca lança.
-export async function enviarLinkPorEmail({ email, nome, url, tipo, convidadoPor }) {
+export async function enviarLinkPorEmail({ email, nome, url, tipo, convidadoPor, celular }) {
   try {
     const busca = await hs('/crm/v3/objects/contacts/search', 'POST', {
       filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: email }] }],
@@ -120,13 +131,37 @@ export async function enviarLinkPorEmail({ email, nome, url, tipo, convidadoPor 
       contatoId = c.id;
     }
     await hs(`/crm/v3/objects/contacts/${contatoId}`, 'PATCH', {
-      properties: { [PROP_LINK]: url, [PROP_TIPO]: tipo, [PROP_CONVIDOU]: convidadoPor || '' },
+      properties: { [PROP_LINK]: url, [PROP_TIPO]: tipo, [PROP_CONVIDOU]: convidadoPor || '', ...(celular ? { mobilephone: celular } : {}) },
     });
     return { enviado: true, contatoId };
   } catch (e) {
     console.error('ENVIO_LINK_FALHOU', email, e.message.slice(0, 300));
     return { enviado: false };
   }
+}
+
+// Grava o celular no contato do HubSpot (campo "Celular"). Nunca lança.
+async function celularNoContato(email, celular) {
+  try {
+    const busca = await hs('/crm/v3/objects/contacts/search', 'POST', {
+      filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: email }] }],
+      properties: ['email'], limit: 1,
+    });
+    const id = busca.results?.[0]?.id;
+    if (id) await hs(`/crm/v3/objects/contacts/${id}`, 'PATCH', { properties: { mobilephone: celular } });
+  } catch (e) { console.error('CELULAR_CONTATO_FALHOU', email, e.message.slice(0, 200)); }
+}
+
+// O próprio usuário logado informa o celular (quem entrou antes do campo existir).
+export async function salvarMeuCelular(sess, bruto) {
+  const celular = normCelular(bruto);
+  if (!celular) return { ok: false, erro: ERRO_CELULAR };
+  const u = await lerUsuario(sess.doc, sess.email);
+  if (!u) return { ok: false, motivo: 'sessao', erro: 'Sua sessão expirou. Entre de novo.' };
+  u.celular = celular;
+  await gravarUsuario(sess.doc, u);
+  await celularNoContato(u.email, celular);
+  return { ok: true, usuario: publico(u) };
 }
 
 // ── sessão ──────────────────────────────────────────────────────────────────
@@ -145,7 +180,7 @@ export async function lerSessao(t) {
   let s; try { s = JSON.parse(v); } catch (e) { return null; }
   const u = await lerUsuario(s.doc, s.email);
   if (!u || u.status !== 'ativo') return null;
-  return { doc: s.doc, email: u.email, nome: u.nome || '', papel: u.papel };
+  return { doc: s.doc, email: u.email, nome: u.nome || '', celular: u.celular || '', papel: u.papel };
 }
 export const encerrarSessao = (t) => (t ? redis().del(kSessao(t)) : 0);
 
@@ -184,17 +219,21 @@ export async function lerLink(t) {
   if (!t || t.length > 100) return null;
   const v = await redis().get(kLink(t));
   if (!v) return null;
-  try { const l = JSON.parse(v); const u = await lerUsuario(l.doc, l.email); return u ? { ...l, nome: u.nome || '' } : null; }
+  try { const l = JSON.parse(v); const u = await lerUsuario(l.doc, l.email); return u ? { ...l, nome: u.nome || '', celular: u.celular || '' } : null; }
   catch (e) { return null; }
 }
 
-export async function definirSenha(t, senha) {
+export async function definirSenha(t, senha, celularBruto) {
   const l = await lerLink(t);
   if (!l) return { ok: false, erro: 'Este link expirou ou já foi usado. Peça um novo.' };
+  const celular = celularBruto ? normCelular(celularBruto) : '';
+  if (celularBruto && !celular) return { ok: false, erro: ERRO_CELULAR };
   const fraca = senhaFraca(senha);
   if (fraca) return { ok: false, erro: fraca };
   const u = await lerUsuario(l.doc, l.email);
   if (!u) return { ok: false, erro: 'Este acesso foi removido pelo administrador.' };
+  if (!celular && !u.celular) return { ok: false, erro: 'Informe seu celular com DDD.' };
+  if (celular && celular !== u.celular) { u.celular = celular; await celularNoContato(u.email, celular); }
   u.senha = hashSenha(senha);
   u.status = 'ativo';
   u.ativadoEm = u.ativadoEm || new Date().toISOString();
@@ -306,15 +345,17 @@ export async function gerenciar(sess, acao, b = {}) {
     if (!emailValido(email)) return { ok: false, erro: 'E-mail inválido.' };
     const nome = String(b.nome || '').trim().slice(0, 120);
     if (!nome) return { ok: false, erro: 'Informe o nome.' };
+    const celular = b.celular ? normCelular(b.celular) : '';
+    if (b.celular && !celular) return { ok: false, erro: ERRO_CELULAR };
     const outro = await redis().get(kUsuario(email));
     if (outro && outro !== doc) return { ok: false, erro: 'Este e-mail já tem acesso por outra empresa.' };
     if (await lerUsuario(doc, email)) return { ok: false, erro: 'Este e-mail já está na lista.' };
     const [usuarios, { limite }] = await Promise.all([listarUsuarios(doc), limiteUsuarios(doc)]);
     if (usuarios.length >= limite) return { ok: false, erro: `Sua empresa já usa os ${limite} acessos contratados. Remova alguém ou fale com a PSA para ampliar.` };
-    const u = { email, nome, papel, status: 'pendente', criadoEm: new Date().toISOString(), convidadoPor: sess.email };
+    const u = { email, nome, ...(celular ? { celular } : {}), papel, status: 'pendente', criadoEm: new Date().toISOString(), convidadoPor: sess.email };
     await gravarUsuario(doc, u);
     const l = await criarLink(doc, email, 'convite');
-    const env = await enviarLinkPorEmail({ email, nome, url: l.url, tipo: 'convite', convidadoPor: sess.nome || sess.email });
+    const env = await enviarLinkPorEmail({ email, nome, url: l.url, tipo: 'convite', convidadoPor: sess.nome || sess.email, celular });
     return { ok: true, usuario: publico(u), enviado: env.enviado, link: l.url };
   }
 
@@ -327,6 +368,14 @@ export async function gerenciar(sess, acao, b = {}) {
     const l = await criarLink(doc, email, tipo);
     const env = await enviarLinkPorEmail({ email, nome: alvo.nome, url: l.url, tipo: tipo === 'senha' ? 'redefinir_senha' : 'convite', convidadoPor: sess.nome || sess.email });
     return { ok: true, enviado: env.enviado, link: l.url };
+  }
+  if (acao === 'celular') {
+    const celular = normCelular(b.celular);
+    if (!celular) return { ok: false, erro: ERRO_CELULAR };
+    alvo.celular = celular;
+    await gravarUsuario(doc, alvo);
+    await celularNoContato(alvo.email, celular);
+    return { ok: true, usuario: publico(alvo) };
   }
   if (acao === 'papel') {
     if (alvo.papel === 'admin' && papel !== 'admin' && !admins) return { ok: false, erro: 'A empresa precisa ter pelo menos um administrador.' };
