@@ -62,11 +62,24 @@ export async function avisarRespostas(dealId) {
   const total = pedidos.length;
   const respondidas = pedidos.filter((n) => respostas[idPorNome[n]]).length;
   const evento = reg.briefing?.empresaPalestra || reg.briefing?.empresa || '';
+  // o e-mail apresenta UM palestrante (o primeiro novo); se vierem mais de uma vez, os
+  // outros entram no andamento ("também responderam ...") e todos ficam no resumo.
+  const p = novas[0];
+  const ind = (reg.resultado?.indicacoes || []).find((i) => i.nome === p.nome) || {};
+  const outros = novas.slice(1).map((n) => linha(n.nome, n.r));
+  const andamento = `${respondidas} de ${total} palestrante${total === 1 ? '' : 's'} solicitado${total === 1 ? '' : 's'} já ${respondidas === 1 ? 'respondeu' : 'responderam'}${evento ? ` · ${evento}` : ''}.`;
   await hs(`/crm/v3/objects/contacts/${contatoId}`, 'PATCH', {
     properties: {
+      auto_curadoria_disp_palestrante: p.nome,
+      auto_curadoria_disp_perfil: String(ind.perfil || '').slice(0, 300),
+      auto_curadoria_disp_porque: String((ind.porque || [])[0] || '').slice(0, 600),
+      auto_curadoria_disp_resposta: p.r.disponivel === true ? 'Disponível na data do seu evento'
+        : p.r.disponivel === false ? 'Indisponível na data do seu evento' : 'Respondeu sobre a data do seu evento',
+      auto_curadoria_disp_valor: p.r.disponivel === false ? 'Não se aplica' : (p.r.valor || 'A confirmar com a PSA'),
+      auto_curadoria_disp_obs: p.r.obs || 'Sem observações.',
       auto_curadoria_disp_resumo: novas.map((n) => linha(n.nome, n.r)).join(' · '),
       auto_curadoria_disp_link: `${APP_URL}?id=${id}`,
-      auto_curadoria_disp_status: `${respondidas} de ${total} palestrante${total === 1 ? '' : 's'} já ${respondidas === 1 ? 'respondeu' : 'responderam'}${evento ? ` (${evento})` : ''}`,
+      auto_curadoria_disp_status: outros.length ? `Também responderam: ${outros.join(' · ')}. ${andamento}` : andamento,
       auto_curadoria_disp_aviso: new Date().toISOString(),
     },
   });
