@@ -61,13 +61,12 @@ export async function avisarRespostas(dealId) {
 
   const total = pedidos.length;
   const respondidas = pedidos.filter((n) => respostas[idPorNome[n]]).length;
-  const evento = reg.briefing?.empresaPalestra || reg.briefing?.empresa || '';
   // o e-mail apresenta UM palestrante (o primeiro novo); se vierem mais de uma vez, os
   // outros entram no andamento ("também responderam ...") e todos ficam no resumo.
   const p = novas[0];
   const ind = (reg.resultado?.indicacoes || []).find((i) => i.nome === p.nome) || {};
   const outros = novas.slice(1).map((n) => linha(n.nome, n.r));
-  const andamento = `${respondidas} de ${total} palestrante${total === 1 ? '' : 's'} solicitado${total === 1 ? '' : 's'} já ${respondidas === 1 ? 'respondeu' : 'responderam'}${evento ? ` · ${evento}` : ''}.`;
+  const andamento = `${respondidas} de ${total} palestrante${total === 1 ? '' : 's'} solicitado${total === 1 ? '' : 's'} já ${respondidas === 1 ? 'respondeu' : 'responderam'}.`;
   await hs(`/crm/v3/objects/contacts/${contatoId}`, 'PATCH', {
     properties: {
       auto_curadoria_disp_palestrante: p.nome,
