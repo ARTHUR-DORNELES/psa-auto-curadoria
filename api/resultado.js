@@ -193,7 +193,7 @@ export default async function handler(req, res) {
     // limite de pedidos aguardando resposta (por empresa): a tela avisa antes de pedir
     let limiteDisp = null;
     if (reg.documento) {
-      try { const p = await pedidosDispEmAberto(reg.documento); limiteDisp = { limite: p.limite, emAberto: p.pendentes.length, nomes: p.pendentes.map((x) => x.nome) }; }
+      try { const p = await pedidosDispEmAberto(reg.documento); limiteDisp = { limite: p.limite, emAberto: p.pendentes.length, nomes: p.pendentes.map((x) => (x.evento ? `${x.nome} (${x.evento})` : x.nome)) }; }
       catch (e) { console.error('limite de disponibilidade (GET) falhou:', e.message); }
     }
 
@@ -337,7 +337,7 @@ export default async function handler(req, res) {
         const livres = aberto.limite - aberto.pendentes.length;
         if (validos.length > livres) {
           return res.status(429).json({
-            limiteDisp: true, limite: aberto.limite, emAberto: aberto.pendentes.length, nomes: aberto.pendentes.map((x) => x.nome),
+            limiteDisp: true, limite: aberto.limite, emAberto: aberto.pendentes.length, nomes: aberto.pendentes.map((x) => (x.evento ? `${x.nome} (${x.evento})` : x.nome)),
             erro: `Sua empresa já tem ${aberto.pendentes.length} pedido${aberto.pendentes.length === 1 ? '' : 's'} de disponibilidade aguardando resposta, e o limite é ${aberto.limite}. Assim que um palestrante responder, você pode pedir o próximo.`,
           });
         }

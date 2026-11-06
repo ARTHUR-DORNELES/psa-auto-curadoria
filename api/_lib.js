@@ -1413,7 +1413,11 @@ export async function pedidosDispEmAberto(doc) {
     for (const it of itens) {
       const vencido = Date.now() - Date.parse(it.em) > DIAS_DISP * 864e5;
       if (respostas[idPorNome[it.nome]] || vencido) remover.push(`${id}|${it.nome}`);
-      else out.pendentes.push({ curadoria: id, nome: it.nome, em: it.em });
+      else {
+        const b = reg.briefing || {};
+        const evento = [String(b.empresaPalestra || b.empresa || '').trim(), dataBR(b.data) ? `evento ${dataBR(b.data)}` : ''].filter(Boolean).join(' · ');
+        out.pendentes.push({ curadoria: id, nome: it.nome, em: it.em, evento });
+      }
     }
   }
   if (remover.length) await redis().hdel(k, ...remover);
