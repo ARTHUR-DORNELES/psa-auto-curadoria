@@ -852,7 +852,9 @@ async function abrirPainel() {
   $('#gateTitulo').innerHTML = `Olá, ${escHTML(nome.split(' ')[0] || 'tudo bem')}.`;
   $('#contaAv').textContent = (nome.trim()[0] || '?');
   $('#contaAv').title = u.email || '';
-  $('#contaNome').textContent = nome.split(' ').slice(0, 2).join(' ');
+  // nome curto no header: primeiro nome + último sobrenome (evita "Noelea da")
+  const partes = nome.trim().split(/\s+/);
+  $('#contaNome').textContent = partes.length > 1 ? `${partes[0]} ${partes[partes.length - 1]}` : nome;
   $('#contaNome').title = u.email || '';
   $('#contaPapel').textContent = u.papel === 'admin' ? 'Administrador' : 'Usuário';
   $('#contaHeader').style.display = '';
