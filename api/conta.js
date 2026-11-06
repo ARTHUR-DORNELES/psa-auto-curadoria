@@ -45,7 +45,7 @@ export default async function handler(req, res) {
       default: return res.status(400).json({ ok: false, erro: 'ação inválida' });
     }
   } catch (e) {
-    console.error('CONTA_FALHOU', b.acao, e.message);
+    console.error('CONTA_FALHOU', b.acao, e.message.slice(0, 300));
     return res.status(200).json({ ok: false, erro: 'Não conseguimos processar agora. Tente de novo em instantes.' });
   }
 }

@@ -177,6 +177,10 @@ const SUPORTE_S = 60 * 60 * 4;
 
 export async function empresas(sess) {
   if (!sess || !ehSuper(sess.realEmail || sess.email)) return { ok: false, erro: 'Acesso restrito.' };
+  try { return await _empresas(); }
+  catch (e) { console.error('EMPRESAS_FALHOU', e.message.slice(0, 300)); return { ok: false, erro: `Não conseguimos listar agora (${e.message.slice(0, 140)}).` }; }
+}
+async function _empresas() {
   const docs = [];
   let cursor = '0';
   do {
@@ -184,18 +188,22 @@ export async function empresas(sess) {
     cursor = c;
     for (const k of keys) docs.push(k.split(':')[2]);
   } while (cursor !== '0');
-  const [pagos, orgs] = await Promise.all([
-    negociosPagos().catch(() => []),
-    Promise.all(docs.map(async (doc) => {
-      const [usuarios, { assinatura, limite }, curadorias] = await Promise.all([listarUsuarios(doc), limiteUsuarios(doc), listarCuradorias(doc)]);
-      const ultimo = usuarios.map((u) => u.ultimoAcesso).filter(Boolean).sort().pop() || null;
-      return {
-        doc, dealId: assinatura?.dealId || '', ativa: !!assinatura?.ativa, vence: assinatura?.vence || null,
-        usuarios: usuarios.length, limite, curadorias: curadorias.length, ultimoAcesso: ultimo,
-        admins: usuarios.filter((u) => u.papel === 'admin').map((u) => u.nome || u.email),
-      };
-    })),
-  ]);
+  // uma empresa por vez: a busca do HubSpot tem limite de chamadas por segundo
+  const pagos = await negociosPagos().catch((e) => { console.error('EMPRESAS_PAGOS', e.message.slice(0, 200)); return []; });
+  const orgs = [];
+  for (const doc of docs) {
+    const usuarios = await listarUsuarios(doc).catch(() => []);
+    const ultimo = usuarios.map((u) => u.ultimoAcesso).filter(Boolean).sort().pop() || null;
+    const base = { doc, usuarios: usuarios.length, ultimoAcesso: ultimo, admins: usuarios.filter((u) => u.papel === 'admin').map((u) => u.nome || u.email) };
+    try {
+      const { assinatura, limite } = await limiteUsuarios(doc);
+      const curadorias = await listarCuradorias(doc);
+      orgs.push({ ...base, dealId: assinatura?.dealId || '', ativa: !!assinatura?.ativa, vence: assinatura?.vence || null, limite, curadorias: curadorias.length });
+    } catch (e) {
+      console.error('EMPRESAS_ORG', doc, e.message.slice(0, 200));
+      orgs.push({ ...base, dealId: '', limite: null, curadorias: null, erro: true });
+    }
+  }
   const porDeal = Object.fromEntries(orgs.filter((o) => o.dealId).map((o) => [o.dealId, o]));
   const lista = pagos.map((p) => ({ nome: p.dealname || 'Sem nome', closedate: p.closedate, ...(porDeal[p.dealId] || { dealId: p.dealId, usuarios: 0, limite: Number(p.quantidade_usuarios) || 1, curadorias: null, ultimoAcesso: null, admins: [] }) }));
   // empresas com usuários mas cujo negócio não está mais em Pago (expiradas ou movidas)

@@ -89,11 +89,18 @@ export function semTravessao(texto) {
 
 // ── HubSpot ────────────────────────────────────────────────────────────────
 export async function hs(caminho, metodo, corpo, token) {
-  const r = await fetch(`${HS}${caminho}`, {
-    method: metodo,
-    headers: { Authorization: `Bearer ${token || process.env.HUBSPOT_TOKEN}`, 'Content-Type': 'application/json' },
-    body: corpo ? JSON.stringify(corpo) : undefined,
-  });
+  // 429 = limite de chamadas do HubSpot (a busca aceita poucas por segundo): espera e tenta de novo
+  let r;
+  for (let tentativa = 0; tentativa < 4; tentativa++) {
+    r = await fetch(`${HS}${caminho}`, {
+      method: metodo,
+      headers: { Authorization: `Bearer ${token || process.env.HUBSPOT_TOKEN}`, 'Content-Type': 'application/json' },
+      body: corpo ? JSON.stringify(corpo) : undefined,
+    });
+    if (r.status !== 429 || tentativa === 3) break;
+    const espera = Math.min(Number(r.headers.get('retry-after')) * 1000 || 0, 3000) || 700 * (tentativa + 1);
+    await new Promise((ok) => setTimeout(ok, espera));
+  }
   const texto = await r.text();
   if (!r.ok) throw new Error(`HubSpot ${r.status} ${caminho}: ${texto}`);
   return texto ? JSON.parse(texto) : {};

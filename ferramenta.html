@@ -69,6 +69,7 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .conta-h__sair{background:none;border:1px solid var(--border-strong);border-radius:var(--r-pill);color:var(--fg-2);font-family:var(--font-body);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:6px 12px;cursor:pointer;margin-left:4px}
 .conta-h__sair:hover{color:var(--fg-1);border-color:var(--fg-1)}
 @media(max-width:640px){.conta-h__txt{display:none}.conta-h{margin-left:4px;padding-left:10px;gap:8px}.bar{gap:12px}}
+.sem-login .btn-disp,.sem-login #refazer,.sem-login #tut,.sem-login [data-acao]{display:none!important}
 .faixa-suporte{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;background:#f8d71b;color:#02060f;font-size:13px;font-weight:600;padding:8px 16px;text-align:center}
 .faixa-suporte button{background:#02060f;color:#fff;border:0;border-radius:999px;padding:6px 14px;font:inherit;font-size:12px;cursor:pointer}
 .modo-suporte #btnNovaBriefing,.modo-suporte #usuConvite,.modo-suporte .acoes-usu,.modo-suporte .acoes-cur,.modo-suporte #btnSair,.modo-suporte .btn-disp,.modo-suporte #refazer,.modo-suporte #quero-curador,.modo-suporte #tut,.modo-suporte #btnEmpresas{display:none!important}
@@ -320,6 +321,10 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
     </div>
   </div>
 </header>
+<div class="faixa-suporte" id="faixaLogin" style="display:none">
+  <span>Você está vendo esta curadoria pelo link. Para pedir disponibilidade ou fazer alterações, entre com seu e-mail e senha.</span>
+  <button type="button" id="btnEntrarLink">Entrar</button>
+</div>
 <div class="faixa-suporte" id="faixaSuporte" style="display:none">
   <span>Modo suporte: você está vendo <b id="fsEmpresa">a empresa</b>. Somente leitura, ninguém da empresa vê esta entrada.</span>
   <button type="button" id="btnSairSuporte">Voltar ao meu acesso</button>
@@ -1142,6 +1147,13 @@ async function carregarEmpresas() {
         try { if (!localStorage.getItem('ac_sessao_super')) localStorage.setItem('ac_sessao_super', sessaoAtual); localStorage.setItem('ac_suporte_nome', e.nome); } catch (x) {}
         guardarSessao(r.sessao);
         aplicarModoSuporte();
+{
+  const temId = new URL(location.href).searchParams.get('id');
+  const semLogin = !!temId && !sessaoAtual;
+  document.body.classList.toggle('sem-login', semLogin);
+  $('#faixaLogin').style.display = semLogin ? '' : 'none';
+}
+$('#btnEntrarLink').addEventListener('click', () => { location.href = location.pathname; });
         await abrirPainel();
       } finally { b.disabled = false; }
     });
@@ -1439,7 +1451,7 @@ async function salvarBriefingExistente(corpo) {
   try {
     const r = await fetch(`/api/resultado?id=${alvo.id}`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ acao: 'briefing', ...corpo }),
+      body: JSON.stringify({ sessao: sessaoAtual || undefined, acao: 'briefing', ...corpo }),
     });
     const j = await r.json();
     if (!r.ok || !j.ok) throw new Error(j.erro || 'não consegui salvar o briefing');
@@ -2081,7 +2093,7 @@ async function salvarBriefingFormExistente() {
   try {
     const r = await fetch(`/api/resultado?id=${alvo.id}`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ acao: 'briefing', ...corpo }),
+      body: JSON.stringify({ sessao: sessaoAtual || undefined, acao: 'briefing', ...corpo }),
     });
     const j = await r.json();
     if (!r.ok || !j.ok) throw new Error(j.erro || 'não consegui salvar o briefing');
@@ -2092,7 +2104,7 @@ async function salvarBriefingFormExistente() {
       try {
         await fetch(`/api/resultado?id=${alvo.id}`, {
           method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ acao: 'disponibilidade', palestrantes: [alvo.dispNome], datas, sessao: sessaoAtual || undefined }),
+          body: JSON.stringify({ sessao: sessaoAtual || undefined, acao: 'disponibilidade', palestrantes: [alvo.dispNome], datas }),
         });
       } catch (e) { /* mesmo se falhar, volta pro resultado e o cliente tenta de novo */ }
     }
@@ -2171,7 +2183,7 @@ function renderEmProducao(id) {
     e.target.disabled = true;
     await fetch(`/api/resultado?id=${id}`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ acao: 'curador' }),
+      body: JSON.stringify({ sessao: sessaoAtual || undefined, acao: 'curador' }),
     });
     e.target.textContent = '✓ Chamando a PSA no WhatsApp';
   });
@@ -2301,7 +2313,7 @@ function renderTeaser(j) {
     e.target.disabled = true;
     await fetch(`/api/resultado?id=${j.id}`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ acao: 'curador' }),
+      body: JSON.stringify({ sessao: sessaoAtual || undefined, acao: 'curador' }),
     });
     e.target.textContent = '✓ Chamando a PSA no WhatsApp';
   });
@@ -2442,8 +2454,9 @@ function wireNomes(d) {
     b.disabled = true;
     await fetch(`/api/resultado?id=${d.id}`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ acao: b.dataset.acao, palestrante: b.dataset.nome, datas }),
-    });
+      body: JSON.stringify({ sessao: sessaoAtual || undefined, acao: b.dataset.acao, palestrante: b.dataset.nome, datas }),
+    }).then(async (r) => { if (!r.ok) { const jj = await r.json().catch(() => ({})); throw new Error(jj.erro || 'Não foi possível.'); } })
+      .catch((err) => { alert(err.message); b.disabled = false; throw err; });
     b.textContent = b.dataset.acao === 'viabilidade' ? '✓ Solicitado · até 1 dia útil' : '✓ Solicitado';
   }));
 
@@ -2552,12 +2565,17 @@ function wireNomes(d) {
       try {
         const r = await fetch(`/api/resultado?id=${d.id}`, {
           method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ acao: 'disponibilidade', palestrantes: [nome], datas, sessao: sessaoAtual || undefined }),
+          body: JSON.stringify({ sessao: sessaoAtual || undefined, acao: 'disponibilidade', palestrantes: [nome], datas }),
         });
         // rede de segurança: se o servidor pedir o briefing (lista fechada), abre o formulário
         if (r.status === 428) {
           const jj = await r.json().catch(() => ({}));
           if (jj.precisaBriefing) { btn.disabled = false; btn.textContent = antes; abrirBriefingForm(d, nome); return; }
+        }
+        if (r.status === 401 || r.status === 403) {
+          const jj = await r.json().catch(() => ({}));
+          btn.disabled = false; btn.textContent = antes;
+          alert(jj.erro || 'Para fazer isso, entre com seu e-mail e senha.'); return;
         }
         if (r.status === 429) {
           const jj = await r.json().catch(() => ({}));
@@ -2650,7 +2668,7 @@ function wireNomes(d) {
     e.target.disabled = true;
     await fetch(`/api/resultado?id=${d.id}`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ acao: 'curador' }),
+      body: JSON.stringify({ sessao: sessaoAtual || undefined, acao: 'curador' }),
     });
     e.target.textContent = '✓ Chamando a PSA no WhatsApp';
   });
@@ -2740,7 +2758,7 @@ function wireNomes(d) {
     e.target.textContent = 'Pedindo novos nomes…';
     const r = await fetch(`/api/resultado?id=${d.id}`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ acao: 'refazer', manter }),
+      body: JSON.stringify({ sessao: sessaoAtual || undefined, acao: 'refazer', manter }),
     });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));

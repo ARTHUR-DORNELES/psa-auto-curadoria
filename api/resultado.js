@@ -1,4 +1,4 @@
-import { redis, chave, chaveProjeto, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, anexarWikiLinks, anexarDocStatus, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, limparNomesDoNegocio, finalizarCuradoria, chaveDeNome, respostasDisponibilidade, anexarBriefingAoNegocio, registrarNomesNaoEncontrados, pedidosDispEmAberto, registrarPedidosDisp, donoDoPedido } from './_lib.js';
+import { redis, chave, chaveProjeto, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, anexarWikiLinks, anexarDocStatus, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, limparNomesDoNegocio, finalizarCuradoria, chaveDeNome, respostasDisponibilidade, anexarBriefingAoNegocio, registrarNomesNaoEncontrados, pedidosDispEmAberto, registrarPedidosDisp, donoDoPedido, podeVerCuradoria } from './_lib.js';
 import { lerSessao } from './_auth.js';
 
 const placarDisp = (p) => ({ limite: p.limite, emAberto: p.pendentes.length, nomes: p.pendentes.map((x) => (x.evento ? `${x.nome} (${x.evento})` : x.nome)) });
@@ -235,6 +235,11 @@ export default async function handler(req, res) {
       if (!reg.documento) return res.status(200).json({ ok: true, limiteDisp: null });
       return res.status(200).json({ ok: true, limiteDisp: placarDisp(await pedidosDispEmAberto(donoDoPedido(reg, sess))) });
     }
+
+    // Qualquer AÇÃO na curadoria exige login de alguém que pode ver esta curadoria (mesma
+    // empresa; admin vê todas, usuário só as dele). O link ?id= sozinho só permite LER.
+    if (!sess) return res.status(401).json({ precisaLogin: true, erro: 'Para fazer isso, entre com seu e-mail e senha.' });
+    if (!podeVerCuradoria(sess, reg)) return res.status(403).json({ erro: 'Esta curadoria não é da sua conta.' });
 
     // Refazer: os 3 atuais saem de cena e a automação é acionada de novo pela
     // observação. Os nomes recusados ficam registrados para não voltarem.
