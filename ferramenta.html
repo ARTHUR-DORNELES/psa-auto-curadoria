@@ -61,6 +61,7 @@ h1{font-family:var(--font-display);font-weight:800;text-transform:uppercase;font
 label{display:block;font-size:var(--t-caption);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--fg-3);margin-bottom:8px}
 label span{color:var(--psa-orange)}
 input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--border);border-radius:var(--r-sm);color:var(--fg-1);font-family:var(--font-body);font-size:var(--t-body);padding:14px 16px;transition:border-color .2s,background .2s}
+input:-webkit-autofill,input:-webkit-autofill:hover,input:-webkit-autofill:focus{-webkit-box-shadow:0 0 0 1000px #0a0e17 inset;box-shadow:0 0 0 1000px #0a0e17 inset;-webkit-text-fill-color:#fff;caret-color:#fff;transition:background-color 9999s ease-out 0s}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--psa-orange);background:#ffffff0f}
 input::placeholder,textarea::placeholder{color:var(--fg-4)}
 select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 11 11' fill='none'%3E%3Cpath d='M2 4l3.5 3.5L9 4' stroke='%23ffffff7a' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;padding-right:42px}
@@ -304,7 +305,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 
     <!-- entrar -->
     <div id="boxLogin">
-      <p class="sub">Entre com o e-mail e a senha do seu acesso à Auto Curadoria.</p>
+      <p class="sub">Entre com o e-mail e a senha do seu acesso à Auto Curadoria. Ainda não tem senha? Digite só o e-mail e clique em Entrar que mandamos o link para criar.</p>
       <div class="campos">
         <div><label for="loginEmail">E-mail <span>*</span></label><input id="loginEmail" type="email" autocomplete="username" placeholder="voce@empresa.com.br"></div>
         <div><label for="loginSenha">Senha <span>*</span></label><input id="loginSenha" type="password" autocomplete="current-password"></div>
@@ -698,10 +699,21 @@ const comEnter = (campo, botao) => $(campo).addEventListener('keydown', (e) => {
 $('#btnEntrar').addEventListener('click', async () => {
   const email = $('#loginEmail').value.trim(), senha = $('#loginSenha').value;
   $('#eGate').textContent = '';
-  if (!email || !senha) { $('#eGate').textContent = 'Informe e-mail e senha.'; return; }
+  // costume antigo: entrar pelo CPF/CNPJ. Só números no campo de e-mail -> primeiro acesso.
+  const soDigitos = email.replace(/[\s.\-\/]/g, '');
+  if (/^\d+$/.test(soDigitos) && (soDigitos.length === 11 || soDigitos.length === 14)) {
+    $('#documento').value = soDigitos;
+    caixaGate('boxPrimeiro');
+    $('#btnPrimeiro').click();
+    return;
+  }
+  if (!email) { $('#eGate').textContent = 'Informe seu e-mail.'; return; }
+
   $('#btnEntrar').disabled = true; $('#btnEntrar').textContent = 'Entrando…';
   try {
     const j = await postJSON('/api/conta', { acao: 'entrar', email, senha });
+    // primeiro acesso (cliente antigo ou convite pendente): o link já foi pro e-mail
+    if (!j.ok && j.motivo === 'primeiro_acesso') { $('#eGate').textContent = j.msg; return; }
     if (!j.ok) { $('#eGate').textContent = j.erro || 'Não foi possível entrar.'; return; }
     guardarSessao(j.sessao);
     $('#loginSenha').value = '';

@@ -147,12 +147,19 @@ async function excedeu(chave, max) {
 // ── fluxos ──────────────────────────────────────────────────────────────────
 export async function login(emailBruto, senha) {
   const email = normEmail(emailBruto);
-  if (!emailValido(email) || !senha) return { ok: false, erro: 'Informe e-mail e senha.' };
+  if (!emailValido(email)) return { ok: false, erro: 'Informe um e-mail válido.' };
   if (await excedeu(`login:${email}`, 10)) return { ok: false, erro: 'Muitas tentativas. Espere 15 minutos.' };
   const doc = await redis().get(kUsuario(email));
   const u = doc ? await lerUsuario(doc, email) : null;
-  if (!u || !u.senha || !confereSenha(senha, u.senha)) {
-    if (u && u.status === 'pendente') return { ok: false, erro: 'Seu acesso ainda não foi ativado. Use o link do convite que chegou por e-mail.' };
+  // senha em branco é permitida: é o jeito de quem ainda não tem senha pedir o link
+  if (!senha && u && u.status === 'ativo') return { ok: false, erro: 'Informe sua senha.' };
+  if (!u || !u.senha || !senha || !confereSenha(senha, u.senha)) {
+    // Cliente de antes dos usuários (ou convidado que ainda não ativou): em vez de
+    // "senha incorreta", manda o link de criar senha pro próprio e-mail.
+    if (!u || u.status === 'pendente') {
+      const auto = await primeiroAcessoPorEmail(email, doc, u);
+      if (auto) return auto;
+    }
     return { ok: false, erro: 'E-mail ou senha incorretos.' };
   }
   return { ok: true, sessao: await abrirSessao(doc, email), usuario: publico(u) };
@@ -205,22 +212,64 @@ export async function primeiroAcesso(documento) {
   const { assinatura, limite } = await limiteUsuarios(d.valor);
   if (!assinatura) return { ok: false, motivo: 'nao_encontrado', erro: 'Não encontramos uma assinatura para este CPF/CNPJ.' };
   const c = await dadosContato(assinatura.contatoId);
-  const email = normEmail(c.email);
+  return linkDoComprador(d.valor, normEmail(c.email), c.nome || '', limite);
+}
+
+// núcleo do primeiro acesso: garante o comprador como admin (pendente) e manda o link
+async function linkDoComprador(doc, email, nome, limite) {
   if (!emailValido(email)) return { ok: false, erro: 'A compra não tem e-mail cadastrado. Fale com a PSA.' };
   const outro = await redis().get(kUsuario(email));
-  if (outro && outro !== d.valor) return { ok: false, erro: 'O e-mail da compra já está ligado a outra empresa. Fale com a PSA.' };
-
-  let u = await lerUsuario(d.valor, email);
+  if (outro && outro !== doc) return { ok: false, erro: 'Este e-mail já está ligado a outra empresa. Fale com a PSA.' };
+  let u = await lerUsuario(doc, email);
   if (!u) {
-    const usados = (await listarUsuarios(d.valor)).length;
+    const usados = (await listarUsuarios(doc)).length;
     if (usados >= limite) return { ok: false, erro: 'Sua empresa já usou todos os acessos. Peça a um administrador para te convidar.' };
-    u = { email, nome: c.nome || '', papel: 'admin', status: 'pendente', criadoEm: new Date().toISOString(), convidadoPor: 'compra' };
-    await gravarUsuario(d.valor, u);
+    u = { email, nome: nome || '', papel: 'admin', status: 'pendente', criadoEm: new Date().toISOString(), convidadoPor: 'compra' };
+    await gravarUsuario(doc, u);
   }
-  const l = await criarLink(d.valor, email, u.status === 'ativo' ? 'senha' : 'convite');
+  const l = await criarLink(doc, email, u.status === 'ativo' ? 'senha' : 'convite');
   const env = await enviarLinkPorEmail({ email, nome: u.nome, url: l.url, tipo: u.status === 'ativo' ? 'redefinir_senha' : 'convite' });
   if (!env.enviado) return { ok: false, erro: 'Não conseguimos enviar o e-mail agora. Tente de novo em instantes.' };
   return { ok: true, email: mascara(email), msg: `Enviamos um link de acesso para ${mascara(email)}.` };
+}
+
+// Login de quem ainda não tem senha. Dois casos:
+//  - convidado pendente: reenvia o convite (mesma empresa, mesmo papel);
+//  - cliente de antes dos usuários: o e-mail é de um contato com CPF/CNPJ que tem
+//    assinatura -> vira admin pendente da empresa e recebe o link.
+// Devolve { ok:false, motivo:'primeiro_acesso', msg } (o front mostra como aviso) ou null.
+async function primeiroAcessoPorEmail(email, docConhecido, pendente) {
+  try {
+    if (await excedeu(`primeiro-email:${email}`, 3)) {
+      return { ok: false, motivo: 'primeiro_acesso', msg: 'Já enviamos o link de criar senha para este e-mail. Confira sua caixa de entrada (e o spam).' };
+    }
+    const aviso = (r) => (r && r.ok
+      ? { ok: false, motivo: 'primeiro_acesso', msg: `Este é seu primeiro acesso: enviamos um link para ${r.email} criar sua senha.` }
+      : r);
+    if (pendente && docConhecido) {
+      const l = await criarLink(docConhecido, email, 'convite');
+      const env = await enviarLinkPorEmail({ email, nome: pendente.nome, url: l.url, tipo: 'convite' });
+      return env.enviado ? aviso({ ok: true, email: mascara(email) }) : null;
+    }
+    const busca = await hs('/crm/v3/objects/contacts/search', 'POST', {
+      filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: email }] }],
+      properties: ['email', 'firstname', 'lastname', 'cpf', 'cnpj'], limit: 1,
+    });
+    const c = busca.results?.[0]?.properties;
+    if (!c) return null;
+    for (const bruto of [c.cnpj, c.cpf]) {
+      const d = normalizaDocumento(bruto);
+      if (!d) continue;
+      const { assinatura, limite } = await limiteUsuarios(d.valor);
+      if (!assinatura) continue;
+      const nome = [c.firstname, c.lastname].filter(Boolean).join(' ').trim();
+      return aviso(await linkDoComprador(d.valor, email, nome, limite));
+    }
+    return null;
+  } catch (e) {
+    console.error('PRIMEIRO_ACESSO_EMAIL_FALHOU', email, e.message.slice(0, 200));
+    return null;
+  }
 }
 
 // ── gestão (só admin) ───────────────────────────────────────────────────────
