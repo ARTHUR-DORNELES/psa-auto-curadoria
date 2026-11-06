@@ -28,9 +28,10 @@ export default async function handler(req, res) {
         erro: dec.modo === 'esgotado' ? 'A assinatura da sua empresa expirou. Fale com a PSA para renovar.' : 'Não encontramos uma assinatura ativa para a sua empresa.' });
     }
     // dados de quem está logado pré-preenchem o briefing (o Santiago cumprimenta pelo nome).
-    // Empresa/telefone vêm do comprador, que é a mesma empresa.
+    // Empresa vem do comprador (mesma empresa); nome, e-mail e celular são de quem está
+    // logado — o telefone do comprador só entra se o usuário ainda não tiver celular.
     const comprador = podeNova ? await dadosContato(dec.contatoId) : {};
-    const contato = podeNova ? { ...comprador, nome: sess.nome || comprador.nome, email: sess.email } : null;
+    const contato = podeNova ? { ...comprador, nome: sess.nome || comprador.nome, email: sess.email, telefone: sess.celular || comprador.telefone } : null;
 
     if (!minhas.length) {
       if (!podeNova) return res.status(200).json({ ok: false, motivo: 'nao_encontrado', usuario, erro: 'A assinatura da sua empresa expirou. Fale com a PSA para renovar.' });
