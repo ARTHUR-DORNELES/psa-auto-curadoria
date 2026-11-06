@@ -1356,6 +1356,70 @@ export async function listarCuradorias(bruto) {
   } catch (e) { console.error('listarCuradorias falhou:', e.message); return []; }
 }
 
+/* ── Limite de disponibilidade em aberto (regra do Marcio, 06/11/2026) ─────────────
+ * Cada empresa (documento da assinatura) pode ter no máximo LIMITE_DISP_PENDENTES
+ * palestrantes aguardando resposta de disponibilidade. A vaga libera quando o palestrante
+ * responde (disponível OU indisponível). Pedido sem resposta há mais de DISP_PENDENTE_DIAS
+ * deixa de contar, para um palestrante que nunca responde não travar a empresa para sempre.
+ * Índice no Redis: hash ac:disp:<doc> com campo "<curadoria>|<palestrante>" = data do pedido.
+ * Na primeira consulta de uma empresa o índice é montado a partir das curadorias dela. */
+export const LIMITE_DISP = Number(process.env.LIMITE_DISP_PENDENTES || 5);
+const DIAS_DISP = Number(process.env.DISP_PENDENTE_DIAS || 7);
+const kDisp = (doc) => `ac:disp:${doc}`;
+
+async function semearPedidosDisp(doc) {
+  const campos = { _: '1' };   // marcador: o índice existe mesmo sem pedidos
+  try {
+    for (const c of await listarCuradorias(doc)) {
+      const bruto = await redis().get(chave(c.id));
+      if (!bruto) continue;
+      const reg = JSON.parse(bruto);
+      for (const a of reg.acoes || []) {
+        if (a.acao !== 'disponibilidade') continue;
+        for (const n of a.palestrantes || []) campos[`${c.id}|${n}`] = a.em || reg.disponibilidade?.em || new Date().toISOString();
+      }
+    }
+  } catch (e) { console.error('semearPedidosDisp falhou:', e.message); }
+  await redis().hset(kDisp(doc), campos);
+}
+
+export async function registrarPedidosDisp(doc, curadoriaId, nomes, em) {
+  if (!doc || !nomes.length) return;
+  if (!(await redis().exists(kDisp(doc)))) await semearPedidosDisp(doc);
+  await redis().hset(kDisp(doc), Object.fromEntries(nomes.map((n) => [`${curadoriaId}|${n}`, em])));
+}
+
+// { limite, pendentes: [{ curadoria, nome, em }] } — limpa do índice o que já foi respondido
+export async function pedidosDispEmAberto(doc) {
+  const out = { limite: LIMITE_DISP, pendentes: [] };
+  if (!doc) return out;
+  const k = kDisp(doc);
+  if (!(await redis().exists(k))) await semearPedidosDisp(doc);
+  const mapa = (await redis().hgetall(k)) || {};
+  const porCuradoria = {};
+  for (const [campo, em] of Object.entries(mapa)) {
+    if (campo === '_') continue;
+    const i = campo.indexOf('|');
+    (porCuradoria[campo.slice(0, i)] ||= []).push({ nome: campo.slice(i + 1), em });
+  }
+  const remover = [];
+  for (const [id, itens] of Object.entries(porCuradoria)) {
+    const bruto = await redis().get(chave(id));
+    if (!bruto) { remover.push(...itens.map((it) => `${id}|${it.nome}`)); continue; }
+    const reg = JSON.parse(bruto);
+    const respostas = reg.hubspot?.negocioId ? await respostasDisponibilidade(reg.hubspot.negocioId) : {};
+    const idPorNome = {};
+    for (const ind of reg.resultado?.indicacoes || []) idPorNome[ind.nome] = String(ind.id_contato || '');
+    for (const it of itens) {
+      const vencido = Date.now() - Date.parse(it.em) > DIAS_DISP * 864e5;
+      if (respostas[idPorNome[it.nome]] || vencido) remover.push(`${id}|${it.nome}`);
+      else out.pendentes.push({ curadoria: id, nome: it.nome, em: it.em });
+    }
+  }
+  if (remover.length) await redis().hdel(k, ...remover);
+  return out;
+}
+
 export async function decidirAcesso(bruto) {
   if (!normalizaDocumento(bruto)) return { modo: 'invalido' };
   const assin = await assinaturaAtivaPorDocumento(bruto);

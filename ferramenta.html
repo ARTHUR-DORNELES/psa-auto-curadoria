@@ -2017,6 +2017,12 @@ async function salvarBriefingFormExistente() {
   }
 }
 
+// limite de pedidos de disponibilidade aguardando resposta (por empresa)
+function avisarLimiteDisp(l) {
+  const lista = (l.nomes || []).length ? `\n\nAguardando resposta:\n• ${l.nomes.join('\n• ')}` : '';
+  alert(`Sua empresa já tem ${l.emAberto} pedidos de disponibilidade aguardando resposta, e o limite é ${l.limite}.\n\nAssim que um palestrante responder, você pode pedir o próximo.${lista}`);
+}
+
 // Consulta a curadoria até a automação publicar o arquivo. Não revela antes do
 // tempo mínimo de processo; desiste depois do limite e cai na tela de "em produção".
 // Passado o tempo prometido, dá uma folga curta e troca de tela. Segurar a barra
@@ -2260,6 +2266,9 @@ function htmlNomes(d) {
     </div>
     <p class="leitura">${esc(r.leitura)}</p>
     ${r.incompleto ? `<p class="aviso">Adiantamos ${r.indicacoes.length} nome${r.indicacoes.length > 1 ? 's' : ''} de alta aderência. Um curador vai completar sua indicação e te avisar — sem custo extra.</p>` : ''}
+    ${d.limiteDisp && d.limiteDisp.emAberto > 0 ? `<p class="aviso" id="avisoLimiteDisp">${d.limiteDisp.emAberto >= d.limiteDisp.limite
+        ? `<strong>Você chegou ao limite de ${d.limiteDisp.limite} pedidos de disponibilidade aguardando resposta.</strong> Assim que um palestrante responder, você pode pedir o próximo.`
+        : `<strong>${d.limiteDisp.emAberto} de ${d.limiteDisp.limite}</strong> pedidos de disponibilidade da sua empresa aguardando resposta. Você ainda pode pedir mais ${d.limiteDisp.limite - d.limiteDisp.emAberto}.`}</p>` : ''}
     ${(d.naoEncontrados && d.naoEncontrados.length) ? `<p class="aviso"><strong>Não localizamos na nossa base:</strong> ${d.naoEncontrados.map(esc).join(', ')}. Confira a grafia do nome completo, ou fale com um curador da PSA que a gente confirma a disponibilidade desse palestrante pra você.</p>` : ''}
     ${d.refacoesRestantes > 0 ? `
     <div class="tut" id="tut">
@@ -2429,6 +2438,7 @@ function wireNomes(d) {
   $('#resultado').querySelectorAll('.btn-disp').forEach(btn => {
     btn.addEventListener('click', async () => {
       const nome = btn.dataset.nome;
+      if (d.limiteDisp && d.limiteDisp.emAberto >= d.limiteDisp.limite) { avisarLimiteDisp(d.limiteDisp); return; }
       // LISTA FECHADA sem briefing: abre o formulário completo editável (com a data lá dentro)
       // em vez de pedir só a data; ao salvar, dispara a disponibilidade. Não passa pelo Santiago.
       if (d.nomesDoCliente && !d.briefingCompleto) { abrirBriefingForm(d, nome); return; }
@@ -2448,6 +2458,12 @@ function wireNomes(d) {
           const jj = await r.json().catch(() => ({}));
           if (jj.precisaBriefing) { btn.disabled = false; btn.textContent = antes; abrirBriefingForm(d, nome); return; }
         }
+        if (r.status === 429) {
+          const jj = await r.json().catch(() => ({}));
+          btn.disabled = false; btn.textContent = antes;
+          d.limiteDisp = { limite: jj.limite, emAberto: jj.emAberto, nomes: jj.nomes || [] };
+          avisarLimiteDisp(d.limiteDisp); return;
+        }
         if (!r.ok) throw new Error(await r.text());
         await r.json();
         // solicitou disponibilidade -> trava o card como MANTER na hora (não dá pra trocar quem
@@ -2462,6 +2478,7 @@ function wireNomes(d) {
         }
         // troca só este botão pelo ✓; os demais seguem disponíveis
         btn.outerHTML = `<span class="chip chip--feito">✓ Disponibilidade e orçamento solicitados</span>`;
+        if (d.limiteDisp) { d.limiteDisp.emAberto++; (d.limiteDisp.nomes ||= []).push(nome); }
       } catch (e) {
         btn.disabled = false;
         btn.textContent = antes;
