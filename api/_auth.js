@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias } from './_lib.js';
+import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio } from './_lib.js';
 
 /**
  * Usuários por empresa. A assinatura continua sendo o negócio "Pago" casado pelo CPF/CNPJ
@@ -84,12 +84,14 @@ async function gravarUsuario(doc, u) {
   await redis().hset(kUsuarios(doc), u.email, JSON.stringify(u));
   await redis().set(kUsuario(u.email), doc);
 }
-export const publico = (u) => ({ email: u.email, nome: u.nome || '', celular: u.celular || '', papel: u.papel, status: u.status, criadoEm: u.criadoEm || null, ultimoAcesso: u.ultimoAcesso || null });
+export const publico = (u) => ({ email: u.email, nome: u.nome || '', celular: u.celular || '', papel: u.papel, status: u.status, criadoEm: u.criadoEm || null, ultimoAcesso: u.ultimoAcesso || null,
+  ...(u.superAdmin ? { superAdmin: true } : {}), ...(u.suporte ? { suporte: true } : {}) });
 
 // "Último acesso": gravado no login, ao criar a senha e a cada abertura do painel.
 // Só regrava se passou 10 min (evita escrever no Redis a cada clique). Nunca lança.
 export async function marcarAcesso(doc, email) {
   try {
+    if (ehSuper(email) && !(await lerUsuario(doc, email))) return;
     const u = await lerUsuario(doc, email);
     if (!u) return;
     const agora = Date.now();
@@ -164,6 +166,54 @@ export async function salvarMeuCelular(sess, bruto) {
   return { ok: true, usuario: publico(u) };
 }
 
+// ── suporte PSA (super admin) ────────────────────────────────────────────────
+// Só os e-mails desta lista veem o painel de empresas e entram em qualquer empresa.
+// A entrada é SOMENTE LEITURA e invisível: não aparece em Usuários, não grava último
+// acesso nem cria nada no HubSpot.
+const SUPER = String(process.env.SUPER_ADMINS || 'renato.denck@profissionaissa.com')
+  .split(',').map((e) => normEmail(e)).filter(Boolean);
+export const ehSuper = (email) => SUPER.includes(normEmail(email));
+const SUPORTE_S = 60 * 60 * 4;
+
+export async function empresas(sess) {
+  if (!sess || !ehSuper(sess.realEmail || sess.email)) return { ok: false, erro: 'Acesso restrito.' };
+  const docs = [];
+  let cursor = '0';
+  do {
+    const [c, keys] = await redis().scan(cursor, 'MATCH', 'ac:org:*:usuarios', 'COUNT', 500);
+    cursor = c;
+    for (const k of keys) docs.push(k.split(':')[2]);
+  } while (cursor !== '0');
+  const [pagos, orgs] = await Promise.all([
+    negociosPagos().catch(() => []),
+    Promise.all(docs.map(async (doc) => {
+      const [usuarios, { assinatura, limite }, curadorias] = await Promise.all([listarUsuarios(doc), limiteUsuarios(doc), listarCuradorias(doc)]);
+      const ultimo = usuarios.map((u) => u.ultimoAcesso).filter(Boolean).sort().pop() || null;
+      return {
+        doc, dealId: assinatura?.dealId || '', ativa: !!assinatura?.ativa, vence: assinatura?.vence || null,
+        usuarios: usuarios.length, limite, curadorias: curadorias.length, ultimoAcesso: ultimo,
+        admins: usuarios.filter((u) => u.papel === 'admin').map((u) => u.nome || u.email),
+      };
+    })),
+  ]);
+  const porDeal = Object.fromEntries(orgs.filter((o) => o.dealId).map((o) => [o.dealId, o]));
+  const lista = pagos.map((p) => ({ nome: p.dealname || 'Sem nome', closedate: p.closedate, ...(porDeal[p.dealId] || { dealId: p.dealId, usuarios: 0, limite: Number(p.quantidade_usuarios) || 1, curadorias: null, ultimoAcesso: null, admins: [] }) }));
+  // empresas com usuários mas cujo negócio não está mais em Pago (expiradas ou movidas)
+  for (const o of orgs) if (!o.dealId || !pagos.some((p) => p.dealId === o.dealId)) lista.push({ nome: `Documento ${o.doc}`, ...o });
+  return { ok: true, empresas: lista };
+}
+
+// abre uma sessão de suporte (somente leitura) na empresa do negócio/documento
+export async function entrarComoSuporte(sess, b) {
+  if (!sess || !ehSuper(sess.realEmail || sess.email)) return { ok: false, erro: 'Acesso restrito.' };
+  let doc = normalizaDocumento(b.doc)?.valor || '';
+  if (!doc && b.dealId) doc = await documentoDoNegocio(String(b.dealId).replace(/\D/g, ''));
+  if (!doc) return { ok: false, erro: 'Não achamos o CPF/CNPJ dessa empresa no HubSpot (contato ou empresa do negócio).' };
+  const t = token();
+  await redis().set(kSessao(t), JSON.stringify({ suporte: true, doc, realEmail: normEmail(sess.realEmail || sess.email), realNome: sess.realNome || sess.nome || '' }), 'EX', SUPORTE_S);
+  return { ok: true, sessao: t, doc };
+}
+
 // ── sessão ──────────────────────────────────────────────────────────────────
 async function abrirSessao(doc, email) {
   const t = token();
@@ -178,9 +228,14 @@ export async function lerSessao(t) {
   const v = await redis().get(kSessao(t));
   if (!v) return null;
   let s; try { s = JSON.parse(v); } catch (e) { return null; }
+  // sessão de suporte: admin da empresa, somente leitura, sem existir na lista de usuários
+  if (s.suporte) {
+    if (!ehSuper(s.realEmail)) return null;
+    return { doc: s.doc, email: s.realEmail, nome: 'Suporte PSA', celular: 'suporte', papel: 'admin', suporte: true, realEmail: s.realEmail, realNome: s.realNome };
+  }
   const u = await lerUsuario(s.doc, s.email);
   if (!u || u.status !== 'ativo') return null;
-  return { doc: s.doc, email: u.email, nome: u.nome || '', celular: u.celular || '', papel: u.papel };
+  return { doc: s.doc, email: u.email, nome: u.nome || '', celular: u.celular || '', papel: u.papel, superAdmin: ehSuper(u.email) };
 }
 export const encerrarSessao = (t) => (t ? redis().del(kSessao(t)) : 0);
 
@@ -338,6 +393,7 @@ async function primeiroAcessoPorEmail(email, docConhecido, pendente) {
 // ── gestão (só admin) ───────────────────────────────────────────────────────
 export async function gerenciar(sess, acao, b = {}) {
   if (!sess || sess.papel !== 'admin') return { ok: false, erro: 'Só administradores gerenciam usuários.' };
+  if (sess.suporte && acao !== 'listar') return { ok: false, erro: 'Modo suporte: somente leitura.' };
   const doc = sess.doc;
   const email = normEmail(b.email);
   const papel = b.papel === 'admin' ? 'admin' : 'usuario';

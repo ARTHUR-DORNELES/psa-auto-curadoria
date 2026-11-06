@@ -16,6 +16,7 @@ export default async function handler(req, res) {
   try {
     const sess = await lerSessao(sessao);
     if (!sess) return res.status(401).json({ ok: false, erro: 'Sua sessão expirou. Entre de novo.' });
+    if (sess.suporte) return res.status(403).json({ ok: false, erro: 'Modo suporte: somente leitura.' });
     const r = await acaoCuradoria(sess, uuid, String(acao || '').trim());
     return res.status(r.ok ? 200 : 400).json(r);
   } catch (e) {

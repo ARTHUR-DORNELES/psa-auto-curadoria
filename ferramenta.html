@@ -69,6 +69,13 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .conta-h__sair{background:none;border:1px solid var(--border-strong);border-radius:var(--r-pill);color:var(--fg-2);font-family:var(--font-body);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:6px 12px;cursor:pointer;margin-left:4px}
 .conta-h__sair:hover{color:var(--fg-1);border-color:var(--fg-1)}
 @media(max-width:640px){.conta-h__txt{display:none}.conta-h{margin-left:4px;padding-left:10px;gap:8px}.bar{gap:12px}}
+.faixa-suporte{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;background:#f8d71b;color:#02060f;font-size:13px;font-weight:600;padding:8px 16px;text-align:center}
+.faixa-suporte button{background:#02060f;color:#fff;border:0;border-radius:999px;padding:6px 14px;font:inherit;font-size:12px;cursor:pointer}
+.modo-suporte #btnNovaBriefing,.modo-suporte #usuConvite,.modo-suporte .acoes-usu,.modo-suporte .acoes-cur,.modo-suporte #btnSair,.modo-suporte .btn-disp,.modo-suporte #refazer,.modo-suporte #quero-curador,.modo-suporte #tut,.modo-suporte #btnEmpresas{display:none!important}
+.emp{border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px}
+.emp__nome{font-weight:700;font-size:16px}
+.emp__info{font-size:12px;color:var(--fg-2);margin-top:3px}
+.emp__off{color:var(--psa-yellow)}
 .abas-conta{display:flex;gap:4px;margin-top:var(--s-5);border-bottom:1px solid var(--border)}
 .abas-conta button{background:none;border:0;border-bottom:3px solid transparent;color:var(--fg-3);font-family:var(--font-body);font-weight:700;font-size:var(--t-body-sm);letter-spacing:.08em;text-transform:uppercase;padding:14px 18px;cursor:pointer;margin-bottom:-1px;transition:color .2s,border-color .2s}
 .abas-conta button:hover{color:var(--fg-1)}
@@ -313,6 +320,10 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
     </div>
   </div>
 </header>
+<div class="faixa-suporte" id="faixaSuporte" style="display:none">
+  <span>Modo suporte: você está vendo <b id="fsEmpresa">a empresa</b>. Somente leitura, ninguém da empresa vê esta entrada.</span>
+  <button type="button" id="btnSairSuporte">Voltar ao meu acesso</button>
+</div>
 
 <main class="wrap">
 
@@ -384,6 +395,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
       <div class="abas-conta" id="abasConta" style="display:none">
         <button type="button" class="on" data-aba="curadorias">Curadorias</button>
         <button type="button" data-aba="usuarios" id="btnUsuarios">Usuários <span id="abaUsuQtd"></span></button>
+        <button type="button" data-aba="empresas" id="btnEmpresas" style="display:none">Empresas</button>
       </div>
       <p class="erro" id="eLogado"></p>
 
@@ -403,6 +415,12 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
         <p class="sub" id="escolhaSub" style="display:none;margin-top:var(--s-6)">Escolha qual quer ver:</p>
         <div id="filtroAutorBox" style="display:none;max-width:360px;margin:0 0 var(--s-4)"><label for="filtroAutor">Filtrar por usuário</label><select id="filtroAutor"></select></div>
         <div id="escolhaLista" style="display:none;gap:10px;margin:var(--s-4) 0"></div>
+      </div>
+
+      <!-- aba Empresas (só suporte PSA) -->
+      <div id="painelEmpresas" style="display:none;margin-top:var(--s-5)">
+        <p class="sub" id="empResumo" style="margin-bottom:var(--s-4)">Empresas com assinatura da Auto Curadoria. Entrar abre a conta da empresa em modo somente leitura, sem aparecer para ninguém.</p>
+        <div id="empLista" style="display:grid;gap:10px"></div>
       </div>
 
       <!-- aba Usuários (só admin) -->
@@ -856,8 +874,10 @@ async function abrirPainel() {
   const partes = nome.trim().split(/\s+/);
   $('#contaNome').textContent = partes.length > 1 ? `${partes[0]} ${partes[partes.length - 1]}` : nome;
   $('#contaNome').title = u.email || '';
-  $('#contaPapel').textContent = u.papel === 'admin' ? 'Administrador' : 'Usuário';
+  $('#contaPapel').textContent = u.suporte ? 'Somente leitura' : (u.papel === 'admin' ? 'Administrador' : 'Usuário');
   $('#contaHeader').style.display = '';
+  $('#btnEmpresas').style.display = u.superAdmin && !u.suporte ? '' : 'none';
+  if (u.suporte) $('#gateTitulo').innerHTML = escHTML(($('#fsEmpresa').textContent || 'Empresa')) + '.';
   // sem celular: pede antes de tudo (abas e lista ficam escondidas até salvar)
   const semCel = !u.celular;
   $('#boxMeuCelular').style.display = semCel ? '' : 'none';
@@ -907,6 +927,7 @@ function montarLista(curadorias) {
     // ações secundárias: finalizar / deletar
     const acoes = document.createElement('div');
     acoes.style.cssText = 'display:flex;gap:16px;justify-content:flex-end;padding:0 6px';
+    acoes.className = 'acoes-cur';
     const linkBase = 'background:none;border:0;font-size:12px;cursor:pointer;text-decoration:underline;padding:0';
 
     const bFin = document.createElement('button');
@@ -1012,6 +1033,7 @@ async function carregarUsuarios() {
       <div style="font-size:12px;color:var(--fg-2);margin-top:2px">${quandoAcessou(u.ultimoAcesso)} · <strong style="color:var(--fg-1)">${u.curadorias || 0}</strong> ${u.curadorias === 1 ? 'curadoria criada' : 'curadorias criadas'}</div></div>`;
     const acoes = document.createElement('div');
     acoes.style.cssText = 'display:flex;gap:14px;flex-wrap:wrap';
+    acoes.className = 'acoes-usu';
     const link = (txt, cor, fn) => {
       const b = document.createElement('button');
       b.type = 'button'; b.textContent = txt;
@@ -1074,11 +1096,74 @@ function abaConta(aba) {
   document.querySelectorAll('#abasConta button').forEach((b) => b.classList.toggle('on', b.dataset.aba === aba));
   $('#escolha').style.display = aba === 'curadorias' ? '' : 'none';
   $('#painelUsuarios').style.display = aba === 'usuarios' ? '' : 'none';
+  $('#painelEmpresas').style.display = aba === 'empresas' ? '' : 'none';
 }
 document.querySelectorAll('#abasConta button').forEach((b) => b.addEventListener('click', () => {
   abaConta(b.dataset.aba);
   if (b.dataset.aba === 'usuarios') { $('#usuLinkBox').style.display = 'none'; carregarUsuarios(); }
+  if (b.dataset.aba === 'empresas') carregarEmpresas();
 }));
+
+// ── suporte PSA: lista de empresas e entrada somente leitura ──
+function dataBRcurta(iso) {
+  try { return iso ? new Date(/^\d+$/.test(String(iso)) ? Number(iso) : iso).toLocaleDateString('pt-BR') : ''; } catch (e) { return ''; }
+}
+async function carregarEmpresas() {
+  const lista = $('#empLista');
+  lista.innerHTML = '<p class="sub">Carregando…</p>';
+  let j;
+  try { j = await postJSON('/api/conta', { acao: 'empresas', sessao: sessaoAtual }); }
+  catch (e) { lista.innerHTML = '<p class="erro">Não conseguimos carregar as empresas.</p>'; return; }
+  if (!j.ok) { lista.innerHTML = `<p class="erro">${escHTML(j.erro || 'Não foi possível.')}</p>`; return; }
+  lista.innerHTML = '';
+  $('#empResumo').textContent = `${j.empresas.length} empresa${j.empresas.length === 1 ? '' : 's'}. Entrar abre a conta da empresa em modo somente leitura, sem aparecer para ninguém.`;
+  j.empresas.forEach((e) => {
+    const row = document.createElement('div');
+    row.className = 'emp';
+    const semAcesso = !e.usuarios;
+    const info = [
+      `${e.usuarios || 0}/${e.limite || 1} usuários`,
+      e.curadorias != null ? `${e.curadorias} curadoria${e.curadorias === 1 ? '' : 's'}` : '',
+      e.ultimoAcesso ? `último acesso ${dataBRcurta(e.ultimoAcesso)}` : '',
+      e.closedate ? `pago em ${dataBRcurta(e.closedate)}` : '',
+      e.vence ? `vence ${dataBRcurta(e.vence)}` : '',
+    ].filter(Boolean).join(' · ');
+    row.innerHTML = `<div style="min-width:0"><div class="emp__nome">${escHTML(e.nome)}</div>
+      <div class="emp__info">${escHTML(info)}${semAcesso ? ' · <span class="emp__off">ainda ninguém entrou</span>' : ''}</div>
+      ${(e.admins || []).length ? `<div class="emp__info">Administradores: ${escHTML(e.admins.join(', '))}</div>` : ''}</div>`;
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'btn btn--ghost'; b.style.cssText = 'flex:none;padding:10px 18px';
+    b.textContent = 'Entrar (somente leitura)';
+    b.addEventListener('click', async () => {
+      b.disabled = true;
+      try {
+        const r = await postJSON('/api/conta', { acao: 'suporte-entrar', sessao: sessaoAtual, dealId: e.dealId, doc: e.doc });
+        if (!r.ok) { alert(r.erro || 'Não foi possível entrar.'); return; }
+        try { if (!localStorage.getItem('ac_sessao_super')) localStorage.setItem('ac_sessao_super', sessaoAtual); localStorage.setItem('ac_suporte_nome', e.nome); } catch (x) {}
+        guardarSessao(r.sessao);
+        aplicarModoSuporte();
+        await abrirPainel();
+      } finally { b.disabled = false; }
+    });
+    row.appendChild(b);
+    lista.appendChild(row);
+  });
+}
+function aplicarModoSuporte() {
+  let ativo = false, nome = '';
+  try { ativo = !!localStorage.getItem('ac_sessao_super'); nome = localStorage.getItem('ac_suporte_nome') || ''; } catch (e) {}
+  document.body.classList.toggle('modo-suporte', ativo);
+  $('#faixaSuporte').style.display = ativo ? '' : 'none';
+  $('#fsEmpresa').textContent = nome || 'a empresa';
+}
+$('#btnSairSuporte').addEventListener('click', async () => {
+  let volta = '';
+  try { volta = localStorage.getItem('ac_sessao_super') || ''; localStorage.removeItem('ac_sessao_super'); localStorage.removeItem('ac_suporte_nome'); } catch (e) {}
+  try { await postJSON('/api/conta', { acao: 'sair', sessao: sessaoAtual }); } catch (e) {}
+  guardarSessao(volta);
+  location.href = location.pathname;   // volta limpo ao painel do seu acesso
+});
+aplicarModoSuporte();
 $('#btnConvidar').addEventListener('click', async () => {
   const nome = $('#usuNome').value.trim(), email = $('#usuEmail').value.trim(), papel = $('#usuPapel').value;
   const celular = digCelular($('#usuCelular').value) ? $('#usuCelular').value.trim() : '';

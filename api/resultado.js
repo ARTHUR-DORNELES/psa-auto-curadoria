@@ -228,6 +228,7 @@ export default async function handler(req, res) {
     const { acao, palestrante, palestrantes, datas, mensagem, manter } = corpo;
     // quem está pedindo (tela logada manda a sessão no corpo); sem sessão, vale o autor
     const sess = corpo.sessao ? await lerSessao(corpo.sessao).catch(() => null) : null;
+    if (sess && sess.suporte && acao !== 'limite-disp') return res.status(403).json({ erro: 'Modo suporte: somente leitura.' });
 
     // placar do limite de disponibilidade de quem está logado
     if (acao === 'limite-disp') {

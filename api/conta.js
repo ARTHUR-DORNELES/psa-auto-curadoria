@@ -1,5 +1,5 @@
 import { lerCorpo, cors } from './_lib.js';
-import { login, lerLink, definirSenha, esqueciSenha, primeiroAcesso, lerSessao, encerrarSessao, gerenciar, publico, salvarMeuCelular } from './_auth.js';
+import { login, lerLink, definirSenha, esqueciSenha, primeiroAcesso, lerSessao, encerrarSessao, gerenciar, publico, salvarMeuCelular, empresas, entrarComoSuporte } from './_auth.js';
 
 // Conta e usuários (uma função só, por `acao`):
 //   entrar {email,senha}        -> { sessao, usuario }
@@ -31,8 +31,11 @@ export default async function handler(req, res) {
       case 'meu-celular': {
         const s = await lerSessao(b.sessao);
         if (!s) return res.status(200).json({ ok: false, motivo: 'sessao', erro: 'Sua sessão expirou. Entre de novo.' });
+        if (s.suporte) return res.status(200).json({ ok: false, erro: 'Modo suporte: somente leitura.' });
         return res.status(200).json(await salvarMeuCelular(s, b.celular));
       }
+      case 'empresas': return res.status(200).json(await empresas(await lerSessao(b.sessao)));
+      case 'suporte-entrar': return res.status(200).json(await entrarComoSuporte(await lerSessao(b.sessao), b));
       case 'sair': await encerrarSessao(b.sessao); return res.status(200).json({ ok: true });
       case 'usuarios': {
         const s = await lerSessao(b.sessao);

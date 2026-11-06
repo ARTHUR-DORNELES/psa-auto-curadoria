@@ -1477,6 +1477,38 @@ export async function pedidosDispEmAberto(dono) {
   return out;
 }
 
+// ── Painel de suporte (super admin) ────────────────────────────────────────────
+// Negócios "Pago" da pipeline Auto Curadoria (as empresas com assinatura).
+export async function negociosPagos() {
+  const r = await hs('/crm/v3/objects/deals/search', 'POST', {
+    filterGroups: [{ filters: [
+      { propertyName: 'pipeline', operator: 'EQ', value: PIPE_AUTOCURADORIA },
+      { propertyName: 'dealstage', operator: 'EQ', value: STAGE_PAGO },
+    ] }],
+    sorts: [{ propertyName: 'closedate', direction: 'DESCENDING' }],
+    properties: ['dealname', 'closedate', 'createdate', process.env.PROP_QTD_USUARIOS || 'quantidade_usuarios'],
+    limit: 100,
+  });
+  return (r.results || []).map((d) => ({ dealId: d.id, ...d.properties }));
+}
+
+// CPF/CNPJ de um negócio: do contato comprador e, se não houver, do cnpj da empresa
+export async function documentoDoNegocio(dealId) {
+  try {
+    const contatoId = await _contatoDoNegocio(dealId);
+    if (contatoId) {
+      const c = await hs(`/crm/v3/objects/contacts/${contatoId}?properties=cpf,cnpj`, 'GET');
+      for (const v of [c.properties?.cnpj, c.properties?.cpf]) { const d = normalizaDocumento(v); if (d) return d.valor; }
+    }
+    const a = await hs(`/crm/v4/objects/deals/${dealId}/associations/companies`, 'GET');
+    for (const r of (a.results || []).slice(0, 5)) {
+      const e = await hs(`/crm/v3/objects/companies/${r.toObjectId}?properties=cnpj`, 'GET');
+      const d = normalizaDocumento(e.properties?.cnpj); if (d) return d.valor;
+    }
+  } catch (e) { console.error('documentoDoNegocio falhou:', e.message); }
+  return '';
+}
+
 export async function decidirAcesso(bruto) {
   if (!normalizaDocumento(bruto)) return { modo: 'invalido' };
   const assin = await assinaturaAtivaPorDocumento(bruto);

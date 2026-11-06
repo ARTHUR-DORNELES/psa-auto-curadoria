@@ -23,6 +23,7 @@ export default async function handler(req, res) {
     // login por e-mail+senha: a sessão diz a empresa (documento da assinatura) e quem criou
     const sess = await lerSessao(b.sessao);
     if (!sess) return res.status(401).json({ erro: 'Sua sessão expirou. Entre de novo.', sessao: 'expirada' });
+    if (sess.suporte) return res.status(403).json({ erro: 'Modo suporte: somente leitura.' });
     const doc = normalizaDocumento(sess.doc);
     const autor = { email: sess.email, nome: sess.nome };
 
