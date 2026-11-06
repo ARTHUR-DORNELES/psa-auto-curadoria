@@ -61,13 +61,14 @@ h1{font-family:var(--font-display);font-weight:800;text-transform:uppercase;font
 label{display:block;font-size:var(--t-caption);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--fg-3);margin-bottom:8px}
 label span{color:var(--psa-orange)}
 input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--border);border-radius:var(--r-sm);color:var(--fg-1);font-family:var(--font-body);font-size:var(--t-body);padding:14px 16px;transition:border-color .2s,background .2s}
-.conta{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border:1px solid var(--border);border-radius:var(--r-md);padding:14px 18px;background:#ffffff05;margin-top:var(--s-5)}
-.conta__id{display:flex;align-items:center;gap:14px;min-width:0}
-.conta__av{width:44px;height:44px;border-radius:50%;background:var(--psa-orange);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex:none;text-transform:uppercase}
-.conta__id strong{display:block;font-size:17px;line-height:1.3;color:var(--fg-1)}
-.conta__id small{display:block;font-size:13px;color:var(--fg-3);overflow-wrap:anywhere}
-.conta__papel{display:inline-block;margin-left:6px;color:var(--psa-orange);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:11px}
-.conta .btn{padding:10px 22px}
+.conta-h{display:flex;align-items:center;gap:10px;margin-left:20px;padding-left:20px;border-left:1px solid var(--border-subtle);height:36px}
+.conta__av{width:30px;height:30px;border-radius:50%;background:var(--psa-orange);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;text-transform:uppercase}
+.conta-h__txt{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+.conta-h__txt strong{font-size:13px;color:var(--fg-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+.conta-h__txt small{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--psa-orange)}
+.conta-h__sair{background:none;border:1px solid var(--border-strong);border-radius:var(--r-pill);color:var(--fg-2);font-family:var(--font-body);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:6px 12px;cursor:pointer;margin-left:4px}
+.conta-h__sair:hover{color:var(--fg-1);border-color:var(--fg-1)}
+@media(max-width:640px){.conta-h__txt{display:none}.conta-h{margin-left:4px;padding-left:10px;gap:8px}.bar{gap:12px}}
 .abas-conta{display:flex;gap:4px;margin-top:var(--s-5);border-bottom:1px solid var(--border)}
 .abas-conta button{background:none;border:0;border-bottom:3px solid transparent;color:var(--fg-3);font-family:var(--font-body);font-weight:700;font-size:var(--t-body-sm);letter-spacing:.08em;text-transform:uppercase;padding:14px 18px;cursor:pointer;margin-bottom:-1px;transition:color .2s,border-color .2s}
 .abas-conta button:hover{color:var(--fg-1)}
@@ -305,6 +306,11 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
     <a href="/"><img src="https://psasite.vercel.app/_next/image?url=%2Fbrand%2Flogos%2Flogo-01.png&w=256&q=75" alt="PSA Palestras"></a>
     <span class="eyebrow">Auto Curadoria</span>
     <a class="volta" id="btnVoltar" href="/">← voltar</a>
+    <div class="conta-h" id="contaHeader" style="display:none">
+      <span class="conta__av" id="contaAv"></span>
+      <span class="conta-h__txt"><strong id="contaNome"></strong><small id="contaPapel"></small></span>
+      <button type="button" class="conta-h__sair" id="btnSair">Sair</button>
+    </div>
   </div>
 </header>
 
@@ -374,13 +380,6 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 
     <!-- logado -->
     <div id="boxLogado" style="display:none">
-      <div class="conta">
-        <div class="conta__id">
-          <span class="conta__av" id="contaAv"></span>
-          <div style="min-width:0"><strong id="contaNome">Carregando…</strong><small><span id="contaEmail"></span> <span class="conta__papel" id="contaPapel"></span></small></div>
-        </div>
-        <button type="button" class="btn btn--ghost" id="btnSair">Sair</button>
-      </div>
       <div class="abas-conta" id="abasConta" style="display:none">
         <button type="button" class="on" data-aba="curadorias">Curadorias</button>
         <button type="button" data-aba="usuarios" id="btnUsuarios">Usuários <span id="abaUsuQtd"></span></button>
@@ -804,12 +803,14 @@ $('#btnSair').addEventListener('click', async () => {
   try { await postJSON('/api/conta', { acao: 'sair', sessao: sessaoAtual }); } catch (e) {}
   guardarSessao(''); usuarioAtual = null;
   $('#gateTitulo').innerHTML = 'Vamos começar<br>sua curadoria.';
-  caixaGate('boxLogin');
+  $('#contaHeader').style.display = 'none';
+  mostra('gate', 0); caixaGate('boxLogin');
 });
 
 // sessão caiu (expirou ou usuário removido): volta pro login
 function sessaoCaiu(msg) {
   guardarSessao(''); usuarioAtual = null;
+  $('#contaHeader').style.display = 'none';
   mostra('gate', 0); caixaGate('boxLogin');
   $('#eGate').textContent = msg || 'Sua sessão expirou. Entre de novo.';
 }
@@ -821,7 +822,7 @@ async function abrirPainel() {
   abaConta('curadorias');
   let j;
   try { j = await postJSON('/api/acesso', { sessao: sessaoAtual }); }
-  catch (e) { $('#contaNome').textContent = ''; $('#eLogado').textContent = 'Não conseguimos carregar agora. Tente de novo em instantes.'; return; }
+  catch (e) { $('#eLogado').textContent = 'Não conseguimos carregar agora. Tente de novo em instantes.'; return; }
   if (!j.ok && j.motivo === 'sessao') return sessaoCaiu(j.erro);
   usuarioAtual = j.usuario || null;
   const u = usuarioAtual || {};
@@ -829,9 +830,11 @@ async function abrirPainel() {
   // título vira a saudação; barra da conta mostra quem está logado e o papel
   $('#gateTitulo').innerHTML = `Olá, ${escHTML(nome.split(' ')[0] || 'tudo bem')}.`;
   $('#contaAv').textContent = (nome.trim()[0] || '?');
-  $('#contaNome').textContent = nome;
-  $('#contaEmail').textContent = u.email || '';
+  $('#contaAv').title = u.email || '';
+  $('#contaNome').textContent = nome.split(' ').slice(0, 2).join(' ');
+  $('#contaNome').title = u.email || '';
   $('#contaPapel').textContent = u.papel === 'admin' ? 'Administrador' : 'Usuário';
+  $('#contaHeader').style.display = '';
   // abas só para admin (usuário comum só tem as curadorias dele)
   $('#abasConta').style.display = u.papel === 'admin' ? '' : 'none';
   if (u.papel === 'admin') {
