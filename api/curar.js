@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { criarNegocioCuradoria, redis, chave, chaveDeal, lerCorpo, cors, assinaturaAtivaPorDocumento, normalizaDocumento } from './_lib.js';
+import { lerSessao } from './_auth.js';
 
 // A ferramenta NÃO gera mais os nomes. Ela grava o briefing no negócio e a
 // automação da PSA (disparada pela observação) produz o arquivo da IA Curadoria
@@ -24,12 +25,15 @@ export default async function handler(req, res) {
 
     // Paywall: só libera quem tem um negócio "Pago" na pipeline Auto Curadoria, casado
     // pelo CPF/CNPJ. A validação é feita de novo aqui (não confia só no gate do front).
-    const doc = normalizaDocumento(b.documento);
-    if (!doc) return res.status(400).json({ erro: 'Informe um CPF ou CNPJ válido para liberar sua curadoria.' });
+    // login por e-mail+senha: a sessão diz a empresa (documento da assinatura) e quem criou
+    const sess = await lerSessao(b.sessao);
+    if (!sess) return res.status(401).json({ erro: 'Sua sessão expirou. Entre de novo.', sessao: 'expirada' });
+    const doc = normalizaDocumento(sess.doc);
+    const autor = { email: sess.email, nome: sess.nome };
     // Assinatura ativa (1 ano a partir da data de pagamento) libera curadorias ilimitadas.
     let assinatura;
     try {
-      assinatura = await assinaturaAtivaPorDocumento(b.documento);
+      assinatura = await assinaturaAtivaPorDocumento(sess.doc);
     } catch (e) {
       console.error('VALIDACAO_ACESSO_FALHOU', e.message);
       return res.status(502).json({ erro: 'não conseguimos validar seu acesso agora. Tente de novo em instantes.' });
@@ -59,7 +63,7 @@ export default async function handler(req, res) {
     // briefing e a automação rodam. Falha aqui é fatal: sem o negócio, não há curadoria.
     let hubspot;
     try {
-      hubspot = await criarNegocioCuradoria(assinatura.contatoId, briefing, id);
+      hubspot = await criarNegocioCuradoria(assinatura.contatoId, briefing, id, '', autor);
     } catch (e) {
       console.error('HUBSPOT_FALHOU', id, e.message);
       return res.status(502).json({
@@ -72,7 +76,7 @@ export default async function handler(req, res) {
       id, criadoEm: new Date().toISOString(), briefing, hubspot, pago: true, acoes: [],
       // documento guardado só como referência; assinaturaDealId = o negócio da assinatura
       // (acesso), separado do negócio desta curadoria (hubspot.negocioId).
-      documento: doc.valor, documentoTipo: doc.tipo,
+      documento: doc.valor, documentoTipo: doc.tipo, usuario: autor,
       assinaturaDealId: assinatura.dealId, contatoId: assinatura.contatoId,
     }), 'EX', 60 * 60 * 24 * 90);
     // vínculo negócio da curadoria -> uuid: o gate reencontra esta curadoria pelo CPF/CNPJ

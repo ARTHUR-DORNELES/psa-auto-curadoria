@@ -292,8 +292,10 @@ async function stageIdPorNome(nome) {
 // Cria um NEGÓCIO NOVO por curadoria (etapa "Curadorias criadas"), associado ao contato
 // assinante, com o briefing e a observação que dispara a automação. É o negócio onde a
 // curadoria daquela solicitação vai viver (substitui reaproveitar o negócio da assinatura).
-export async function criarNegocioCuradoria(contatoId, briefing, id, notaExtra = '') {
+export async function criarNegocioCuradoria(contatoId, briefing, id, notaExtra = '', usuario = null) {
   const props = _propsBriefing(briefing);
+  // quem da empresa criou (usuários por empresa). Propriedade recusada é descartada sem quebrar.
+  if (usuario?.email) props[process.env.PROP_AUTOR || 'auto_curadoria_usuario'] = [usuario.nome, `<${usuario.email}>`].filter(Boolean).join(' ');
   const criada = await stageIdPorNome(NOME_STAGE.criada);
   if (!criada) console.error('etapa "Curadorias criadas" não encontrada na pipeline — negócio criado na etapa padrão');
   const deal = await criarNegocio(
@@ -377,9 +379,18 @@ export async function registrarNomesNaoEncontrados(dealId, nomes, meta = {}) {
 
 // Ação do cliente sobre UMA curadoria da lista dele (finalizar/arquivar), com checagem de dono:
 // o CPF/CNPJ informado tem de bater com o contato que criou a curadoria. Nunca lança.
-export async function acaoCuradoria(bruto, uuid, acao) {
-  const doc = normalizaDocumento(bruto);
-  if (!doc) return { ok: false, erro: 'documento inválido' };
+// `sess` = sessão validada em _auth.js ({ doc, email, papel }). Admin mexe em qualquer
+// curadoria da empresa; usuário só nas que ele criou.
+// Dono da curadoria: mesma empresa (documento) E (admin OU quem criou). Curadorias de antes
+// dos usuários (sem `usuario`) ficam só com os admins.
+export function podeVerCuradoria(sess, reg) {
+  if (!sess?.doc || !reg || String(reg.documento || '') !== String(sess.doc)) return false;
+  if (sess.papel === 'admin') return true;
+  return !!reg.usuario?.email && reg.usuario.email === sess.email;
+}
+
+export async function acaoCuradoria(sess, uuid, acao) {
+  if (!sess?.doc) return { ok: false, erro: 'sessão inválida' };
   if (!uuid || !['finalizar', 'arquivar'].includes(acao)) return { ok: false, erro: 'ação inválida' };
   try {
     const cru = await redis().get(chave(uuid));
@@ -387,13 +398,7 @@ export async function acaoCuradoria(bruto, uuid, acao) {
     let reg; try { reg = JSON.parse(cru); } catch (e) { return { ok: false, erro: 'curadoria corrompida' }; }
     const dealId = reg?.hubspot?.negocioId;
     if (!dealId) return { ok: false, erro: 'curadoria sem negócio associado' };
-    // dono: os contatos do CPF/CNPJ têm de incluir o contato que criou esta curadoria
-    const contatos = await hs('/crm/v3/objects/contacts/search', 'POST', {
-      filterGroups: [{ filters: [{ propertyName: doc.tipo, operator: 'IN', values: docVariantes(doc) }] }],
-      properties: [doc.tipo], limit: 100,
-    });
-    const ids = (contatos.results || []).map((c) => String(c.id));
-    if (!reg.contatoId || !ids.includes(String(reg.contatoId))) return { ok: false, erro: 'sem permissão' };
+    if (!podeVerCuradoria(sess, reg)) return { ok: false, erro: 'sem permissão' };
     const ok = acao === 'finalizar' ? await finalizarCuradoria(dealId) : await arquivarCuradoria(dealId);
     return { ok };
   } catch (e) { console.error('acaoCuradoria falhou:', e.message); return { ok: false, erro: 'falha ao processar' }; }
@@ -1254,7 +1259,9 @@ export async function creditoPagoPorDocumento(bruto) {
 // 1 ano e ainda "Pago", expira preguiçoso (move p/ "Utilizado"). Nunca lança.
 const ANO_MS = 365 * 24 * 60 * 60 * 1000;
 export async function assinaturaAtivaPorDocumento(bruto) {
-  const found = await _negocioAutoCuradoriaPorDoc(bruto, STAGE_PAGO, 'DESCENDING', ['closedate']);
+  // quantidade_usuarios = quantos acessos a empresa comprou (lido em _auth.js)
+  const found = await _negocioAutoCuradoriaPorDoc(bruto, STAGE_PAGO, 'DESCENDING',
+    ['closedate', process.env.PROP_QTD_USUARIOS || 'quantidade_usuarios']);
   if (!found) return null;
   const dataPag = found.props.closedate || found.props.createdate || '';
   // HubSpot devolve datas como epoch em ms (string só de dígitos); Date.parse disso dá NaN.
@@ -1267,7 +1274,7 @@ export async function assinaturaAtivaPorDocumento(bruto) {
     try { await hs(`/crm/v3/objects/deals/${found.dealId}`, 'PATCH', { properties: { dealstage: STAGE_UTILIZADO } }); }
     catch (e) { console.error('expiração da assinatura falhou:', e.message); }
   }
-  return { dealId: found.dealId, contatoId: found.contatoId, doc: found.doc, ativa, vence };
+  return { dealId: found.dealId, contatoId: found.contatoId, doc: found.doc, ativa, vence, props: found.props };
 }
 
 /**
@@ -1343,7 +1350,7 @@ export async function listarCuradorias(bruto) {
       const nome = String(b.nome || '').trim();
       const label = [empresa || nome || 'Curadoria', dataBR(b.data) ? `evento ${dataBR(b.data)}` : 'evento a definir'].join(' · ');
       const finalizada = !!stFinal && String(d.properties?.dealstage) === String(stFinal);
-      out.push({ id: uuid, label, criadoEm: reg.criadoEm || null, finalizada });
+      out.push({ id: uuid, label, criadoEm: reg.criadoEm || null, finalizada, autor: reg.usuario || null });
     }
     return out;
   } catch (e) { console.error('listarCuradorias falhou:', e.message); return []; }

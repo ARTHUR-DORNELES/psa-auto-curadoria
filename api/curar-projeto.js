@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { criarNegocioCuradoria, redis, chave, chaveDeal, chaveProjeto, lerCorpo, cors, assinaturaAtivaPorDocumento, normalizaDocumento } from './_lib.js';
+import { lerSessao } from './_auth.js';
 
 // EVENTO com vários palestrantes (caminho "quero ajuda"): cria UMA curadoria por MACRO TEMA,
 // todas com o MESMO briefing (só o tema muda). O resultado vira abas, uma por tema.
@@ -38,10 +39,13 @@ export default async function handler(req, res) {
     if (faltando.length) return res.status(400).json({ erro: `campos obrigatórios: ${faltando.join(', ')}` });
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(b.email)) return res.status(400).json({ erro: 'e-mail inválido' });
 
-    const doc = normalizaDocumento(b.documento);
-    if (!doc) return res.status(400).json({ erro: 'Informe um CPF ou CNPJ válido para liberar sua curadoria.' });
+    // login por e-mail+senha: a sessão diz a empresa (documento da assinatura) e quem criou
+    const sess = await lerSessao(b.sessao);
+    if (!sess) return res.status(401).json({ erro: 'Sua sessão expirou. Entre de novo.', sessao: 'expirada' });
+    const doc = normalizaDocumento(sess.doc);
+    const autor = { email: sess.email, nome: sess.nome };
     let assinatura;
-    try { assinatura = await assinaturaAtivaPorDocumento(b.documento); }
+    try { assinatura = await assinaturaAtivaPorDocumento(sess.doc); }
     catch (e) { console.error('VALIDACAO_ACESSO_FALHOU', e.message); return res.status(502).json({ erro: 'não conseguimos validar seu acesso agora. Tente de novo em instantes.' }); }
     if (!assinatura) return res.status(402).json({ erro: 'Não encontramos uma assinatura para este CPF/CNPJ.' });
     if (!assinatura.ativa) return res.status(402).json({ erro: 'Sua assinatura expirou. Renove para montar novas curadorias.' });
@@ -70,13 +74,13 @@ export default async function handler(req, res) {
       let hubspot;
       try {
         hubspot = await criarNegocioCuradoria(assinatura.contatoId, briefing, id,
-          `Parte do EVENTO/projeto ${projetoId} (curadoria do tema "${macroTema}").`);
+          `Parte do EVENTO/projeto ${projetoId} (curadoria do tema "${macroTema}").`, autor);
       } catch (e) { console.error('HUBSPOT_FALHOU (projeto)', projetoId, macroTema, e.message); continue; }
 
       await redis().set(chave(id), JSON.stringify({
         id, criadoEm: new Date().toISOString(), briefing, hubspot, pago: true, acoes: [],
         projetoId, macroTema,
-        documento: doc.valor, documentoTipo: doc.tipo,
+        documento: doc.valor, documentoTipo: doc.tipo, usuario: autor,
         assinaturaDealId: assinatura.dealId, contatoId: assinatura.contatoId,
       }), 'EX', 60 * 60 * 24 * 90);
       await redis().set(chaveDeal(hubspot.negocioId), id, 'EX', 60 * 60 * 24 * 90);
@@ -88,7 +92,7 @@ export default async function handler(req, res) {
     await redis().set(chaveProjeto(projetoId), JSON.stringify({
       id: projetoId, criadoEm: new Date().toISOString(),
       briefing: briefingBase, curadorias: curadorias.map(c => ({ id: c.id, macroTema: c.macroTema })),
-      documento: doc.valor, documentoTipo: doc.tipo, contatoId: assinatura.contatoId,
+      documento: doc.valor, documentoTipo: doc.tipo, usuario: autor, contatoId: assinatura.contatoId,
     }), 'EX', 60 * 60 * 24 * 90);
 
     res.status(200).json({ projetoId, curadorias: curadorias.map(c => ({ id: c.id, macroTema: c.macroTema })) });

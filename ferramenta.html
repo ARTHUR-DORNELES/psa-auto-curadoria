@@ -297,33 +297,107 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 
 <main class="wrap">
 
-  <!-- 0. acesso (paywall por CPF/CNPJ) -->
+  <!-- 0. acesso: login por e-mail + senha (usuários por empresa) -->
   <section class="passo on" id="gate">
     <span class="eyebrow">Acesso</span>
-    <h1>Vamos começar<br>sua curadoria.</h1>
-    <p class="sub">Digite o CPF ou CNPJ usado na compra da Auto Curadoria para liberar o seu briefing.</p>
-    <div class="campos">
-      <div><label for="documento">CPF ou CNPJ <span>*</span></label><input id="documento" inputmode="numeric" autocomplete="off" placeholder="Somente números"></div>
-    </div>
-    <p class="erro" id="eGate"></p>
-    <div class="acoes">
-      <button class="btn btn--primary" id="btnAcesso">Iniciar curadoria →</button>
-      <!-- aparece só quando NÃO há compra liberada: leva ao checkout -->
-      <a class="btn" id="btnComprar" href="https://checkout.profissionaissa.com.br/curadoria/checkout/4fbc7e0d-c39c-4241-9334-ef62c2326b55" style="display:none;background:#16a34a;color:#fff;box-shadow:0 0 40px #16a34a55">Adquirir Curadoria →</a>
-    </div>
-    <!-- aparece quando já existe curadoria com este CPF: escolher entre ver a anterior
-         ou começar outra. "Começar uma nova" só aparece quando há uma compra nova sem
-         uso (modo 'escolher'); senão fica só o caminho de comprar outra ('retomar'). -->
-    <div id="escolha" style="display:none">
-      <!-- logo abaixo do CPF: começar uma nova + abrir a lista de curadorias (a lista só
-           aparece ao clicar em "Abrir minhas curadorias"). -->
-      <div class="acoes" style="margin-top:var(--s-6)">
-        <button class="btn" id="btnNovaBriefing" style="display:none;background:#16a34a;color:#fff;box-shadow:0 0 40px #16a34a55">Começar uma nova →</button>
-        <button class="btn btn--ghost" id="btnAbrirLista" style="display:none">Abrir minhas curadorias →</button>
-        <a class="btn" id="btnCriarNova" href="https://checkout.profissionaissa.com.br/curadoria/checkout/4fbc7e0d-c39c-4241-9334-ef62c2326b55" style="display:none;background:#16a34a;color:#fff;box-shadow:0 0 40px #16a34a55">Criar nova curadoria →</a>
+    <h1 id="gateTitulo">Vamos começar<br>sua curadoria.</h1>
+
+    <!-- entrar -->
+    <div id="boxLogin">
+      <p class="sub">Entre com o e-mail e a senha do seu acesso à Auto Curadoria.</p>
+      <div class="campos">
+        <div><label for="loginEmail">E-mail <span>*</span></label><input id="loginEmail" type="email" autocomplete="username" placeholder="voce@empresa.com.br"></div>
+        <div><label for="loginSenha">Senha <span>*</span></label><input id="loginSenha" type="password" autocomplete="current-password"></div>
       </div>
-      <p class="sub" id="escolhaSub" style="display:none;margin-top:var(--s-6)">Escolha qual quer ver:</p>
-      <div id="escolhaLista" style="display:none;gap:10px;margin:var(--s-4) 0"></div>
+      <p class="erro" id="eGate"></p>
+      <div class="acoes">
+        <button class="btn btn--primary" id="btnEntrar">Entrar →</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:var(--s-5);font-size:var(--t-body-sm)">
+        <button type="button" class="lnk-gate" data-box="boxEsqueci" style="background:none;border:0;color:var(--fg-2);text-decoration:underline;cursor:pointer;padding:0;font:inherit">Esqueci minha senha</button>
+        <button type="button" class="lnk-gate" data-box="boxPrimeiro" style="background:none;border:0;color:var(--fg-2);text-decoration:underline;cursor:pointer;padding:0;font:inherit">Primeiro acesso da empresa</button>
+      </div>
+    </div>
+
+    <!-- esqueci a senha -->
+    <div id="boxEsqueci" style="display:none">
+      <p class="sub">Informe seu e-mail. Se ele tiver acesso, mandamos um link para você criar uma nova senha.</p>
+      <div class="campos">
+        <div><label for="esqEmail">E-mail <span>*</span></label><input id="esqEmail" type="email" autocomplete="username"></div>
+      </div>
+      <p class="erro" id="eEsq"></p>
+      <div class="acoes">
+        <button class="btn btn--primary" id="btnEsqueci">Enviar link →</button>
+        <button class="btn btn--ghost lnk-gate" data-box="boxLogin">Voltar</button>
+      </div>
+    </div>
+
+    <!-- primeiro acesso: CPF/CNPJ da compra manda o link ao e-mail do comprador -->
+    <div id="boxPrimeiro" style="display:none">
+      <p class="sub">Informe o CPF ou CNPJ usado na compra. Mandamos um link de acesso para o e-mail de quem comprou, que vira o administrador da empresa e convida os demais.</p>
+      <div class="campos">
+        <div><label for="documento">CPF ou CNPJ <span>*</span></label><input id="documento" inputmode="numeric" autocomplete="off" placeholder="Somente números"></div>
+      </div>
+      <p class="erro" id="ePrim"></p>
+      <div class="acoes">
+        <button class="btn btn--primary" id="btnPrimeiro">Enviar link de acesso →</button>
+        <a class="btn" id="btnComprar" href="https://checkout.profissionaissa.com.br/curadoria/checkout/4fbc7e0d-c39c-4241-9334-ef62c2326b55" style="display:none;background:#16a34a;color:#fff;box-shadow:0 0 40px #16a34a55">Adquirir Curadoria →</a>
+        <button class="btn btn--ghost lnk-gate" data-box="boxLogin">Voltar</button>
+      </div>
+    </div>
+
+    <!-- criar senha (link do convite ou de nova senha) -->
+    <div id="boxSenha" style="display:none">
+      <p class="sub" id="senhaSub">Crie sua senha para entrar.</p>
+      <div class="campos">
+        <div><label for="novaSenha">Nova senha <span>*</span></label><input id="novaSenha" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres, com letras e números"></div>
+        <div><label for="novaSenha2">Repita a senha <span>*</span></label><input id="novaSenha2" type="password" autocomplete="new-password"></div>
+      </div>
+      <p class="erro" id="eSenha"></p>
+      <div class="acoes">
+        <button class="btn btn--primary" id="btnSalvarSenha">Salvar e entrar →</button>
+      </div>
+    </div>
+
+    <!-- logado -->
+    <div id="boxLogado" style="display:none">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;margin:var(--s-4) 0 0;font-size:var(--t-body-sm);color:var(--fg-2)">
+        <span id="quemSou"></span>
+        <button type="button" id="btnUsuarios" style="display:none;background:none;border:0;color:var(--psa-orange);text-decoration:underline;cursor:pointer;padding:0;font:inherit">Usuários</button>
+        <button type="button" id="btnSair" style="background:none;border:0;color:var(--fg-3);text-decoration:underline;cursor:pointer;padding:0;font:inherit">Sair</button>
+      </div>
+      <p class="erro" id="eLogado"></p>
+
+      <div id="escolha">
+        <div class="acoes" style="margin-top:var(--s-6)">
+          <button class="btn" id="btnNovaBriefing" style="display:none;background:#16a34a;color:#fff;box-shadow:0 0 40px #16a34a55">Começar uma nova →</button>
+          <button class="btn btn--ghost" id="btnAbrirLista" style="display:none">Abrir minhas curadorias →</button>
+        </div>
+        <p class="sub" id="escolhaSub" style="display:none;margin-top:var(--s-6)">Escolha qual quer ver:</p>
+        <div id="escolhaLista" style="display:none;gap:10px;margin:var(--s-4) 0"></div>
+      </div>
+
+      <!-- aba Usuários (só admin) -->
+      <div id="painelUsuarios" style="display:none;margin-top:var(--s-6)">
+        <p class="sub" id="usuQuota" style="margin-bottom:var(--s-4)"></p>
+        <div id="usuLista" style="display:grid;gap:10px"></div>
+        <div id="usuConvite" style="margin-top:var(--s-6)">
+          <span class="eyebrow">Convidar usuário</span>
+          <div class="campos" style="margin-top:var(--s-4)">
+            <div><label for="usuNome">Nome <span>*</span></label><input id="usuNome" autocomplete="off"></div>
+            <div><label for="usuEmail">E-mail <span>*</span></label><input id="usuEmail" type="email" autocomplete="off"></div>
+            <div><label for="usuPapel">Perfil</label><select id="usuPapel"><option value="usuario">Usuário: vê só as curadorias dele</option><option value="admin">Administrador: vê todas e gerencia usuários</option></select></div>
+          </div>
+          <p class="erro" id="eUsu"></p>
+          <div class="acoes">
+            <button class="btn btn--primary" id="btnConvidar">Enviar convite por e-mail →</button>
+          </div>
+          <div id="usuLinkBox" style="display:none;margin-top:var(--s-4);font-size:var(--t-body-sm);color:var(--fg-2)"></div>
+        </div>
+        <div class="acoes" style="margin-top:var(--s-6)">
+          <button class="btn btn--ghost" id="btnFecharUsuarios">← Voltar às curadorias</button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -594,149 +668,224 @@ document.querySelectorAll('[data-vai]').forEach(b => b.addEventListener('click',
   mostra('p' + destino, +destino);
 }));
 
-// ── gate de acesso (paywall por CPF/CNPJ) ──────────────────
-// Só entra quem tem uma compra "Pago" na pipeline Auto Curadoria, casada pelo documento.
-// O servidor revalida em /api/curar — este gate é a porta, não a fechadura.
-let documentoValidado = '', contatoNovo = {};
+// ── acesso: login por e-mail + senha (usuários por empresa) ───────────────
+// A empresa (CPF/CNPJ da assinatura) tem N usuários. Admin vê todas as curadorias e
+// gerencia os usuários; usuário vê só as dele. A sessão fica no navegador (30 dias) e vai
+// no corpo de cada chamada; o servidor revalida tudo (este gate é a porta, não a fechadura).
+let sessaoAtual = '', usuarioAtual = null, contatoNovo = {};
+try { sessaoAtual = localStorage.getItem('ac_sessao') || ''; } catch (e) {}
 // modo do formulário p1/p2/p3: 'novo' (cria curadoria) ou 'briefing' (completa o briefing de
 // uma curadoria de LISTA FECHADA e dispara a disponibilidade pendente). formAlvo = {id, dispNome}.
 let formModo = 'novo', formAlvo = null;
-$('#btnAcesso').addEventListener('click', async () => {
-  const doc = $('#documento').value.replace(/\D/g, '');
+
+const postJSON = (url, corpo) => fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(corpo) }).then((r) => r.json());
+const escHTML = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const BOXES_GATE = ['boxLogin', 'boxEsqueci', 'boxPrimeiro', 'boxSenha', 'boxLogado'];
+function caixaGate(id) {
+  BOXES_GATE.forEach((b) => { $('#' + b).style.display = b === id ? '' : 'none'; });
+  ['eGate', 'eEsq', 'ePrim', 'eSenha', 'eLogado'].forEach((e) => { $('#' + e).textContent = ''; });
+}
+function guardarSessao(t) {
+  sessaoAtual = t || '';
+  try { if (t) localStorage.setItem('ac_sessao', t); else localStorage.removeItem('ac_sessao'); } catch (e) {}
+}
+document.querySelectorAll('.lnk-gate').forEach((b) => b.addEventListener('click', () => caixaGate(b.dataset.box)));
+const comEnter = (campo, botao) => $(campo).addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !$(botao).disabled) { e.preventDefault(); $(botao).click(); }
+});
+
+// entrar
+$('#btnEntrar').addEventListener('click', async () => {
+  const email = $('#loginEmail').value.trim(), senha = $('#loginSenha').value;
   $('#eGate').textContent = '';
-  if (doc.length !== 11 && doc.length !== 14) {
-    $('#eGate').textContent = 'Informe um CPF (11 dígitos) ou CNPJ (14 dígitos), só números.';
+  if (!email || !senha) { $('#eGate').textContent = 'Informe e-mail e senha.'; return; }
+  $('#btnEntrar').disabled = true; $('#btnEntrar').textContent = 'Entrando…';
+  try {
+    const j = await postJSON('/api/conta', { acao: 'entrar', email, senha });
+    if (!j.ok) { $('#eGate').textContent = j.erro || 'Não foi possível entrar.'; return; }
+    guardarSessao(j.sessao);
+    $('#loginSenha').value = '';
+    await abrirPainel();
+  } catch (e) { $('#eGate').textContent = 'Não conseguimos entrar agora. Tente de novo em instantes.'; }
+  finally { $('#btnEntrar').disabled = false; $('#btnEntrar').textContent = 'Entrar →'; }
+});
+comEnter('#loginEmail', '#btnEntrar'); comEnter('#loginSenha', '#btnEntrar');
+
+// esqueci a senha
+$('#btnEsqueci').addEventListener('click', async () => {
+  const email = $('#esqEmail').value.trim();
+  if (!email) { $('#eEsq').textContent = 'Informe seu e-mail.'; return; }
+  $('#btnEsqueci').disabled = true;
+  try { const j = await postJSON('/api/conta', { acao: 'esqueci', email }); $('#eEsq').textContent = j.msg || j.erro || ''; }
+  catch (e) { $('#eEsq').textContent = 'Não conseguimos enviar agora. Tente de novo.'; }
+  finally { $('#btnEsqueci').disabled = false; }
+});
+comEnter('#esqEmail', '#btnEsqueci');
+
+// primeiro acesso da empresa (CPF/CNPJ da compra -> link no e-mail do comprador)
+$('#btnPrimeiro').addEventListener('click', async () => {
+  const doc = $('#documento').value.replace(/\D/g, '');
+  $('#ePrim').textContent = '';
+  if (doc.length !== 11 && doc.length !== 14) { $('#ePrim').textContent = 'Informe um CPF (11 dígitos) ou CNPJ (14 dígitos), só números.'; return; }
+  $('#btnPrimeiro').disabled = true; $('#btnPrimeiro').textContent = 'Enviando…';
+  try {
+    const j = await postJSON('/api/conta', { acao: 'primeiro-acesso', documento: doc });
+    $('#ePrim').textContent = j.ok ? j.msg : (j.erro || 'Não foi possível enviar.');
+    if (!j.ok && j.motivo === 'nao_encontrado') { $('#btnPrimeiro').style.display = 'none'; $('#btnComprar').style.display = ''; }
+  } catch (e) { $('#ePrim').textContent = 'Não conseguimos enviar agora. Tente de novo.'; }
+  finally { $('#btnPrimeiro').disabled = false; $('#btnPrimeiro').textContent = 'Enviar link de acesso →'; }
+});
+$('#documento').addEventListener('input', () => {
+  $('#ePrim').textContent = ''; $('#btnComprar').style.display = 'none'; $('#btnPrimeiro').style.display = '';
+});
+comEnter('#documento', '#btnPrimeiro');
+
+// criar senha a partir do link do e-mail (?acesso=<token>)
+let tokenLink = '';
+async function abrirLinkDeAcesso(t) {
+  tokenLink = t;
+  mostra('gate', 0);
+  caixaGate('boxSenha');
+  $('#btnSalvarSenha').disabled = true;
+  try {
+    const j = await postJSON('/api/conta', { acao: 'link', token: t });
+    if (!j.ok) { caixaGate('boxLogin'); $('#eGate').textContent = j.erro; return; }
+    const nome = (j.nome || '').split(' ')[0];
+    $('#gateTitulo').innerHTML = j.tipo === 'senha' ? 'Nova senha.' : 'Bem-vindo<br>à Auto Curadoria.';
+    $('#senhaSub').textContent = `${nome ? nome + ', c' : 'C'}rie sua senha para entrar com ${j.email}.`;
+    $('#loginEmail').value = j.email;
+    $('#btnSalvarSenha').disabled = false;
+  } catch (e) { $('#eSenha').textContent = 'Não conseguimos abrir o link agora. Recarregue a página.'; }
+}
+$('#btnSalvarSenha').addEventListener('click', async () => {
+  const s1 = $('#novaSenha').value, s2 = $('#novaSenha2').value;
+  if (s1 !== s2) { $('#eSenha').textContent = 'As senhas não são iguais.'; return; }
+  $('#btnSalvarSenha').disabled = true;
+  try {
+    const j = await postJSON('/api/conta', { acao: 'definir-senha', token: tokenLink, senha: s1 });
+    if (!j.ok) { $('#eSenha').textContent = j.erro; $('#btnSalvarSenha').disabled = false; return; }
+    guardarSessao(j.sessao);
+    // tira o token da barra de endereço (não fica no histórico nem é reusado)
+    try { const u = new URL(location.href); u.searchParams.delete('acesso'); history.replaceState(null, '', u); } catch (e) {}
+    $('#gateTitulo').innerHTML = 'Vamos começar<br>sua curadoria.';
+    await abrirPainel();
+  } catch (e) { $('#eSenha').textContent = 'Não conseguimos salvar agora. Tente de novo.'; $('#btnSalvarSenha').disabled = false; }
+});
+comEnter('#novaSenha2', '#btnSalvarSenha');
+
+$('#btnSair').addEventListener('click', async () => {
+  try { await postJSON('/api/conta', { acao: 'sair', sessao: sessaoAtual }); } catch (e) {}
+  guardarSessao(''); usuarioAtual = null;
+  caixaGate('boxLogin');
+});
+
+// sessão caiu (expirou ou usuário removido): volta pro login
+function sessaoCaiu(msg) {
+  guardarSessao(''); usuarioAtual = null;
+  mostra('gate', 0); caixaGate('boxLogin');
+  $('#eGate').textContent = msg || 'Sua sessão expirou. Entre de novo.';
+}
+
+// painel do logado: lista de curadorias (+ começar nova) e, p/ admin, a aba Usuários
+async function abrirPainel() {
+  mostra('gate', 0);
+  caixaGate('boxLogado');
+  $('#painelUsuarios').style.display = 'none';
+  $('#escolha').style.display = '';
+  $('#quemSou').textContent = 'Carregando…';
+  let j;
+  try { j = await postJSON('/api/acesso', { sessao: sessaoAtual }); }
+  catch (e) { $('#quemSou').textContent = ''; $('#eLogado').textContent = 'Não conseguimos carregar agora. Tente de novo em instantes.'; return; }
+  if (!j.ok && j.motivo === 'sessao') return sessaoCaiu(j.erro);
+  usuarioAtual = j.usuario || null;
+  const u = usuarioAtual || {};
+  $('#quemSou').innerHTML = `Olá, <strong>${escHTML((u.nome || u.email || '').split(' ')[0])}</strong>${u.papel === 'admin' ? ' · administrador' : ''}`;
+  $('#btnUsuarios').style.display = u.papel === 'admin' ? '' : 'none';
+  if (!j.ok) {
+    $('#eLogado').textContent = j.erro || 'Não encontramos uma assinatura ativa.';
+    $('#btnNovaBriefing').style.display = 'none'; $('#btnAbrirLista').style.display = 'none';
+    $('#escolhaLista').style.display = 'none'; $('#escolhaSub').style.display = 'none';
     return;
   }
-  try { sessionStorage.setItem('ac_doc', doc); } catch (e) {}   // p/ o "voltar" reconstruir a escolha
-  $('#btnAcesso').disabled = true;
-  $('#btnAcesso').textContent = 'Validando…';
-  try {
-    const r = await fetch('/api/acesso', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ documento: doc }),
+  contatoNovo = j.contato || {};
+  montarLista(j.modo === 'escolher' ? (j.curadorias || []) : []);
+  $('#btnNovaBriefing').style.display = j.modo === 'novo' || j.podeNova ? '' : 'none';
+}
+
+function montarLista(curadorias) {
+  const lista = $('#escolhaLista');
+  lista.innerHTML = '';
+  const admin = usuarioAtual && usuarioAtual.papel === 'admin';
+  curadorias.forEach((c) => {
+    // data de criação (sempre existe) ajuda a diferenciar curadorias com o mesmo tema/empresa
+    let criada = '';
+    try { if (c.criadoEm) criada = new Date(c.criadoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch (e) {}
+    const rot = escHTML(c.label || 'Curadoria');
+    // admin vê quem criou cada curadoria (as de antes dos usuários aparecem sem autor)
+    const autor = admin ? (c.autor ? `por ${escHTML(c.autor.nome || c.autor.email)}` : 'sem autor (anterior aos usuários)') : '';
+    const sub = [criada ? `criada em ${criada}` : '', autor].filter(Boolean).join(' · ');
+
+    const item = document.createElement('div');
+    item.style.cssText = 'display:flex;flex-direction:column;gap:6px';
+
+    // linha principal (laranja): o card inteiro é o "Ver"
+    const b = document.createElement('button');
+    b.className = 'btn btn--primary';
+    b.style.cssText = 'justify-content:space-between;text-align:left;width:100%';
+    const selo = `<span class="selo-fin" style="display:${c.finalizada ? 'inline-block' : 'none'};font-size:10px;font-weight:700;letter-spacing:.05em;background:#0b7a33;color:#eafff1;border-radius:999px;padding:2px 9px;text-transform:uppercase">finalizada</span>`;
+    b.innerHTML = `<span style="display:flex;flex-direction:column;gap:3px;align-items:flex-start;min-width:0"><span style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap"><span>${rot}</span>${selo}</span>${sub ? `<span style="font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;opacity:.85">${sub}</span>` : ''}</span><span style="flex:none">Ver →</span>`;
+    b.addEventListener('click', () => { location.search = 'id=' + c.id; });
+
+    // ações secundárias: finalizar / deletar
+    const acoes = document.createElement('div');
+    acoes.style.cssText = 'display:flex;gap:16px;justify-content:flex-end;padding:0 6px';
+    const linkBase = 'background:none;border:0;font-size:12px;cursor:pointer;text-decoration:underline;padding:0';
+
+    const bFin = document.createElement('button');
+    bFin.type = 'button';
+    bFin.textContent = 'Finalizar curadoria';
+    bFin.style.cssText = linkBase + ';color:#4ade80';
+    if (c.finalizada) bFin.style.display = 'none';
+    bFin.addEventListener('click', async () => {
+      if (!confirm('Finalizar esta curadoria? Ela fica marcada como concluída.')) return;
+      bFin.disabled = true; bFin.textContent = 'Finalizando…';
+      try {
+        const r = await postJSON('/api/curadoria-acao', { sessao: sessaoAtual, id: c.id, acao: 'finalizar' });
+        if (r && r.ok) { bFin.style.display = 'none'; const s = b.querySelector('.selo-fin'); if (s) s.style.display = 'inline-block'; }
+        else { alert((r && r.erro) || 'Não conseguimos finalizar agora.'); bFin.disabled = false; bFin.textContent = 'Finalizar curadoria'; }
+      } catch (e) { alert('Falha ao finalizar. Tente de novo.'); bFin.disabled = false; bFin.textContent = 'Finalizar curadoria'; }
     });
-    const j = await r.json();
-    if (!j.ok) {
-      $('#eGate').textContent = j.erro || 'Compra não encontrada para este CPF/CNPJ.';
-      if (j.motivo === 'nao_encontrado') {
-        // sem compra liberada: some o "Iniciar" e aparece o verde que leva ao checkout
-        $('#btnAcesso').style.display = 'none';
-        $('#btnComprar').style.display = '';
-      } else {
-        $('#btnAcesso').disabled = false;
-        $('#btnAcesso').textContent = 'Iniciar curadoria →';
-      }
-      return;
-    }
-    if (j.modo === 'escolher') {
-      // uma ou mais curadorias: monta a lista pra escolher qual ver
-      const lista = $('#escolhaLista');
-      lista.innerHTML = '';
-      (j.curadorias || []).forEach((c) => {
-        // data de criação (sempre existe) ajuda a diferenciar curadorias com o mesmo tema/empresa
-        let criada = '';
-        try { if (c.criadoEm) criada = new Date(c.criadoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch (e) {}
-        const rot = (c.label || 'Curadoria').replace(/</g, '&lt;');
 
-        const item = document.createElement('div');
-        item.style.cssText = 'display:flex;flex-direction:column;gap:6px';
+    const bDel = document.createElement('button');
+    bDel.type = 'button';
+    bDel.textContent = 'Deletar';
+    bDel.style.cssText = linkBase + ';color:#ff4d4d';
+    bDel.addEventListener('click', async () => {
+      if (!confirm('Deletar esta curadoria? Ela sai da sua lista.')) return;
+      bDel.disabled = true; bDel.textContent = 'Deletando…';
+      try {
+        const r = await postJSON('/api/curadoria-acao', { sessao: sessaoAtual, id: c.id, acao: 'arquivar' });
+        if (r && r.ok) { item.remove(); if (!lista.children.length) $('#escolhaSub').textContent = 'Você não tem mais curadorias abertas.'; }
+        else { alert((r && r.erro) || 'Não conseguimos deletar agora.'); bDel.disabled = false; bDel.textContent = 'Deletar'; }
+      } catch (e) { alert('Falha ao deletar. Tente de novo.'); bDel.disabled = false; bDel.textContent = 'Deletar'; }
+    });
 
-        // linha principal (laranja): o card inteiro é o "Ver"
-        const b = document.createElement('button');
-        b.className = 'btn btn--primary';
-        b.style.cssText = 'justify-content:space-between;text-align:left;width:100%';
-        const selo = `<span class="selo-fin" style="display:${c.finalizada ? 'inline-block' : 'none'};font-size:10px;font-weight:700;letter-spacing:.05em;background:#0b7a33;color:#eafff1;border-radius:999px;padding:2px 9px;text-transform:uppercase">finalizada</span>`;
-        b.innerHTML = `<span style="display:flex;flex-direction:column;gap:3px;align-items:flex-start;min-width:0"><span style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap"><span>${rot}</span>${selo}</span>${criada ? `<span style="font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;opacity:.85">criada em ${criada}</span>` : ''}</span><span style="flex:none">Ver →</span>`;
-        b.addEventListener('click', () => { location.search = 'id=' + c.id; });
+    acoes.append(bFin, bDel);
+    item.append(b, acoes);
+    lista.appendChild(item);
+  });
+  const n = curadorias.length;
+  $('#btnAbrirLista').style.display = n ? '' : 'none';
+  $('#btnAbrirLista').textContent = admin ? 'Abrir curadorias da empresa →' : 'Abrir minhas curadorias →';
+  $('#escolhaLista').style.display = 'none';
+  $('#escolhaSub').style.display = 'none';
+  $('#escolhaSub').textContent = admin
+    ? 'Curadorias de toda a empresa. Escolha qual quer ver:'
+    : (n > 1 ? 'Suas curadorias. Escolha qual quer ver:' : 'Você já tem uma curadoria. Veja ela ou comece outra:');
+}
 
-        // ações secundárias: finalizar / deletar
-        const acoes = document.createElement('div');
-        acoes.style.cssText = 'display:flex;gap:16px;justify-content:flex-end;padding:0 6px';
-        const linkBase = 'background:none;border:0;font-size:12px;cursor:pointer;text-decoration:underline;padding:0';
-
-        const bFin = document.createElement('button');
-        bFin.type = 'button';
-        bFin.textContent = 'Finalizar curadoria';
-        bFin.style.cssText = linkBase + ';color:#4ade80';
-        if (c.finalizada) bFin.style.display = 'none';
-        bFin.addEventListener('click', async () => {
-          if (!confirm('Finalizar esta curadoria? Ela fica marcada como concluída.')) return;
-          bFin.disabled = true; bFin.textContent = 'Finalizando…';
-          try {
-            const r = await fetch('/api/curadoria-acao', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ documento: doc, id: c.id, acao: 'finalizar' }) }).then((x) => x.json());
-            if (r && r.ok) { bFin.style.display = 'none'; const s = b.querySelector('.selo-fin'); if (s) s.style.display = 'inline-block'; }
-            else { alert((r && r.erro) || 'Não conseguimos finalizar agora.'); bFin.disabled = false; bFin.textContent = 'Finalizar curadoria'; }
-          } catch (e) { alert('Falha ao finalizar. Tente de novo.'); bFin.disabled = false; bFin.textContent = 'Finalizar curadoria'; }
-        });
-
-        const bDel = document.createElement('button');
-        bDel.type = 'button';
-        bDel.textContent = 'Deletar';
-        bDel.style.cssText = linkBase + ';color:#ff4d4d';
-        bDel.addEventListener('click', async () => {
-          if (!confirm('Deletar esta curadoria? Ela sai da sua lista.')) return;
-          bDel.disabled = true; bDel.textContent = 'Deletando…';
-          try {
-            const r = await fetch('/api/curadoria-acao', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ documento: doc, id: c.id, acao: 'arquivar' }) }).then((x) => x.json());
-            if (r && r.ok) { item.remove(); if (!lista.children.length) $('#escolhaSub').textContent = 'Você não tem mais curadorias abertas.'; }
-            else { alert((r && r.erro) || 'Não conseguimos deletar agora.'); bDel.disabled = false; bDel.textContent = 'Deletar'; }
-          } catch (e) { alert('Falha ao deletar. Tente de novo.'); bDel.disabled = false; bDel.textContent = 'Deletar'; }
-        });
-
-        acoes.append(bFin, bDel);
-        item.append(b, acoes);
-        lista.appendChild(item);
-      });
-      const podeNova = !!j.podeNova;   // há compra "Pago" -> pode começar uma nova pelo briefing
-      $('#btnNovaBriefing').style.display = podeNova ? '' : 'none';
-      $('#btnCriarNova').style.display = podeNova ? 'none' : '';   // sem compra nova -> caminho do checkout
-      $('#btnAbrirLista').style.display = '';   // botão que revela a lista (fica escondida até clicar)
-      $('#escolhaLista').style.display = 'none';
-      $('#escolhaSub').style.display = 'none';
-      if (podeNova) {
-        documentoValidado = doc;
-        contatoNovo = j.contato || {};
-      }
-      const n = (j.curadorias || []).length;
-      $('#escolhaSub').textContent = n > 1
-        ? 'Você tem curadorias com este CPF/CNPJ. Escolha qual quer ver:'
-        : 'Você já tem uma curadoria com este CPF/CNPJ. Veja ela ou comece outra:';
-      $('#btnAcesso').style.display = 'none';
-      $('#escolha').style.display = '';
-      return;
-    }
-    documentoValidado = doc;   // modo 'novo': abre a conversa com o Santiago
-    iniciarEntrada(j.contato); // pergunta primeiro: já tem os nomes ou quer ajuda?
-  } catch (e) {
-    $('#eGate').textContent = 'Não conseguimos validar agora. Tente de novo em instantes.';
-    $('#btnAcesso').disabled = false;
-    $('#btnAcesso').textContent = 'Iniciar curadoria →';
-  }
-});
-
-// corrigiu o documento -> volta ao estado inicial (esconde verde e escolha, mostra "Iniciar")
-$('#documento').addEventListener('input', () => {
-  $('#eGate').textContent = '';
-  $('#btnComprar').style.display = 'none';
-  $('#escolha').style.display = 'none';
-  $('#btnAcesso').style.display = '';
-  $('#btnAcesso').disabled = false;
-  $('#btnAcesso').textContent = 'Iniciar curadoria →';
-});
-// Enter no campo dispara o "Iniciar curadoria" (só quando o botão está visível/ativo)
-$('#documento').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && $('#btnAcesso').style.display !== 'none' && !$('#btnAcesso').disabled) {
-    e.preventDefault();
-    $('#btnAcesso').click();
-  }
-});
-// (a lista de curadorias é montada dinamicamente em #escolhaLista; cada botão recarrega
-// a ferramenta com ?id=<curadoria>, que a IIFE do fim carrega sozinha.)
-// Começar uma nova: usa a compra "Pago" que ainda não foi usada -> abre o briefing.
-$('#btnNovaBriefing').addEventListener('click', () => {
-  iniciarEntrada(contatoNovo);
-});
+// Começar uma nova: abre a entrada do briefing (palestra/evento, nomes ou ajuda).
+$('#btnNovaBriefing').addEventListener('click', () => { iniciarEntrada(contatoNovo); });
 // "Abrir minhas curadorias": só aqui a lista aparece.
 $('#btnAbrirLista').addEventListener('click', () => {
   $('#escolhaLista').style.display = 'grid';
@@ -744,18 +893,99 @@ $('#btnAbrirLista').addEventListener('click', () => {
   $('#btnAbrirLista').style.display = 'none';
 });
 
-// "← voltar": no gate, o link leva pra fora (LP). Nas demais telas, volta pra tela de ESCOLHA
-// (que fica dentro do #gate). Se a escolha não está montada (curadoria aberta por link ?id),
-// reconstrói a partir do CPF guardado.
+// ── aba Usuários (só admin) ──
+const PAPEL = { admin: 'Administrador', usuario: 'Usuário' };
+async function carregarUsuarios() {
+  $('#usuLista').innerHTML = '<p class="sub">Carregando…</p>';
+  let j;
+  try { j = await postJSON('/api/conta', { acao: 'usuarios', op: 'listar', sessao: sessaoAtual }); }
+  catch (e) { $('#usuLista').innerHTML = '<p class="erro">Não conseguimos carregar os usuários.</p>'; return; }
+  if (!j.ok && j.motivo === 'sessao') return sessaoCaiu(j.erro);
+  if (!j.ok) { $('#usuLista').innerHTML = `<p class="erro">${escHTML(j.erro)}</p>`; return; }
+  const cheio = j.usados >= j.limite;
+  $('#usuQuota').textContent = `${j.usados} de ${j.limite} acessos em uso.` + (cheio ? ' Para convidar mais alguém, remova um usuário ou fale com a PSA para ampliar.' : '');
+  $('#btnConvidar').disabled = cheio;
+  $('#usuLista').innerHTML = '';
+  j.usuarios.forEach((u) => {
+    const eu = usuarioAtual && u.email === usuarioAtual.email;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;border:1px solid var(--border);border-radius:var(--r-md);padding:12px 16px';
+    const pend = u.status !== 'ativo';
+    row.innerHTML = `<div style="min-width:0"><div style="font-weight:600">${escHTML(u.nome || u.email)}${eu ? ' <span style="opacity:.6;font-weight:400">(você)</span>' : ''}</div>
+      <div style="font-size:12px;color:var(--fg-3)">${escHTML(u.email)} · ${PAPEL[u.papel] || u.papel}${pend ? ' · <span style="color:var(--psa-yellow)">convite pendente</span>' : ''}</div></div>`;
+    const acoes = document.createElement('div');
+    acoes.style.cssText = 'display:flex;gap:14px;flex-wrap:wrap';
+    const link = (txt, cor, fn) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = txt;
+      b.style.cssText = `background:none;border:0;font-size:12px;cursor:pointer;text-decoration:underline;padding:0;color:${cor}`;
+      b.addEventListener('click', async () => { b.disabled = true; try { await fn(); } finally { b.disabled = false; } });
+      acoes.appendChild(b);
+    };
+    const op = async (corpo) => {
+      const r = await postJSON('/api/conta', { acao: 'usuarios', sessao: sessaoAtual, email: u.email, ...corpo });
+      if (!r.ok) { alert(r.erro || 'Não foi possível.'); return null; }
+      return r;
+    };
+    if (pend) link('Reenviar convite', 'var(--fg-2)', async () => { const r = await op({ op: 'reenviar' }); if (r) mostrarLinkConvite(u.email, r); });
+    if (!eu) link(u.papel === 'admin' ? 'Tornar usuário' : 'Tornar administrador', 'var(--fg-2)', async () => {
+      if (await op({ op: 'papel', papel: u.papel === 'admin' ? 'usuario' : 'admin' })) carregarUsuarios();
+    });
+    if (!eu) link('Remover', '#ff4d4d', async () => {
+      if (!confirm(`Remover ${u.nome || u.email}? A pessoa perde o acesso na hora. As curadorias que ela criou continuam visíveis para os administradores.`)) return;
+      if (await op({ op: 'remover' })) carregarUsuarios();
+    });
+    row.appendChild(acoes);
+    $('#usuLista').appendChild(row);
+  });
+}
+// depois de convidar/reenviar: avisa que foi por e-mail e deixa o link à mão (copiar)
+function mostrarLinkConvite(email, r) {
+  const box = $('#usuLinkBox');
+  box.style.display = '';
+  box.innerHTML = `${r.enviado ? `Convite enviado para <strong>${escHTML(email)}</strong>.` : `<span style="color:var(--psa-yellow)">Não conseguimos enviar o e-mail para ${escHTML(email)}.</span>`} Se preferir, copie o link e mande você mesmo (vale 7 dias):
+    <div style="display:flex;gap:8px;margin-top:8px"><input readonly value="${escHTML(r.link)}" style="font-size:12px;padding:8px 10px"><button type="button" class="btn btn--ghost" style="flex:none">Copiar</button></div>`;
+  const inp = box.querySelector('input'), btn = box.querySelector('button');
+  btn.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(r.link); } catch (e) { inp.select(); document.execCommand('copy'); }
+    btn.textContent = 'Copiado';
+  });
+}
+$('#btnUsuarios').addEventListener('click', () => {
+  $('#escolha').style.display = 'none';
+  $('#painelUsuarios').style.display = '';
+  $('#usuLinkBox').style.display = 'none';
+  carregarUsuarios();
+});
+$('#btnFecharUsuarios').addEventListener('click', () => { abrirPainel(); });
+$('#btnConvidar').addEventListener('click', async () => {
+  const nome = $('#usuNome').value.trim(), email = $('#usuEmail').value.trim(), papel = $('#usuPapel').value;
+  $('#eUsu').textContent = '';
+  if (!nome || !email) { $('#eUsu').textContent = 'Informe nome e e-mail.'; return; }
+  $('#btnConvidar').disabled = true;
+  try {
+    const r = await postJSON('/api/conta', { acao: 'usuarios', op: 'convidar', sessao: sessaoAtual, nome, email, papel });
+    if (!r.ok) { $('#eUsu').textContent = r.erro || 'Não foi possível convidar.'; $('#btnConvidar').disabled = false; return; }
+    $('#usuNome').value = ''; $('#usuEmail').value = ''; $('#usuPapel').value = 'usuario';
+    await carregarUsuarios();
+    mostrarLinkConvite(email, r);
+  } catch (e) { $('#eUsu').textContent = 'Não conseguimos convidar agora.'; $('#btnConvidar').disabled = false; }
+});
+
+// "← voltar": no gate, o link leva pra fora (LP). Nas demais telas, volta pro painel do
+// logado (lista de curadorias). Sem sessão, volta pro login.
 $('#btnVoltar').addEventListener('click', (e) => {
   if ($('#gate').classList.contains('on')) return;   // já no gate -> deixa o link levar pra LP
   e.preventDefault();
-  const temEscolha = $('#escolha') && $('#escolha').style.display !== 'none' && $('#escolhaLista').children.length;
-  if (temEscolha) { mostra('gate'); return; }
-  let cpf = ''; try { cpf = sessionStorage.getItem('ac_doc') || ''; } catch (err) {}
-  if (cpf) { $('#documento').value = cpf; mostra('gate'); $('#btnAcesso').click(); }   // reconstrói a escolha
-  else { mostra('gate'); }
+  if (sessaoAtual) abrirPainel(); else { mostra('gate'); caixaGate('boxLogin'); }
 });
+
+// abertura: link do e-mail (?acesso=) > curadoria por link (?id=, tratado no fim) > sessão salva
+{
+  const p = new URL(location.href).searchParams;
+  if (p.get('acesso')) abrirLinkDeAcesso(p.get('acesso'));
+  else if (!p.get('id') && sessaoAtual) abrirPainel();
+}
 
 // ── conversa com o Santiago (curador) ──────────────────────
 const chatHist = [];        // [{role:'santiago'|'user', content}]
@@ -1271,7 +1501,7 @@ async function enviarProjeto(corpo, temas) {
   try {
     const r = await fetch('/api/curar-projeto', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ...corpo, temas, horarioEvento: projetoHorarioEvento, utm, documento: documentoValidado }),
+      body: JSON.stringify({ ...corpo, temas, horarioEvento: projetoHorarioEvento, utm, sessao: sessaoAtual }),
     });
     const j = await r.json();
     if (!r.ok) throw new Error(j.erro || 'falha ao registrar o projeto');
@@ -1424,7 +1654,7 @@ async function enviarNomes(nomes, empresaEvento) {
   try {
     const r = await fetch('/api/curar-nomes', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ documento: documentoValidado, nomes, utm, empresaPalestra: empresaEvento || '',
+      body: JSON.stringify({ sessao: sessaoAtual, nomes, utm, empresaPalestra: empresaEvento || '',
         nome: contatoNovo.nome, empresa: contatoNovo.empresa, email: contatoNovo.email, telefone: contatoNovo.telefone }),
     });
     const j = await r.json();
@@ -1592,7 +1822,7 @@ async function enviarBriefing(corpo, onErro) {
     const r = await fetch('/api/curar', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ...corpo, utm, documento: documentoValidado }),
+      body: JSON.stringify({ ...corpo, utm, sessao: sessaoAtual }),
     });
     const j = await r.json();
     if (!r.ok) throw new Error(j.erro || 'falha ao registrar o briefing');
@@ -2328,7 +2558,8 @@ function renderCompleto(d) {
     else renderTeaser({ id, teaser: d.teaser, precoCentavos: 19700, checkoutUrl: '' });
   } catch (e) {
     mostra('gate', 0);
-    $('#eGate').textContent = 'Não encontramos essa curadoria. Valide seu CPF/CNPJ para começar de novo.';
+    caixaGate(sessaoAtual ? 'boxLogado' : 'boxLogin');
+    if (sessaoAtual) abrirPainel(); else $('#eGate').textContent = 'Não encontramos essa curadoria. Entre com seu e-mail para ver as suas.';
   }
 })();
 </script>

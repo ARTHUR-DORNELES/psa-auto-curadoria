@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { teaser, paraCliente, semNumerosInternos, notaDoBriefing, escolherIndicacoes, lerNomes, valorEmReais, faixaDeValor, telefoneE164, cors, chaveDeNome } from '../api/_lib.js';
+import { podeVerCuradoria } from '../api/_lib.js';
+import { hashSenha, confereSenha, senhaFraca } from '../api/_auth.js';
 
 let ok = 0;
 const t = (nome, fn) => { fn(); console.log('✓', nome); ok++; };
@@ -350,6 +352,33 @@ t('LP e ferramenta são páginas separadas e se linkam', () => {
   assert.ok(fer.includes('<header>'), 'a ferramenta é página própria: precisa do header dela');
   assert.ok(fer.includes('/auto-curadoria'), 'logo e voltar da ferramenta apontam para a LP');
   assert.ok(!fer.includes('href=\\"/\\"'), 'a raiz do domínio de landing pages é 404');
+});
+
+t('senha: hash confere só com a senha certa e recusa senha fraca', () => {
+  const h = hashSenha('curadoria2026');
+  assert.ok(h.startsWith('scrypt$') && !h.includes('curadoria2026'));
+  assert.ok(confereSenha('curadoria2026', h));
+  assert.ok(!confereSenha('curadoria2027', h));
+  assert.ok(!confereSenha('x', 'lixo'));
+  assert.ok(senhaFraca('abc1'));
+  assert.ok(senhaFraca('somenteletras'));
+  assert.equal(senhaFraca('letras123'), '');
+});
+
+t('usuário vê só as curadorias dele; admin vê todas da empresa', () => {
+  const reg = { documento: '12345678000199', usuario: { email: 'ana@x.com', nome: 'Ana' } };
+  const antiga = { documento: '12345678000199' };
+  const ana = { doc: '12345678000199', email: 'ana@x.com', papel: 'usuario' };
+  const bia = { doc: '12345678000199', email: 'bia@x.com', papel: 'usuario' };
+  const adm = { doc: '12345678000199', email: 'chefe@x.com', papel: 'admin' };
+  const outraEmpresa = { doc: '99999999000199', email: 'z@y.com', papel: 'admin' };
+  assert.ok(podeVerCuradoria(ana, reg));
+  assert.ok(!podeVerCuradoria(bia, reg));
+  assert.ok(podeVerCuradoria(adm, reg));
+  assert.ok(!podeVerCuradoria(outraEmpresa, reg));
+  assert.ok(podeVerCuradoria(adm, antiga));
+  assert.ok(!podeVerCuradoria(ana, antiga));
+  assert.ok(!podeVerCuradoria(null, reg));
 });
 
 console.log(`\n${ok} checagens passaram.`);

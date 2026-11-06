@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { criarNegocioCuradoria, redis, chave, chaveDeal, lerCorpo, cors, assinaturaAtivaPorDocumento, normalizaDocumento } from './_lib.js';
+import { lerSessao } from './_auth.js';
 
 // Caminho "JÁ TENHO OS NOMES": o cliente informa até 8 palestrantes que já quer.
 // A IA Curadoria roda igual, mas TRAVADA na lista fechada (marcador LISTA_FECHADA na
@@ -19,12 +20,15 @@ export default async function handler(req, res) {
       .filter((n) => n.length >= 3))].slice(0, MAX_NOMES);
     if (!nomes.length) return res.status(400).json({ erro: 'Informe ao menos um palestrante (nome e sobrenome).' });
 
-    const doc = normalizaDocumento(b.documento);
-    if (!doc) return res.status(400).json({ erro: 'Informe um CPF ou CNPJ válido para liberar sua curadoria.' });
+    // login por e-mail+senha: a sessão diz a empresa (documento da assinatura) e quem criou
+    const sess = await lerSessao(b.sessao);
+    if (!sess) return res.status(401).json({ erro: 'Sua sessão expirou. Entre de novo.', sessao: 'expirada' });
+    const doc = normalizaDocumento(sess.doc);
+    const autor = { email: sess.email, nome: sess.nome };
 
     let assinatura;
     try {
-      assinatura = await assinaturaAtivaPorDocumento(b.documento);
+      assinatura = await assinaturaAtivaPorDocumento(sess.doc);
     } catch (e) {
       console.error('VALIDACAO_ACESSO_FALHOU', e.message);
       return res.status(502).json({ erro: 'não conseguimos validar seu acesso agora. Tente de novo em instantes.' });
@@ -53,7 +57,7 @@ export default async function handler(req, res) {
 
     let hubspot;
     try {
-      hubspot = await criarNegocioCuradoria(assinatura.contatoId, briefing, id, notaExtra);
+      hubspot = await criarNegocioCuradoria(assinatura.contatoId, briefing, id, notaExtra, autor);
     } catch (e) {
       console.error('HUBSPOT_FALHOU', id, e.message);
       return res.status(502).json({ erro: 'não conseguimos registrar seus nomes agora. Tente de novo em instantes.', detalhe: e.message.slice(0, 400) });
@@ -62,7 +66,7 @@ export default async function handler(req, res) {
     await redis().set(chave(id), JSON.stringify({
       id, criadoEm: new Date().toISOString(), briefing, hubspot, pago: true, acoes: [],
       nomesDoCliente: true, nomesSolicitados: nomes, briefingCompleto: false,
-      documento: doc.valor, documentoTipo: doc.tipo,
+      documento: doc.valor, documentoTipo: doc.tipo, usuario: autor,
       assinaturaDealId: assinatura.dealId, contatoId: assinatura.contatoId,
     }), 'EX', 60 * 60 * 24 * 90);
     await redis().set(chaveDeal(hubspot.negocioId), id, 'EX', 60 * 60 * 24 * 90);

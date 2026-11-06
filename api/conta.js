@@ -1,0 +1,42 @@
+import { lerCorpo, cors } from './_lib.js';
+import { login, lerLink, definirSenha, esqueciSenha, primeiroAcesso, lerSessao, encerrarSessao, gerenciar, publico } from './_auth.js';
+
+// Conta e usuários (uma função só, por `acao`):
+//   entrar {email,senha}        -> { sessao, usuario }
+//   link {token}                -> pra quem é o link do e-mail (convite / nova senha)
+//   definir-senha {token,senha} -> ativa o acesso e já entra
+//   esqueci {email}             -> manda link de nova senha (resposta não revela se existe)
+//   primeiro-acesso {documento} -> CPF/CNPJ da compra manda o link pro e-mail do comprador (admin)
+//   eu {sessao} / sair {sessao}
+//   usuarios {sessao, op: listar|convidar|reenviar|papel|remover, email, nome, papel} (só admin)
+export default async function handler(req, res) {
+  if (cors(req, res)) return;
+  if (req.method !== 'POST') return res.status(405).json({ ok: false, erro: 'use POST' });
+  const b = await lerCorpo(req);
+  try {
+    switch (b.acao) {
+      case 'entrar': return res.status(200).json(await login(b.email, b.senha));
+      case 'link': {
+        const l = await lerLink(b.token);
+        return res.status(200).json(l ? { ok: true, email: l.email, nome: l.nome, tipo: l.tipo } : { ok: false, erro: 'Este link expirou ou já foi usado. Peça um novo.' });
+      }
+      case 'definir-senha': return res.status(200).json(await definirSenha(b.token, b.senha));
+      case 'esqueci': return res.status(200).json(await esqueciSenha(b.email));
+      case 'primeiro-acesso': return res.status(200).json(await primeiroAcesso(b.documento));
+      case 'eu': {
+        const s = await lerSessao(b.sessao);
+        return res.status(200).json(s ? { ok: true, usuario: publico({ ...s, status: 'ativo' }) } : { ok: false, motivo: 'sessao' });
+      }
+      case 'sair': await encerrarSessao(b.sessao); return res.status(200).json({ ok: true });
+      case 'usuarios': {
+        const s = await lerSessao(b.sessao);
+        if (!s) return res.status(200).json({ ok: false, motivo: 'sessao', erro: 'Sua sessão expirou. Entre de novo.' });
+        return res.status(200).json(await gerenciar(s, b.op, b));
+      }
+      default: return res.status(400).json({ ok: false, erro: 'ação inválida' });
+    }
+  } catch (e) {
+    console.error('CONTA_FALHOU', b.acao, e.message);
+    return res.status(200).json({ ok: false, erro: 'Não conseguimos processar agora. Tente de novo em instantes.' });
+  }
+}
