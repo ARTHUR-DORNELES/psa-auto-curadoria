@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento } from './_lib.js';
+import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias } from './_lib.js';
 
 /**
  * Usuários por empresa. A assinatura continua sendo o negócio "Pago" casado pelo CPF/CNPJ
@@ -73,7 +73,20 @@ async function gravarUsuario(doc, u) {
   await redis().hset(kUsuarios(doc), u.email, JSON.stringify(u));
   await redis().set(kUsuario(u.email), doc);
 }
-export const publico = (u) => ({ email: u.email, nome: u.nome || '', papel: u.papel, status: u.status, criadoEm: u.criadoEm || null });
+export const publico = (u) => ({ email: u.email, nome: u.nome || '', papel: u.papel, status: u.status, criadoEm: u.criadoEm || null, ultimoAcesso: u.ultimoAcesso || null });
+
+// "Último acesso": gravado no login, ao criar a senha e a cada abertura do painel.
+// Só regrava se passou 10 min (evita escrever no Redis a cada clique). Nunca lança.
+export async function marcarAcesso(doc, email) {
+  try {
+    const u = await lerUsuario(doc, email);
+    if (!u) return;
+    const agora = Date.now();
+    if (u.ultimoAcesso && agora - Date.parse(u.ultimoAcesso) < 10 * 60 * 1000) return;
+    u.ultimoAcesso = new Date(agora).toISOString();
+    await gravarUsuario(doc, u);
+  } catch (e) { console.error('marcarAcesso falhou:', e.message); }
+}
 
 // limite de usuários = `quantidade_usuarios` do negócio da assinatura (vazio -> padrão)
 export async function limiteUsuarios(doc) {
@@ -162,6 +175,7 @@ export async function login(emailBruto, senha) {
     }
     return { ok: false, erro: 'E-mail ou senha incorretos.' };
   }
+  await marcarAcesso(doc, email);
   return { ok: true, sessao: await abrirSessao(doc, email), usuario: publico(u) };
 }
 
@@ -186,6 +200,7 @@ export async function definirSenha(t, senha) {
   u.ativadoEm = u.ativadoEm || new Date().toISOString();
   await gravarUsuario(l.doc, u);
   await redis().del(kLink(t));
+  await marcarAcesso(l.doc, u.email);
   return { ok: true, sessao: await abrirSessao(l.doc, u.email), usuario: publico(u) };
 }
 
@@ -280,8 +295,11 @@ export async function gerenciar(sess, acao, b = {}) {
   const papel = b.papel === 'admin' ? 'admin' : 'usuario';
 
   if (acao === 'listar') {
-    const [usuarios, { limite }] = await Promise.all([listarUsuarios(doc), limiteUsuarios(doc)]);
-    return { ok: true, usuarios: usuarios.map(publico), limite, usados: usuarios.length };
+    const [usuarios, { limite }, curadorias] = await Promise.all([listarUsuarios(doc), limiteUsuarios(doc), listarCuradorias(doc)]);
+    // quantas curadorias (visíveis na lista da empresa) cada usuário criou
+    const porAutor = {};
+    for (const c of curadorias) { const e = c.autor?.email; if (e) porAutor[e] = (porAutor[e] || 0) + 1; }
+    return { ok: true, usuarios: usuarios.map((u) => ({ ...publico(u), curadorias: porAutor[u.email] || 0 })), limite, usados: usuarios.length };
   }
 
   if (acao === 'convidar') {

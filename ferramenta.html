@@ -392,6 +392,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
           <button class="btn btn--ghost" id="btnAbrirLista" style="display:none">Abrir minhas curadorias →</button>
         </div>
         <p class="sub" id="escolhaSub" style="display:none;margin-top:var(--s-6)">Escolha qual quer ver:</p>
+        <div id="filtroAutorBox" style="display:none;max-width:360px;margin:0 0 var(--s-4)"><label for="filtroAutor">Filtrar por usuário</label><select id="filtroAutor"></select></div>
         <div id="escolhaLista" style="display:none;gap:10px;margin:var(--s-4) 0"></div>
       </div>
 
@@ -867,6 +868,7 @@ function montarLista(curadorias) {
 
     const item = document.createElement('div');
     item.style.cssText = 'display:flex;flex-direction:column;gap:6px';
+    item.dataset.autor = c.autor ? c.autor.email : '';
 
     // linha principal (laranja): o card inteiro é o "Ver"
     const b = document.createElement('button');
@@ -915,6 +917,25 @@ function montarLista(curadorias) {
     lista.appendChild(item);
   });
   const n = curadorias.length;
+  // filtro por usuário (admin): todos / cada autor (com contagem) / sem autor
+  const sel = $('#filtroAutor');
+  const autores = {};
+  let semAutor = 0;
+  curadorias.forEach((c) => {
+    if (!c.autor) { semAutor++; return; }
+    const a = autores[c.autor.email] || (autores[c.autor.email] = { nome: c.autor.nome || c.autor.email, n: 0 });
+    a.n++;
+  });
+  sel.innerHTML = `<option value="*">Todos os usuários (${n})</option>`
+    + Object.entries(autores).sort((x, y) => x[1].nome.localeCompare(y[1].nome))
+      .map(([e, a]) => `<option value="${escHTML(e)}">${escHTML(a.nome)} (${a.n})</option>`).join('')
+    + (semAutor ? `<option value="">Sem autor, anteriores aos usuários (${semAutor})</option>` : '');
+  sel.value = '*';
+  sel.onchange = () => {
+    lista.querySelectorAll(':scope > div').forEach((it) => {
+      it.style.display = sel.value === '*' || it.dataset.autor === sel.value ? '' : 'none';
+    });
+  };
   $('#btnAbrirLista').style.display = n ? '' : 'none';
   $('#btnAbrirLista').textContent = admin ? 'Abrir curadorias da empresa →' : 'Abrir minhas curadorias →';
   $('#escolhaLista').style.display = 'none';
@@ -930,11 +951,19 @@ $('#btnNovaBriefing').addEventListener('click', () => { iniciarEntrada(contatoNo
 $('#btnAbrirLista').addEventListener('click', () => {
   $('#escolhaLista').style.display = 'grid';
   $('#escolhaSub').style.display = '';
+  // filtro só para admin e só quando há mais de um autor na lista
+  const admin = usuarioAtual && usuarioAtual.papel === 'admin';
+  $('#filtroAutorBox').style.display = admin && $('#filtroAutor').options.length > 2 ? '' : 'none';
   $('#btnAbrirLista').style.display = 'none';
 });
 
 // ── aba Usuários (só admin) ──
 const PAPEL = { admin: 'Administrador', usuario: 'Usuário' };
+function quandoAcessou(iso) {
+  if (!iso) return 'Nunca acessou';
+  try { return 'Último acesso em ' + new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+  catch (e) { return 'Último acesso: ' + iso; }
+}
 async function carregarUsuarios() {
   $('#usuLista').innerHTML = '<p class="sub">Carregando…</p>';
   let j;
@@ -953,7 +982,8 @@ async function carregarUsuarios() {
     row.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;border:1px solid var(--border);border-radius:var(--r-md);padding:12px 16px';
     const pend = u.status !== 'ativo';
     row.innerHTML = `<div style="min-width:0"><div style="font-weight:600">${escHTML(u.nome || u.email)}${eu ? ' <span style="opacity:.6;font-weight:400">(você)</span>' : ''}</div>
-      <div style="font-size:12px;color:var(--fg-3)">${escHTML(u.email)} · ${PAPEL[u.papel] || u.papel}${pend ? ' · <span style="color:var(--psa-yellow)">convite pendente</span>' : ''}</div></div>`;
+      <div style="font-size:12px;color:var(--fg-3)">${escHTML(u.email)} · ${PAPEL[u.papel] || u.papel}${pend ? ' · <span style="color:var(--psa-yellow)">convite pendente</span>' : ''}</div>
+      <div style="font-size:12px;color:var(--fg-2);margin-top:2px">${quandoAcessou(u.ultimoAcesso)} · <strong style="color:var(--fg-1)">${u.curadorias || 0}</strong> ${u.curadorias === 1 ? 'curadoria criada' : 'curadorias criadas'}</div></div>`;
     const acoes = document.createElement('div');
     acoes.style.cssText = 'display:flex;gap:14px;flex-wrap:wrap';
     const link = (txt, cor, fn) => {

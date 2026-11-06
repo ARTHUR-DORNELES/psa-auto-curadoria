@@ -1,5 +1,5 @@
 import { decidirAcesso, dadosContato, lerCorpo, cors } from './_lib.js';
-import { lerSessao, publico } from './_auth.js';
+import { lerSessao, publico, marcarAcesso } from './_auth.js';
 
 // Porta da ferramenta, já com o usuário logado (e-mail + senha, ver api/conta.js).
 // A sessão diz a empresa (documento da assinatura) e o papel:
@@ -16,6 +16,7 @@ export default async function handler(req, res) {
     const sess = await lerSessao(sessao);
     if (!sess) return res.status(200).json({ ok: false, motivo: 'sessao', erro: 'Sua sessão expirou. Entre de novo.' });
     const usuario = { ...publico({ ...sess, status: 'ativo' }) };
+    await marcarAcesso(sess.doc, sess.email);
 
     const dec = await decidirAcesso(sess.doc);
     const minhas = (dec.curadorias || []).filter((c) =>
