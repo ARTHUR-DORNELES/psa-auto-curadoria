@@ -1219,34 +1219,68 @@ export function docVariantes(doc) {
  */
 // Base compartilhada: acha o negócio da pipeline Auto Curadoria numa etapa, casado pelo
 // CPF/CNPJ (no contato) e associado a ele. `direction` escolhe o mais antigo/recente.
+// Quem é dono de um CPF/CNPJ no CRM: contatos com a propriedade cpf/cnpj e, para CNPJ,
+// também as EMPRESAS com aquele cnpj (venda manual costuma ter o CNPJ só na empresa).
+async function _idsPorDocumento(doc) {
+  const contatos = await hs('/crm/v3/objects/contacts/search', 'POST', {
+    filterGroups: [{ filters: [{ propertyName: doc.tipo, operator: 'IN', values: docVariantes(doc) }] }],
+    properties: [doc.tipo], limit: 100,
+  });
+  let empresas = [];
+  if (doc.tipo === 'cnpj') {
+    try {
+      const e = await hs('/crm/v3/objects/companies/search', 'POST', {
+        filterGroups: [{ filters: [{ propertyName: 'cnpj', operator: 'IN', values: docVariantes(doc) }] }],
+        properties: ['cnpj'], limit: 100,
+      });
+      empresas = (e.results || []).map((x) => x.id);
+    } catch (err) { console.error('busca de empresa por CNPJ falhou:', err.message); }
+  }
+  return { contatos: (contatos.results || []).map((c) => c.id), empresas };
+}
+
+// filterGroups (OR) de negócio por contato e por empresa; o HubSpot aceita até 5 grupos
+function _gruposPorDono({ contatos, empresas }, filtrosBase) {
+  const grupos = [
+    ...contatos.map((id) => ({ filters: [...filtrosBase, { propertyName: 'associations.contact', operator: 'EQ', value: id }] })),
+    ...empresas.map((id) => ({ filters: [...filtrosBase, { propertyName: 'associations.company', operator: 'EQ', value: id }] })),
+  ];
+  // garante ao menos uma empresa na janela de 5 quando houver contatos demais
+  if (grupos.length > 5 && empresas.length) return [...grupos.slice(0, 4), grupos[contatos.length]];
+  return grupos.slice(0, 5);
+}
+
+// primeiro contato associado ao negócio (o comprador)
+async function _contatoDoNegocio(dealId) {
+  try {
+    const a = await hs(`/crm/v4/objects/deals/${dealId}/associations/contacts`, 'GET');
+    return String((a.results || [])[0]?.toObjectId || '');
+  } catch (e) { return ''; }
+}
+
 async function _negocioAutoCuradoriaPorDoc(bruto, stage, direction, extraProps = []) {
   const doc = normalizaDocumento(bruto);
   if (!doc) return null;
 
-  // 1) contatos com esse cpf/cnpj (o checkout grava só dígitos, ex.: "01608209016")
-  const contatos = await hs('/crm/v3/objects/contacts/search', 'POST', {
-    filterGroups: [{ filters: [{ propertyName: doc.tipo, operator: 'IN', values: docVariantes(doc) }] }],
-    properties: [doc.tipo],
-    limit: 100,
-  });
-  const ids = (contatos.results || []).map((c) => c.id);
-  if (!ids.length) return null;
+  // 1) contatos e empresas com esse cpf/cnpj (o checkout grava só dígitos, ex.: "01608209016")
+  const donos = await _idsPorDocumento(doc);
+  if (!donos.contatos.length && !donos.empresas.length) return null;
 
-  // 2) negócio na etapa pedida, associado a esses contatos. Cada contato = filterGroup (OR), até 5.
+  // 2) negócio na etapa pedida, associado a esses contatos ou empresas (OR, até 5 grupos)
   const deals = await hs('/crm/v3/objects/deals/search', 'POST', {
-    filterGroups: ids.slice(0, 5).map((cid) => ({
-      filters: [
-        { propertyName: 'pipeline', operator: 'EQ', value: PIPE_AUTOCURADORIA },
-        { propertyName: 'dealstage', operator: 'EQ', value: stage },
-        { propertyName: 'associations.contact', operator: 'EQ', value: cid },
-      ],
-    })),
+    filterGroups: _gruposPorDono(donos, [
+      { propertyName: 'pipeline', operator: 'EQ', value: PIPE_AUTOCURADORIA },
+      { propertyName: 'dealstage', operator: 'EQ', value: stage },
+    ]),
     sorts: [{ propertyName: 'createdate', direction }],
     properties: ['dealname', 'dealstage', 'createdate', ...extraProps],
     limit: 1,
   });
   const d = (deals.results || [])[0];
-  return d ? { dealId: d.id, contatoId: ids[0], doc, props: d.properties || {} } : null;
+  if (!d) return null;
+  // comprador = contato do próprio negócio (achado pela empresa, o contato pode não ter CNPJ)
+  const contatoId = (await _contatoDoNegocio(d.id)) || donos.contatos[0] || '';
+  return { dealId: d.id, contatoId, doc, props: d.properties || {} };
 }
 
 // Negócio "Pago" MAIS ANTIGO (fila): libera o acesso e é o crédito que a geração consome.
@@ -1308,11 +1342,22 @@ export async function listarCuradorias(bruto) {
   const doc = normalizaDocumento(bruto);
   if (!doc) return [];
   try {
-    const contatos = await hs('/crm/v3/objects/contacts/search', 'POST', {
-      filterGroups: [{ filters: [{ propertyName: doc.tipo, operator: 'IN', values: docVariantes(doc) }] }],
-      properties: [doc.tipo], limit: 100,
-    });
-    const ids = (contatos.results || []).map((c) => c.id);
+    const donos = await _idsPorDocumento(doc);
+    // as curadorias ficam associadas ao CONTATO comprador; quando o CNPJ está só na empresa,
+    // o comprador é o contato dos negócios da empresa nesta pipeline
+    const ids = [...donos.contatos];
+    if (donos.empresas.length) {
+      try {
+        const dEmp = await hs('/crm/v3/objects/deals/search', 'POST', {
+          filterGroups: donos.empresas.slice(0, 5).map((id) => ({ filters: [
+            { propertyName: 'pipeline', operator: 'EQ', value: PIPE_AUTOCURADORIA },
+            { propertyName: 'associations.company', operator: 'EQ', value: id },
+          ] })),
+          properties: ['dealname'], limit: 10,
+        });
+        for (const x of dEmp.results || []) { const c = await _contatoDoNegocio(x.id); if (c && !ids.includes(c)) ids.unshift(c); }
+      } catch (e) { console.error('contatos dos negócios da empresa falhou:', e.message); }
+    }
     if (!ids.length) return [];
     // curadorias = negócios nas etapas "Curadorias criadas"/"Curadorias finalizadas" (por nome).
     // Se as etapas ainda não existem, cai no legado "Utilizado" (compat. com curadorias antigas).

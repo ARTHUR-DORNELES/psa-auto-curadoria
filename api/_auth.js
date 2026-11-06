@@ -311,7 +311,16 @@ async function primeiroAcessoPorEmail(email, docConhecido, pendente) {
     });
     const c = busca.results?.[0]?.properties;
     if (!c) return null;
-    for (const bruto of [c.cnpj, c.cpf]) {
+    // documentos possíveis: cnpj/cpf do contato e o cnpj das empresas associadas a ele
+    const docs = [c.cnpj, c.cpf];
+    try {
+      const a = await hs(`/crm/v4/objects/contacts/${busca.results[0].id}/associations/companies`, 'GET');
+      for (const r of (a.results || []).slice(0, 5)) {
+        const emp = await hs(`/crm/v3/objects/companies/${r.toObjectId}?properties=cnpj`, 'GET');
+        if (emp.properties?.cnpj) docs.push(emp.properties.cnpj);
+      }
+    } catch (e) { console.error('empresas do contato falhou:', e.message); }
+    for (const bruto of docs) {
       const d = normalizaDocumento(bruto);
       if (!d) continue;
       const { assinatura, limite } = await limiteUsuarios(d.valor);
