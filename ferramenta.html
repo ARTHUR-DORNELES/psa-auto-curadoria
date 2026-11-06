@@ -2005,7 +2005,7 @@ async function salvarBriefingFormExistente() {
       try {
         await fetch(`/api/resultado?id=${alvo.id}`, {
           method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ acao: 'disponibilidade', palestrantes: [alvo.dispNome], datas }),
+          body: JSON.stringify({ acao: 'disponibilidade', palestrantes: [alvo.dispNome], datas, sessao: sessaoAtual || undefined }),
         });
       } catch (e) { /* mesmo se falhar, volta pro resultado e o cliente tenta de novo */ }
     }
@@ -2017,10 +2017,19 @@ async function salvarBriefingFormExistente() {
   }
 }
 
-// limite de pedidos de disponibilidade aguardando resposta (por empresa)
+// limite de pedidos de disponibilidade aguardando resposta (por usuário)
+function pintarLimiteDisp(l) {
+  const el = $('#avisoLimiteDisp');
+  if (!el) return;
+  if (!l || !l.emAberto) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.innerHTML = l.emAberto >= l.limite
+    ? `<strong>Você chegou ao limite de ${l.limite} pedidos de disponibilidade aguardando resposta.</strong> Assim que um palestrante responder, você pode pedir o próximo.`
+    : `<strong>${l.emAberto} de ${l.limite}</strong> pedidos de disponibilidade seus aguardando resposta. Você ainda pode pedir mais ${l.limite - l.emAberto}.`;
+}
 function avisarLimiteDisp(l) {
   const lista = (l.nomes || []).length ? `\n\nAguardando resposta:\n• ${l.nomes.join('\n• ')}` : '';
-  alert(`Sua empresa já tem ${l.emAberto} pedidos de disponibilidade aguardando resposta, e o limite é ${l.limite}.\n\nAssim que um palestrante responder, você pode pedir o próximo.${lista}`);
+  alert(`Você já tem ${l.emAberto} pedidos de disponibilidade aguardando resposta, e o limite é ${l.limite}.\n\nAssim que um palestrante responder, você pode pedir o próximo.${lista}`);
 }
 
 // Consulta a curadoria até a automação publicar o arquivo. Não revela antes do
@@ -2266,9 +2275,7 @@ function htmlNomes(d) {
     </div>
     <p class="leitura">${esc(r.leitura)}</p>
     ${r.incompleto ? `<p class="aviso">Adiantamos ${r.indicacoes.length} nome${r.indicacoes.length > 1 ? 's' : ''} de alta aderência. Um curador vai completar sua indicação e te avisar — sem custo extra.</p>` : ''}
-    ${d.limiteDisp && d.limiteDisp.emAberto > 0 ? `<p class="aviso" id="avisoLimiteDisp">${d.limiteDisp.emAberto >= d.limiteDisp.limite
-        ? `<strong>Você chegou ao limite de ${d.limiteDisp.limite} pedidos de disponibilidade aguardando resposta.</strong> Assim que um palestrante responder, você pode pedir o próximo.`
-        : `<strong>${d.limiteDisp.emAberto} de ${d.limiteDisp.limite}</strong> pedidos de disponibilidade da sua empresa aguardando resposta. Você ainda pode pedir mais ${d.limiteDisp.limite - d.limiteDisp.emAberto}.`}</p>` : ''}
+    <p class="aviso" id="avisoLimiteDisp" style="display:none"></p>
     ${(d.naoEncontrados && d.naoEncontrados.length) ? `<p class="aviso"><strong>Não localizamos na nossa base:</strong> ${d.naoEncontrados.map(esc).join(', ')}. Confira a grafia do nome completo, ou fale com um curador da PSA que a gente confirma a disponibilidade desse palestrante pra você.</p>` : ''}
     ${d.refacoesRestantes > 0 ? `
     <div class="tut" id="tut">
@@ -2435,6 +2442,13 @@ function wireNomes(d) {
     });
   });
 
+  // placar do limite: começa pelo do autor (veio no GET) e, logado, troca pelo de quem está vendo
+  pintarLimiteDisp(d.limiteDisp);
+  if (sessaoAtual && d.limiteDisp) {
+    fetch(`/api/resultado?id=${d.id}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ acao: 'limite-disp', sessao: sessaoAtual }) })
+      .then((r) => r.json()).then((j) => { if (j && j.ok && j.limiteDisp) { d.limiteDisp = j.limiteDisp; pintarLimiteDisp(d.limiteDisp); } }).catch(() => {});
+  }
+
   $('#resultado').querySelectorAll('.btn-disp').forEach(btn => {
     btn.addEventListener('click', async () => {
       const nome = btn.dataset.nome;
@@ -2451,7 +2465,7 @@ function wireNomes(d) {
       try {
         const r = await fetch(`/api/resultado?id=${d.id}`, {
           method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ acao: 'disponibilidade', palestrantes: [nome], datas }),
+          body: JSON.stringify({ acao: 'disponibilidade', palestrantes: [nome], datas, sessao: sessaoAtual || undefined }),
         });
         // rede de segurança: se o servidor pedir o briefing (lista fechada), abre o formulário
         if (r.status === 428) {
@@ -2462,7 +2476,7 @@ function wireNomes(d) {
           const jj = await r.json().catch(() => ({}));
           btn.disabled = false; btn.textContent = antes;
           d.limiteDisp = { limite: jj.limite, emAberto: jj.emAberto, nomes: jj.nomes || [] };
-          avisarLimiteDisp(d.limiteDisp); return;
+          pintarLimiteDisp(d.limiteDisp); avisarLimiteDisp(d.limiteDisp); return;
         }
         if (!r.ok) throw new Error(await r.text());
         await r.json();
@@ -2478,7 +2492,7 @@ function wireNomes(d) {
         }
         // troca só este botão pelo ✓; os demais seguem disponíveis
         btn.outerHTML = `<span class="chip chip--feito">✓ Disponibilidade e orçamento solicitados</span>`;
-        if (d.limiteDisp) { d.limiteDisp.emAberto++; (d.limiteDisp.nomes ||= []).push(nome); }
+        if (d.limiteDisp) { d.limiteDisp.emAberto++; (d.limiteDisp.nomes ||= []).push(nome); pintarLimiteDisp(d.limiteDisp); }
       } catch (e) {
         btn.disabled = false;
         btn.textContent = antes;

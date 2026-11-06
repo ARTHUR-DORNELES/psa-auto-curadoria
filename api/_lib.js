@@ -1357,20 +1357,28 @@ export async function listarCuradorias(bruto) {
 }
 
 /* ── Limite de disponibilidade em aberto (regra do Marcio, 06/11/2026) ─────────────
- * Cada empresa (documento da assinatura) pode ter no máximo LIMITE_DISP_PENDENTES
- * palestrantes aguardando resposta de disponibilidade. A vaga libera quando o palestrante
- * responde (disponível OU indisponível). Pedido sem resposta há mais de DISP_PENDENTE_DIAS
- * deixa de contar, para um palestrante que nunca responde não travar a empresa para sempre.
- * Índice no Redis: hash ac:disp:<doc> com campo "<curadoria>|<palestrante>" = data do pedido.
- * Na primeira consulta de uma empresa o índice é montado a partir das curadorias dela. */
+ * Cada USUÁRIO pode ter no máximo LIMITE_DISP_PENDENTES palestrantes aguardando resposta
+ * de disponibilidade. Conta quem pediu (sessão logada); sem sessão, o autor da curadoria;
+ * curadoria antiga sem autor cai na empresa. A vaga libera quando o palestrante responde
+ * (disponível OU indisponível). Pedido sem resposta há mais de DISP_PENDENTE_DIAS deixa de
+ * contar, para um palestrante que nunca responde não travar ninguém para sempre.
+ * Índice no Redis: hash ac:disp:u:<email> (ou ac:disp:<doc>) com campo
+ * "<curadoria>|<palestrante>" = data do pedido. Na 1ª consulta é montado a partir das
+ * curadorias que a pessoa criou. */
 export const LIMITE_DISP = Number(process.env.LIMITE_DISP_PENDENTES || 5);
 const DIAS_DISP = Number(process.env.DISP_PENDENTE_DIAS || 7);
-const kDisp = (doc) => `ac:disp:${doc}`;
+// dono = { doc, email }: com e-mail, o limite é da pessoa; sem, da empresa (legado)
+const kDisp = (dono) => (dono.email ? `ac:disp:u:${String(dono.email).toLowerCase()}` : `ac:disp:${dono.doc}`);
+export const donoDoPedido = (reg, sess) => ({
+  doc: reg.documento || '',
+  email: (sess && sess.doc === reg.documento && sess.email) || reg.usuario?.email || '',
+});
 
-async function semearPedidosDisp(doc) {
+async function semearPedidosDisp(dono) {
   const campos = { _: '1' };   // marcador: o índice existe mesmo sem pedidos
   try {
-    for (const c of await listarCuradorias(doc)) {
+    for (const c of await listarCuradorias(dono.doc)) {
+      if (dono.email && c.autor?.email !== dono.email) continue;
       const bruto = await redis().get(chave(c.id));
       if (!bruto) continue;
       const reg = JSON.parse(bruto);
@@ -1380,21 +1388,21 @@ async function semearPedidosDisp(doc) {
       }
     }
   } catch (e) { console.error('semearPedidosDisp falhou:', e.message); }
-  await redis().hset(kDisp(doc), campos);
+  await redis().hset(kDisp(dono), campos);
 }
 
-export async function registrarPedidosDisp(doc, curadoriaId, nomes, em) {
-  if (!doc || !nomes.length) return;
-  if (!(await redis().exists(kDisp(doc)))) await semearPedidosDisp(doc);
-  await redis().hset(kDisp(doc), Object.fromEntries(nomes.map((n) => [`${curadoriaId}|${n}`, em])));
+export async function registrarPedidosDisp(dono, curadoriaId, nomes, em) {
+  if ((!dono.email && !dono.doc) || !nomes.length) return;
+  if (!(await redis().exists(kDisp(dono)))) await semearPedidosDisp(dono);
+  await redis().hset(kDisp(dono), Object.fromEntries(nomes.map((n) => [`${curadoriaId}|${n}`, em])));
 }
 
 // { limite, pendentes: [{ curadoria, nome, em }] } — limpa do índice o que já foi respondido
-export async function pedidosDispEmAberto(doc) {
+export async function pedidosDispEmAberto(dono) {
   const out = { limite: LIMITE_DISP, pendentes: [] };
-  if (!doc) return out;
-  const k = kDisp(doc);
-  if (!(await redis().exists(k))) await semearPedidosDisp(doc);
+  if (!dono.email && !dono.doc) return out;
+  const k = kDisp(dono);
+  if (!(await redis().exists(k))) await semearPedidosDisp(dono);
   const mapa = (await redis().hgetall(k)) || {};
   const porCuradoria = {};
   for (const [campo, em] of Object.entries(mapa)) {

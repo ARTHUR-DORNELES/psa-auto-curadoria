@@ -1,4 +1,7 @@
-import { redis, chave, chaveProjeto, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, anexarWikiLinks, anexarDocStatus, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, limparNomesDoNegocio, finalizarCuradoria, chaveDeNome, respostasDisponibilidade, anexarBriefingAoNegocio, registrarNomesNaoEncontrados, pedidosDispEmAberto, registrarPedidosDisp } from './_lib.js';
+import { redis, chave, chaveProjeto, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, anexarWikiLinks, anexarDocStatus, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, limparNomesDoNegocio, finalizarCuradoria, chaveDeNome, respostasDisponibilidade, anexarBriefingAoNegocio, registrarNomesNaoEncontrados, pedidosDispEmAberto, registrarPedidosDisp, donoDoPedido } from './_lib.js';
+import { lerSessao } from './_auth.js';
+
+const placarDisp = (p) => ({ limite: p.limite, emAberto: p.pendentes.length, nomes: p.pendentes.map((x) => (x.evento ? `${x.nome} (${x.evento})` : x.nome)) });
 
 const ACOES = {
   curador: 'CLIENTE PEDIU ATENDIMENTO DE CURADOR — assumir o processo pelo caminho tradicional.',
@@ -190,10 +193,10 @@ export default async function handler(req, res) {
       }
     }
 
-    // limite de pedidos aguardando resposta (por empresa): a tela avisa antes de pedir
+    // limite de pedidos aguardando resposta (do autor; a tela logada reconsulta pela sessão)
     let limiteDisp = null;
     if (reg.documento) {
-      try { const p = await pedidosDispEmAberto(reg.documento); limiteDisp = { limite: p.limite, emAberto: p.pendentes.length, nomes: p.pendentes.map((x) => (x.evento ? `${x.nome} (${x.evento})` : x.nome)) }; }
+      try { limiteDisp = placarDisp(await pedidosDispEmAberto(donoDoPedido(reg, null))); }
       catch (e) { console.error('limite de disponibilidade (GET) falhou:', e.message); }
     }
 
@@ -223,6 +226,14 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     const corpo = await lerCorpo(req);
     const { acao, palestrante, palestrantes, datas, mensagem, manter } = corpo;
+    // quem está pedindo (tela logada manda a sessão no corpo); sem sessão, vale o autor
+    const sess = corpo.sessao ? await lerSessao(corpo.sessao).catch(() => null) : null;
+
+    // placar do limite de disponibilidade de quem está logado
+    if (acao === 'limite-disp') {
+      if (!reg.documento) return res.status(200).json({ ok: true, limiteDisp: null });
+      return res.status(200).json({ ok: true, limiteDisp: placarDisp(await pedidosDispEmAberto(donoDoPedido(reg, sess))) });
+    }
 
     // Refazer: os 3 atuais saem de cena e a automação é acionada de novo pela
     // observação. Os nomes recusados ficam registrados para não voltarem.
@@ -331,14 +342,15 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, jaEnviado: true, palestrantes: [...jaFeitos] });
       }
 
-      // limite de pedidos aguardando resposta, por empresa (ver pedidosDispEmAberto)
+      // limite de pedidos aguardando resposta, por usuário (ver pedidosDispEmAberto)
+      const dono = donoDoPedido(reg, sess);
       if (reg.documento) {
-        const aberto = await pedidosDispEmAberto(reg.documento);
+        const aberto = await pedidosDispEmAberto(dono);
         const livres = aberto.limite - aberto.pendentes.length;
         if (validos.length > livres) {
           return res.status(429).json({
-            limiteDisp: true, limite: aberto.limite, emAberto: aberto.pendentes.length, nomes: aberto.pendentes.map((x) => (x.evento ? `${x.nome} (${x.evento})` : x.nome)),
-            erro: `Sua empresa já tem ${aberto.pendentes.length} pedido${aberto.pendentes.length === 1 ? '' : 's'} de disponibilidade aguardando resposta, e o limite é ${aberto.limite}. Assim que um palestrante responder, você pode pedir o próximo.`,
+            ...placarDisp(aberto),
+            erro: `Você já tem ${aberto.pendentes.length} pedido${aberto.pendentes.length === 1 ? '' : 's'} de disponibilidade aguardando resposta, e o limite é ${aberto.limite}. Assim que um palestrante responder, você pode pedir o próximo.`,
           });
         }
       }
@@ -365,7 +377,7 @@ export default async function handler(req, res) {
       };
       reg.acoes.push({ acao, palestrantes: validos, datas, em: reg.disponibilidade.em });
       await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
-      try { await registrarPedidosDisp(reg.documento, id, validos, reg.disponibilidade.em); }
+      try { await registrarPedidosDisp(dono, id, validos, reg.disponibilidade.em); }
       catch (e) { console.error('registrar pedido no limite falhou:', e.message); }
 
       if (reg.hubspot?.negocioId) {
