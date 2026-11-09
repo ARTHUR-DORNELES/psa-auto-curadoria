@@ -309,6 +309,15 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 </head>
 <body>
 
+<!-- Oráculo PSA (embutido na curadoria, visível só com ?oraculo=1 por enquanto) -->
+<div id="oraculoWrap" style="display:none;position:fixed;inset:0;z-index:2147483000;background:#000;flex-direction:column">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 14px;background:#02060f;border-bottom:1px solid rgba(255,255,255,.12)">
+    <span style="font:600 12px/1 system-ui,Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#f97316">Oráculo PSA</span>
+    <a id="oraculoVoltar" href="#" style="font:600 12px/1 system-ui,Arial,sans-serif;color:#cbd5e1;text-decoration:none;padding:6px 10px;border:1px solid rgba(255,255,255,.22);border-radius:8px">← Voltar à curadoria</a>
+  </div>
+  <iframe src="https://oraculo-externo.vercel.app" title="Oráculo PSA" style="border:0;flex:1 1 auto;width:100%;height:100%"></iframe>
+</div>
+
 <header>
   <div class="bar">
     <a href="/"><img src="https://psasite.vercel.app/_next/image?url=%2Fbrand%2Flogos%2Flogo-01.png&w=256&q=75" alt="PSA Palestras"></a>
@@ -590,6 +599,26 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 </main>
 
 <script>
+/* Oráculo PSA: embutido via iframe, visível só com ?oraculo=1 (por enquanto).
+   Fica no topo pra rodar mesmo se algo abaixo falhar. */
+(function(){
+  try {
+    var wrap = document.getElementById('oraculoWrap');
+    if (!wrap) return;
+    function mostrar(v){ wrap.style.display = v ? 'flex' : 'none'; }
+    if (new URLSearchParams(location.search).get('oraculo') === '1') mostrar(true);
+    var volta = document.getElementById('oraculoVoltar');
+    if (volta) volta.addEventListener('click', function(e){
+      e.preventDefault();
+      mostrar(false);
+      try {
+        var u = new URL(location.href);
+        u.searchParams.delete('oraculo');
+        history.replaceState(null, '', u.pathname + u.search + u.hash);
+      } catch(_){}
+    });
+  } catch(e){}
+})();
 const $ = s => document.querySelector(s);
 // Todas as listas são os enums reais do HubSpot — o valor gravado é o valor da propriedade.
 const MACRO = ["1. AGRONEGÓCIO","2. COMUNICAÇÃO","3. DIVERSIDADE E INCLUSÃO","4. ECONOMIA / POLÍTICA","5. EDUCAÇÃO","6. EMPREENDEDORISMO","7. ESPORTE","8. ÉTICA","9. GESTÃO","10. GESTÃO DE PESSOAS","11. INOVAÇÃO","12. MOTIVAÇÃO","13. SAÚDE","14. SIPAT","15. SUSTENTABILIDADE","16. VENDAS","17. CONSCIENTIZAÇÃO (MESES)","18. OUTROS","19. LIDERANÇA","20. COMPORTAMENTO","21. COOPERATIVISMO","22. EXPERIÊNCIA E ATENDIMENTO","23. DATAS COMEMORATIVAS","24. FINANÇAS","25. PROTAGONISMO FEMININO"];
