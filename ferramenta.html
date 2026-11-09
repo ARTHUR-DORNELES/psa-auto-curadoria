@@ -600,24 +600,37 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 </main>
 
 <script>
-/* Oráculo PSA: embutido via iframe, visível só com ?oraculo=1 (por enquanto).
+/* Oráculo PSA embutido via iframe. Abre: na página /oraculopsa (automático),
+   com ?oraculo=1, ou se já estava aberto nesta aba (persiste no reload).
    Fica no topo pra rodar mesmo se algo abaixo falhar. */
 (function(){
   try {
     var wrap = document.getElementById('oraculoWrap');
     if (!wrap) return;
-    function mostrar(v){ wrap.style.display = v ? 'flex' : 'none'; }
-    if (new URLSearchParams(location.search).get('oraculo') === '1') mostrar(true);
+    function mostrar(v){
+      wrap.style.display = v ? 'flex' : 'none';
+      try { v ? sessionStorage.setItem('oraculoAberto','1') : sessionStorage.removeItem('oraculoAberto'); } catch(_){}
+    }
+    var ehPaginaOraculo = /oraculopsa/i.test(location.pathname);
+    var temParam = new URLSearchParams(location.search).get('oraculo') === '1';
+    var temSessao = (function(){ try { return sessionStorage.getItem('oraculoAberto') === '1'; } catch(_){ return false; } })();
+    if (ehPaginaOraculo || temParam || temSessao) mostrar(true);
     var volta = document.getElementById('oraculoVoltar');
-    if (volta) volta.addEventListener('click', function(e){
-      e.preventDefault();
-      mostrar(false);
-      try {
-        var u = new URL(location.href);
-        u.searchParams.delete('oraculo');
-        history.replaceState(null, '', u.pathname + u.search + u.hash);
-      } catch(_){}
-    });
+    if (volta) {
+      if (ehPaginaOraculo) {
+        volta.style.display = 'none'; // página dedicada: não há "curadoria" pra voltar
+      } else {
+        volta.addEventListener('click', function(e){
+          e.preventDefault();
+          mostrar(false);
+          try {
+            var u = new URL(location.href);
+            u.searchParams.delete('oraculo');
+            history.replaceState(null, '', u.pathname + u.search + u.hash);
+          } catch(_){}
+        });
+      }
+    }
   } catch(e){}
 })();
 const $ = s => document.querySelector(s);
