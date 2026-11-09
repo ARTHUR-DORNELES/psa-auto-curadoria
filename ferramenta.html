@@ -72,7 +72,7 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .sem-login .btn-disp,.sem-login #refazer,.sem-login #tut,.sem-login [data-acao]{display:none!important}
 .faixa-suporte{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;background:#f8d71b;color:#02060f;font-size:13px;font-weight:600;padding:8px 16px;text-align:center}
 .faixa-suporte button{background:#02060f;color:#fff;border:0;border-radius:999px;padding:6px 14px;font:inherit;font-size:12px;cursor:pointer}
-.modo-suporte #btnNovaBriefing,.modo-suporte #usuConvite,.modo-suporte .acoes-usu,.modo-suporte .acoes-cur,.modo-suporte #btnSair,.modo-suporte .btn-disp,.modo-suporte #refazer,.modo-suporte #quero-curador,.modo-suporte #tut,.modo-suporte #btnEmpresas{display:none!important}
+.modo-suporte #btnNovaBriefing,.modo-suporte #usuConvite,.modo-suporte .acoes-usu,.modo-suporte .acoes-cur,.modo-suporte #btnSair,.modo-suporte .btn-disp,.modo-suporte #refazer,.modo-suporte #quero-curador,.modo-suporte #tut,.modo-suporte #btnEmpresas,.modo-suporte #btnOraculo{display:none!important}
 .emp{border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px}
 .emp__nome{font-weight:700;font-size:16px}
 .emp__info{font-size:12px;color:var(--fg-2);margin-top:3px}
@@ -313,7 +313,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 <div id="oraculoWrap" style="display:none;position:fixed;inset:0;z-index:2147483000;background:#000;flex-direction:column">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 14px;background:#02060f;border-bottom:1px solid rgba(255,255,255,.12)">
     <span style="font:600 12px/1 system-ui,Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#f97316">Oráculo PSA</span>
-    <a id="oraculoVoltar" href="#" style="font:600 12px/1 system-ui,Arial,sans-serif;color:#cbd5e1;text-decoration:none;padding:6px 10px;border:1px solid rgba(255,255,255,.22);border-radius:8px">← Voltar à curadoria</a>
+    <a id="oraculoVoltar" href="#" style="font:600 12px/1 system-ui,Arial,sans-serif;color:#cbd5e1;text-decoration:none;padding:6px 10px;border:1px solid rgba(255,255,255,.22);border-radius:8px">← Voltar</a>
   </div>
   <iframe src="https://oraculo-externo.vercel.app" title="Oráculo PSA" style="border:0;flex:1 1 auto;width:100%;height:100%"></iframe>
 </div>
@@ -410,6 +410,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
         <button type="button" class="on" data-aba="curadorias">Curadorias</button>
         <button type="button" data-aba="usuarios" id="btnUsuarios">Usuários <span id="abaUsuQtd"></span></button>
         <button type="button" data-aba="empresas" id="btnEmpresas" style="display:none">Empresas</button>
+        <button type="button" id="btnOraculo" style="display:none">Oráculo</button>
       </div>
       <p class="erro" id="eLogado"></p>
 
@@ -911,6 +912,7 @@ async function abrirPainel() {
   $('#contaPapel').textContent = u.suporte ? 'Somente leitura' : (u.papel === 'admin' ? 'Administrador' : 'Usuário');
   $('#contaHeader').style.display = '';
   $('#btnEmpresas').style.display = u.superAdmin && !u.suporte ? '' : 'none';
+  $('#btnOraculo').style.display = u.superAdmin && !u.suporte ? '' : 'none';
   if (u.suporte) $('#gateTitulo').innerHTML = escHTML(($('#fsEmpresa').textContent || 'Empresa')) + '.';
   // sem celular: pede antes de tudo (abas e lista ficam escondidas até salvar)
   const semCel = !u.celular;
@@ -1132,7 +1134,9 @@ function abaConta(aba) {
   $('#painelUsuarios').style.display = aba === 'usuarios' ? '' : 'none';
   $('#painelEmpresas').style.display = aba === 'empresas' ? '' : 'none';
 }
-document.querySelectorAll('#abasConta button').forEach((b) => b.addEventListener('click', () => {
+// Oráculo (só suporte PSA): abre o Oráculo em tela cheia, por cima do painel
+$('#btnOraculo').addEventListener('click', () => { const w = $('#oraculoWrap'); if (w) w.style.display = 'flex'; });
+document.querySelectorAll('#abasConta button[data-aba]').forEach((b) => b.addEventListener('click', () => {
   abaConta(b.dataset.aba);
   if (b.dataset.aba === 'usuarios') { $('#usuLinkBox').style.display = 'none'; carregarUsuarios(); }
   if (b.dataset.aba === 'empresas') carregarEmpresas();
