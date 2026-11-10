@@ -925,7 +925,7 @@ async function abrirPainel() {
   $('#contaPapel').textContent = u.suporte ? 'Somente leitura' : (u.papel === 'admin' ? 'Administrador' : 'Usuário');
   $('#contaHeader').style.display = '';
   $('#btnEmpresas').style.display = u.superAdmin && !u.suporte ? '' : 'none';
-  $('#btnOraculo').style.display = u.superAdmin && !u.suporte ? '' : 'none';
+  $('#btnOraculo').style.display = (u.superAdmin || u.oraculo) && !u.suporte ? '' : 'none';
   if (u.suporte) $('#gateTitulo').innerHTML = escHTML(($('#fsEmpresa').textContent || 'Empresa')) + '.';
   // sem celular: pede antes de tudo (abas e lista ficam escondidas até salvar)
   const semCel = !u.celular;
@@ -1203,7 +1203,24 @@ $('#btnEntrarLink').addEventListener('click', () => { location.href = location.p
         await abrirPainel();
       } finally { b.disabled = false; }
     });
-    row.appendChild(b);
+    // liberar / bloquear o Oráculo para esta empresa
+    const ora = document.createElement('label');
+    ora.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;flex:none';
+    ora.innerHTML = `<input type="checkbox" ${e.oraculo ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--psa-orange,#ff5a00)"> Oráculo`;
+    const chk = ora.querySelector('input');
+    chk.addEventListener('change', async () => {
+      chk.disabled = true;
+      try {
+        const r = await postJSON('/api/conta', { acao: 'oraculo-liberar', sessao: sessaoAtual, dealId: e.dealId, doc: e.doc, liberar: chk.checked });
+        if (!r.ok) { alert(r.erro || 'Não foi possível.'); chk.checked = !chk.checked; }
+        else { e.doc = r.doc; e.oraculo = r.oraculo; }
+      } catch (x) { alert('Não foi possível salvar.'); chk.checked = !chk.checked; }
+      finally { chk.disabled = false; }
+    });
+    const lado = document.createElement('div');
+    lado.style.cssText = 'display:flex;align-items:center;gap:16px;flex-wrap:wrap';
+    lado.append(ora, b);
+    row.appendChild(lado);
     lista.appendChild(row);
   });
 }

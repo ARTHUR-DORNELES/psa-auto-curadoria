@@ -85,7 +85,7 @@ async function gravarUsuario(doc, u) {
   await redis().set(kUsuario(u.email), doc);
 }
 export const publico = (u) => ({ email: u.email, nome: u.nome || '', celular: u.celular || '', papel: u.papel, status: u.status, criadoEm: u.criadoEm || null, ultimoAcesso: u.ultimoAcesso || null,
-  ...(u.superAdmin ? { superAdmin: true } : {}), ...(u.suporte ? { suporte: true } : {}) });
+  ...(u.superAdmin ? { superAdmin: true } : {}), ...(u.oraculo ? { oraculo: true } : {}), ...(u.suporte ? { suporte: true } : {}) });
 
 // "Último acesso": gravado no login, ao criar a senha e a cada abertura do painel.
 // Só regrava se passou 10 min (evita escrever no Redis a cada clique). Nunca lança.
@@ -175,6 +175,18 @@ const SUPER = String(process.env.SUPER_ADMINS || 'renato.denck@profissionaissa.c
 export const ehSuper = (email) => SUPER.includes(normEmail(email));
 const SUPORTE_S = 60 * 60 * 4;
 
+// Oráculo: liberado empresa por empresa pelo suporte PSA (chave ac:org:<doc>:oraculo)
+const kOraculo = (doc) => `ac:org:${doc}:oraculo`;
+export const oraculoLiberado = async (doc) => (doc ? (await redis().get(kOraculo(doc))) === '1' : false);
+export async function liberarOraculo(sess, b) {
+  if (!sess || !ehSuper(sess.realEmail || sess.email) || sess.suporte) return { ok: false, erro: 'Acesso restrito.' };
+  let doc = normalizaDocumento(b.doc)?.valor || '';
+  if (!doc && b.dealId) doc = await documentoDoNegocio(String(b.dealId).replace(/\D/g, ''));
+  if (!doc) return { ok: false, erro: 'Não achamos o CPF/CNPJ dessa empresa no HubSpot (contato ou empresa do negócio).' };
+  if (b.liberar) await redis().set(kOraculo(doc), '1'); else await redis().del(kOraculo(doc));
+  return { ok: true, doc, oraculo: !!b.liberar };
+}
+
 export async function empresas(sess) {
   if (!sess || !ehSuper(sess.realEmail || sess.email)) return { ok: false, erro: 'Acesso restrito.' };
   try { return await _empresas(); }
@@ -194,7 +206,7 @@ async function _empresas() {
   for (const doc of docs) {
     const usuarios = await listarUsuarios(doc).catch(() => []);
     const ultimo = usuarios.map((u) => u.ultimoAcesso).filter(Boolean).sort().pop() || null;
-    const base = { doc, usuarios: usuarios.length, ultimoAcesso: ultimo, admins: usuarios.filter((u) => u.papel === 'admin').map((u) => u.nome || u.email) };
+    const base = { doc, oraculo: await oraculoLiberado(doc).catch(() => false), usuarios: usuarios.length, ultimoAcesso: ultimo, admins: usuarios.filter((u) => u.papel === 'admin').map((u) => u.nome || u.email) };
     try {
       const { assinatura, limite } = await limiteUsuarios(doc);
       const curadorias = await listarCuradorias(doc);
@@ -205,7 +217,7 @@ async function _empresas() {
     }
   }
   const porDeal = Object.fromEntries(orgs.filter((o) => o.dealId).map((o) => [o.dealId, o]));
-  const lista = pagos.map((p) => ({ nome: p.dealname || 'Sem nome', closedate: p.closedate, ...(porDeal[p.dealId] || { dealId: p.dealId, usuarios: 0, limite: Number(p.quantidade_usuarios) || 1, curadorias: null, ultimoAcesso: null, admins: [] }) }));
+  const lista = pagos.map((p) => ({ nome: p.dealname || 'Sem nome', closedate: p.closedate, ...(porDeal[p.dealId] || { dealId: p.dealId, oraculo: false, usuarios: 0, limite: Number(p.quantidade_usuarios) || 1, curadorias: null, ultimoAcesso: null, admins: [] }) }));
   // empresas com usuários mas cujo negócio não está mais em Pago (expiradas ou movidas)
   for (const o of orgs) if (!o.dealId || !pagos.some((p) => p.dealId === o.dealId)) lista.push({ nome: `Documento ${o.doc}`, ...o });
   return { ok: true, empresas: lista };
@@ -243,7 +255,8 @@ export async function lerSessao(t) {
   }
   const u = await lerUsuario(s.doc, s.email);
   if (!u || u.status !== 'ativo') return null;
-  return { doc: s.doc, email: u.email, nome: u.nome || '', celular: u.celular || '', papel: u.papel, superAdmin: ehSuper(u.email) };
+  const sup = ehSuper(u.email);
+  return { doc: s.doc, email: u.email, nome: u.nome || '', celular: u.celular || '', papel: u.papel, superAdmin: sup, oraculo: sup || (await oraculoLiberado(s.doc).catch(() => false)) };
 }
 export const encerrarSessao = (t) => (t ? redis().del(kSessao(t)) : 0);
 
