@@ -1180,7 +1180,7 @@ async function carregarEmpresas() {
       e.vence ? `vence ${dataBRcurta(e.vence)}` : '',
     ].filter(Boolean).join(' · ');
     row.innerHTML = `<div style="min-width:0"><div class="emp__nome">${escHTML(e.nome)}</div>
-      <div class="emp__info">${escHTML(info)}${semAcesso ? ' · <span class="emp__off">ainda ninguém entrou</span>' : ''}</div>
+      <div class="emp__info">${escHTML(info)}${e.dealId ? ' · <a href="#" class="emp__qtd" style="color:var(--psa-orange,#ff5a00)">alterar usuários</a>' : ''}${semAcesso ? ' · <span class="emp__off">ainda ninguém entrou</span>' : ''}</div>
       ${(e.admins || []).length ? `<div class="emp__info">Administradores: ${escHTML(e.admins.join(', '))}</div>` : ''}</div>`;
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'btn btn--ghost'; b.style.cssText = 'flex:none;padding:10px 18px';
@@ -1202,6 +1202,20 @@ async function carregarEmpresas() {
 $('#btnEntrarLink').addEventListener('click', () => { location.href = location.pathname; });
         await abrirPainel();
       } finally { b.disabled = false; }
+    });
+    // alterar a quantidade de usuários (grava no negócio da assinatura)
+    const lnkQtd = row.querySelector('.emp__qtd');
+    if (lnkQtd) lnkQtd.addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      const novo = prompt(`Quantos usuários a ${e.nome} pode ter?`, String(e.limite || 1));
+      if (novo == null) return;
+      const qtd = Number(String(novo).trim());
+      if (!Number.isInteger(qtd) || qtd < 1) { alert('Informe um número inteiro maior que zero.'); return; }
+      try {
+        const r = await postJSON('/api/conta', { acao: 'empresa-usuarios', sessao: sessaoAtual, dealId: e.dealId, doc: e.doc, qtd });
+        if (!r.ok) { alert(r.erro || 'Não foi possível.'); return; }
+        carregarEmpresas();
+      } catch (x) { alert('Não foi possível salvar.'); }
     });
     // liberar / bloquear o Oráculo para esta empresa
     const ora = document.createElement('label');

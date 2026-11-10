@@ -187,6 +187,22 @@ export async function liberarOraculo(sess, b) {
   return { ok: true, doc, oraculo: !!b.liberar };
 }
 
+// Quantidade de usuários: grava `quantidade_usuarios` no negócio da assinatura (vale na hora)
+export async function definirQtdUsuarios(sess, b) {
+  if (!sess || !ehSuper(sess.realEmail || sess.email) || sess.suporte) return { ok: false, erro: 'Acesso restrito.' };
+  const dealId = String(b.dealId || '').replace(/\D/g, '');
+  const qtd = Number(b.qtd);
+  if (!dealId) return { ok: false, erro: 'Essa empresa não tem negócio de assinatura.' };
+  if (!Number.isInteger(qtd) || qtd < 1 || qtd > 1000) return { ok: false, erro: 'Informe um número inteiro de 1 a 1000.' };
+  const doc = normalizaDocumento(b.doc)?.valor || '';
+  if (doc) {
+    const n = (await listarUsuarios(doc).catch(() => [])).length;
+    if (qtd < n) return { ok: false, erro: `Essa empresa já tem ${n} usuários. Remova alguém antes de baixar para ${qtd}.` };
+  }
+  await hs(`/crm/v3/objects/deals/${dealId}`, 'PATCH', { properties: { [PROP_QTD_USUARIOS]: String(qtd) } });
+  return { ok: true, limite: qtd };
+}
+
 export async function empresas(sess) {
   if (!sess || !ehSuper(sess.realEmail || sess.email)) return { ok: false, erro: 'Acesso restrito.' };
   try { return await _empresas(); }
