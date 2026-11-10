@@ -170,7 +170,7 @@ export async function salvarMeuCelular(sess, bruto) {
 // Só os e-mails desta lista veem o painel de empresas e entram em qualquer empresa.
 // A entrada é SOMENTE LEITURA e invisível: não aparece em Usuários, não grava último
 // acesso nem cria nada no HubSpot.
-const SUPER = String(process.env.SUPER_ADMINS || 'renato.denck@profissionaissa.com')
+const SUPER = String(process.env.SUPER_ADMINS || 'renato.denck@profissionaissa.com,marcio.spagnolo@profissionaissa.com')
   .split(',').map((e) => normEmail(e)).filter(Boolean);
 export const ehSuper = (email) => SUPER.includes(normEmail(email));
 const SUPORTE_S = 60 * 60 * 4;
