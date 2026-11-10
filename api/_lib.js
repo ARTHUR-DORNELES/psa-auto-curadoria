@@ -1419,6 +1419,16 @@ export async function listarCuradorias(bruto) {
  * curadorias que a pessoa criou. */
 export const LIMITE_DISP = Number(process.env.LIMITE_DISP_PENDENTES || 5);
 const DIAS_DISP = Number(process.env.DISP_PENDENTE_DIAS || 7);
+// limite próprio da empresa (editado pelo suporte PSA na aba Empresas); vazio = LIMITE_DISP
+const kLimDisp = (doc) => `ac:org:${doc}:limdisp`;
+export async function limiteDispDaEmpresa(doc) {
+  if (!doc) return LIMITE_DISP;
+  const n = Number(await redis().get(kLimDisp(doc)).catch(() => null));
+  return Number.isInteger(n) && n > 0 ? n : LIMITE_DISP;
+}
+export async function gravarLimiteDisp(doc, n) {
+  if (n === LIMITE_DISP) await redis().del(kLimDisp(doc)); else await redis().set(kLimDisp(doc), String(n));
+}
 // dono = { doc, email }: com e-mail, o limite é da pessoa; sem, da empresa (legado)
 const kDisp = (dono) => (dono.email ? `ac:disp:u:${String(dono.email).toLowerCase()}` : `ac:disp:${dono.doc}`);
 export const donoDoPedido = (reg, sess) => ({
@@ -1451,7 +1461,7 @@ export async function registrarPedidosDisp(dono, curadoriaId, nomes, em) {
 
 // { limite, pendentes: [{ curadoria, nome, em }] } — limpa do índice o que já foi respondido
 export async function pedidosDispEmAberto(dono) {
-  const out = { limite: LIMITE_DISP, pendentes: [] };
+  const out = { limite: await limiteDispDaEmpresa(dono.doc), pendentes: [] };
   if (!dono.email && !dono.doc) return out;
   const k = kDisp(dono);
   if (!(await redis().exists(k))) await semearPedidosDisp(dono);

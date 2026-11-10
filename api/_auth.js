@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio } from './_lib.js';
+import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP } from './_lib.js';
 
 /**
  * Usuários por empresa. A assinatura continua sendo o negócio "Pago" casado pelo CPF/CNPJ
@@ -203,6 +203,18 @@ export async function definirQtdUsuarios(sess, b) {
   return { ok: true, limite: qtd };
 }
 
+// Limite de pedidos de disponibilidade aguardando resposta, por usuário, desta empresa
+export async function definirLimiteDisp(sess, b) {
+  if (!sess || !ehSuper(sess.realEmail || sess.email) || sess.suporte) return { ok: false, erro: 'Acesso restrito.' };
+  const n = Number(b.qtd);
+  if (!Number.isInteger(n) || n < 1 || n > 100) return { ok: false, erro: 'Informe um número inteiro de 1 a 100.' };
+  let doc = normalizaDocumento(b.doc)?.valor || '';
+  if (!doc && b.dealId) doc = await documentoDoNegocio(String(b.dealId).replace(/\D/g, ''));
+  if (!doc) return { ok: false, erro: 'Não achamos o CPF/CNPJ dessa empresa no HubSpot (contato ou empresa do negócio).' };
+  await gravarLimiteDisp(doc, n);
+  return { ok: true, doc, limiteDisp: n };
+}
+
 export async function empresas(sess) {
   if (!sess || !ehSuper(sess.realEmail || sess.email)) return { ok: false, erro: 'Acesso restrito.' };
   try { return await _empresas(); }
@@ -222,7 +234,7 @@ async function _empresas() {
   for (const doc of docs) {
     const usuarios = await listarUsuarios(doc).catch(() => []);
     const ultimo = usuarios.map((u) => u.ultimoAcesso).filter(Boolean).sort().pop() || null;
-    const base = { doc, oraculo: await oraculoLiberado(doc).catch(() => false), usuarios: usuarios.length, ultimoAcesso: ultimo, admins: usuarios.filter((u) => u.papel === 'admin').map((u) => u.nome || u.email) };
+    const base = { doc, oraculo: await oraculoLiberado(doc).catch(() => false), limiteDisp: await limiteDispDaEmpresa(doc).catch(() => LIMITE_DISP), usuarios: usuarios.length, ultimoAcesso: ultimo, admins: usuarios.filter((u) => u.papel === 'admin').map((u) => u.nome || u.email) };
     try {
       const { assinatura, limite } = await limiteUsuarios(doc);
       const curadorias = await listarCuradorias(doc);
@@ -233,7 +245,7 @@ async function _empresas() {
     }
   }
   const porDeal = Object.fromEntries(orgs.filter((o) => o.dealId).map((o) => [o.dealId, o]));
-  const lista = pagos.map((p) => ({ nome: p.dealname || 'Sem nome', closedate: p.closedate, ...(porDeal[p.dealId] || { dealId: p.dealId, oraculo: false, usuarios: 0, limite: Number(p.quantidade_usuarios) || 1, curadorias: null, ultimoAcesso: null, admins: [] }) }));
+  const lista = pagos.map((p) => ({ nome: p.dealname || 'Sem nome', closedate: p.closedate, ...(porDeal[p.dealId] || { dealId: p.dealId, oraculo: false, limiteDisp: LIMITE_DISP, usuarios: 0, limite: Number(p.quantidade_usuarios) || 1, curadorias: null, ultimoAcesso: null, admins: [] }) }));
   // empresas com usuários mas cujo negócio não está mais em Pago (expiradas ou movidas)
   for (const o of orgs) if (!o.dealId || !pagos.some((p) => p.dealId === o.dealId)) lista.push({ nome: `Documento ${o.doc}`, ...o });
   return { ok: true, empresas: lista };

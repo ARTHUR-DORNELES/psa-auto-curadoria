@@ -78,7 +78,7 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .emp-kpi b{display:block;font-size:24px;line-height:1.1;font-family:var(--font-display,inherit)}
 .emp-kpi span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3)}
 .emp-tab{border:1px solid var(--border-subtle);border-radius:var(--r-md);overflow:hidden}
-.emp,.emp-cab{display:grid;grid-template-columns:minmax(0,1fr) 96px 92px 112px 78px 104px;align-items:center;gap:12px;padding:14px 18px}
+.emp,.emp-cab{display:grid;grid-template-columns:minmax(0,1fr) 88px 100px 84px 104px 70px 96px;align-items:center;gap:12px;padding:14px 18px}
 .emp-cab{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3);background:#ffffff06;padding-top:10px;padding-bottom:10px}
 .emp{border-top:1px solid var(--border-subtle);transition:background .15s}
 .emp:hover{background:#ffffff05}
@@ -1216,7 +1216,7 @@ async function carregarEmpresas() {
   lista.innerHTML = '';
   const tab = document.createElement('div');
   tab.className = 'emp-tab';
-  tab.innerHTML = '<div class="emp-cab"><span>Empresa</span><span>Usuários</span><span>Curadorias</span><span>Último acesso</span><span>Oráculo</span><span></span></div>';
+  tab.innerHTML = '<div class="emp-cab"><span>Empresa</span><span>Usuários</span><span title="Pedidos de disponibilidade aguardando resposta, por usuário">Disponib.</span><span>Curadorias</span><span>Último acesso</span><span>Oráculo</span><span></span></div>';
   lista.appendChild(tab);
   const vazio = '<span class="emp__vazio">—</span>';
   emps.forEach((e) => {
@@ -1231,42 +1231,59 @@ async function carregarEmpresas() {
         ${admins ? `<div class="emp__info" title="${escHTML(admins)}">${escHTML(admins)}</div>` : '<span class="emp__off">ninguém entrou ainda</span>'}
       </div>
       <div><span class="emp__rot">Usuários</span><span class="emp__num emp__usu"></span></div>
+      <div title="Pedidos de disponibilidade aguardando resposta, por usuário"><span class="emp__rot">Disponibilidade</span><span class="emp__num emp__disp"></span></div>
       <div><span class="emp__rot">Curadorias</span><span class="emp__num">${e.curadorias != null ? e.curadorias : vazio}</span></div>
       <div><span class="emp__rot">Último acesso</span><span class="emp__num">${e.ultimoAcesso ? dataBRcurta(e.ultimoAcesso) : vazio}</span></div>
       <div class="emp__ora"><span class="emp__rot">Oráculo</span><label class="sw" title="Liberar o Oráculo para esta empresa"><input type="checkbox" aria-label="Oráculo para ${escHTML(e.nome)}" ${e.oraculo ? 'checked' : ''}><span></span></label></div>`;
 
-    // usuários: número + lápis que vira campo para editar (grava no negócio do HubSpot)
-    const usu = row.querySelector('.emp__usu');
-    const pintarUsu = () => {
-      usu.innerHTML = `${e.usuarios || 0}<small> / ${e.limite || 1}</small>`
-        + (e.dealId ? '<button type="button" class="emp__qtd" title="Alterar quantidade de usuários" aria-label="Alterar quantidade de usuários">✎</button>' : '');
-      const lapis = usu.querySelector('.emp__qtd');
-      if (lapis) lapis.addEventListener('click', editarUsu);
-    };
-    function editarUsu() {
-      usu.innerHTML = `<input class="emp__qtdin" type="number" min="1" max="1000" value="${e.limite || 1}" aria-label="Quantidade de usuários">`;
-      const inp = usu.querySelector('input');
-      inp.focus(); inp.select();
-      let feito = false;
-      const salvar = async () => {
-        if (feito) return; feito = true;
-        const qtd = Number(inp.value);
-        if (qtd === Number(e.limite || 1)) return pintarUsu();
-        if (!Number.isInteger(qtd) || qtd < 1) { alert('Informe um número inteiro maior que zero.'); return pintarUsu(); }
-        inp.disabled = true;
-        try {
-          const r = await postJSON('/api/conta', { acao: 'empresa-usuarios', sessao: sessaoAtual, dealId: e.dealId, doc: e.doc, qtd });
-          if (!r.ok) alert(r.erro || 'Não foi possível.'); else e.limite = r.limite;
-        } catch (x) { alert('Não foi possível salvar.'); }
-        pintarUsu();
+    // número + lápis que vira campo na própria linha (Enter salva, Esc cancela)
+    function editavel(cel, { mostrar, valor, max, rotulo, salvarNo }) {
+      const pintar = () => {
+        cel.innerHTML = mostrar() + `<button type="button" class="emp__qtd" title="Alterar ${rotulo}" aria-label="Alterar ${rotulo}">✎</button>`;
+        cel.querySelector('.emp__qtd').addEventListener('click', editar);
       };
-      inp.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Enter') salvar();
-        if (ev.key === 'Escape') { feito = true; pintarUsu(); }
-      });
-      inp.addEventListener('blur', salvar);
+      function editar() {
+        cel.innerHTML = `<input class="emp__qtdin" type="number" min="1" max="${max}" value="${valor()}" aria-label="${rotulo}">`;
+        const inp = cel.querySelector('input');
+        inp.focus(); inp.select();
+        let feito = false;
+        const salvar = async () => {
+          if (feito) return; feito = true;
+          const qtd = Number(inp.value);
+          if (qtd === Number(valor())) return pintar();
+          if (!Number.isInteger(qtd) || qtd < 1 || qtd > max) { alert(`Informe um número inteiro de 1 a ${max}.`); return pintar(); }
+          inp.disabled = true;
+          try { await salvarNo(qtd); } catch (x) { alert(x.message || 'Não foi possível salvar.'); }
+          pintar();
+        };
+        inp.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter') salvar();
+          if (ev.key === 'Escape') { feito = true; pintar(); }
+        });
+        inp.addEventListener('blur', salvar);
+      }
+      pintar();
     }
-    pintarUsu();
+    const usu = row.querySelector('.emp__usu');
+    if (e.dealId) editavel(usu, {
+      mostrar: () => `${e.usuarios || 0}<small> / ${e.limite || 1}</small>`,
+      valor: () => e.limite || 1, max: 1000, rotulo: 'quantidade de usuários',
+      salvarNo: async (qtd) => {   // grava no negócio do HubSpot
+        const r = await postJSON('/api/conta', { acao: 'empresa-usuarios', sessao: sessaoAtual, dealId: e.dealId, doc: e.doc, qtd });
+        if (!r.ok) throw new Error(r.erro || 'Não foi possível.');
+        e.limite = r.limite;
+      },
+    });
+    else usu.innerHTML = `${e.usuarios || 0}<small> / ${e.limite || 1}</small>`;
+    editavel(row.querySelector('.emp__disp'), {
+      mostrar: () => `${e.limiteDisp || 5}<small> /usuário</small>`,
+      valor: () => e.limiteDisp || 5, max: 100, rotulo: 'limite de disponibilidades em aberto por usuário',
+      salvarNo: async (qtd) => {
+        const r = await postJSON('/api/conta', { acao: 'empresa-limite-disp', sessao: sessaoAtual, dealId: e.dealId, doc: e.doc, qtd });
+        if (!r.ok) throw new Error(r.erro || 'Não foi possível.');
+        e.doc = r.doc; e.limiteDisp = r.limiteDisp;
+      },
+    });
 
     // Oráculo liberado ou não para esta empresa
     const chk = row.querySelector('.sw input');
