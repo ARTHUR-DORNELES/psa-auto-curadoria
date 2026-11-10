@@ -241,6 +241,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .resp__val{font-weight:700;font-size:16px;color:var(--fg-1)}
 .resp__campo--sim{border-color:#37c07a55;background:#37c07a14}
 .resp__campo--sim .resp__val{color:#37c07a}
+.resp__selo{display:inline-block;margin-left:8px;font-family:var(--font-mono);font-size:11px;font-weight:400;letter-spacing:.03em;color:#37c07a;border:1px solid #37c07a66;border-radius:999px;padding:1px 8px;vertical-align:2px}
 .resp__campo--nao{border-color:#f8500055;background:#f8500012}
 .resp__campo--nao .resp__val{color:var(--psa-orange)}
 .resp__campo--full{flex:1 1 100%}
@@ -2563,7 +2564,9 @@ function htmlNomes(d) {
             : '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>Documentação indisponível'}</span>${(ind.depoimentos || []).length ? `<button type="button" class="ind__dep-btn btn-dep" data-idx="${n}">Ver ${ind.depoimentos.length} depoimento${ind.depoimentos.length > 1 ? 's' : ''}</button>` : ''}</div>
           <div class="ind__meta">
             ${ind.perfil ? `<strong>${esc(ind.perfil)}</strong>` : ''}
-            ${ind.valorVenda
+            ${(ind.resposta && ind.resposta.disponivel !== false && ind.resposta.valor)
+              ? ''   // já tem valor confirmado com o palestrante: a estimativa sai de cena
+              : ind.valorVenda
               ? `<span class="ind__faixa">Valor da curadoria: ${esc(ind.valorVenda)}</span>`
               : (ind.faixa ? `<span class="ind__faixa">investimento ${esc(ind.faixa)}</span>` : '')}
           </div>
@@ -2578,7 +2581,7 @@ function htmlNomes(d) {
                    </div>
                    ${ind.resposta.valor ? `<div class="resp__campo">
                      <span class="resp__rot">Investimento</span>
-                     <span class="resp__val">${esc(ind.resposta.valor)}</span>
+                     <span class="resp__val">${esc(ind.resposta.valor)}<span class="resp__selo">confirmado com o palestrante</span></span>
                    </div>` : ''}
                    ${ind.resposta.obs ? `<div class="resp__campo resp__campo--full">
                      <span class="resp__rot">Observação da resposta</span>
