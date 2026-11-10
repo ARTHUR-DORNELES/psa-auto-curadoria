@@ -70,6 +70,14 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .conta-h__sair:hover{color:var(--fg-1);border-color:var(--fg-1)}
 @media(max-width:640px){.conta-h__txt{display:none}.conta-h{margin-left:4px;padding-left:10px;gap:8px}.bar{gap:12px}}
 .sem-login .btn-disp,.sem-login #refazer,.sem-login #tut,.sem-login [data-acao]{display:none!important}
+.op-grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:var(--s-5);max-width:760px}
+.op{display:flex;flex-direction:column;gap:6px;text-align:left;background:#ffffff06;border:1px solid var(--border);border-radius:var(--r-md);padding:20px 22px;color:var(--fg-1);font:inherit;cursor:pointer;transition:border-color .2s,background .2s,transform .2s}
+.op:hover,.op:focus-visible{border-color:var(--psa-orange);background:#f8500010;outline:none;transform:translateY(-1px)}
+.op__tit{font-weight:700;font-size:18px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.op__tit::after{content:'→';color:var(--psa-orange);font-size:18px}
+.op__txt{font-size:var(--t-body-sm);color:var(--fg-2);line-height:1.45}
+.lnk-voltar{display:block;background:none;border:0;color:var(--fg-2);cursor:pointer;padding:0;font:inherit;font-size:var(--t-body-sm);margin:var(--s-4) 0 var(--s-2)}
+.lnk-voltar:hover{color:var(--fg-1)}
 .faixa-suporte{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;background:#f8d71b;color:#02060f;font-size:13px;font-weight:600;padding:8px 16px;text-align:center}
 .faixa-suporte button{background:#02060f;color:#fff;border:0;border-radius:999px;padding:6px 14px;font:inherit;font-size:12px;cursor:pointer}
 .modo-suporte #btnNovaBriefing,.modo-suporte #usuConvite,.modo-suporte .acoes-usu,.modo-suporte .acoes-cur,.modo-suporte #btnSair,.modo-suporte .btn-disp,.modo-suporte #refazer,.modo-suporte #quero-curador,.modo-suporte #tut,.modo-suporte #btnEmpresas,.modo-suporte #btnOraculo{display:none!important}
@@ -384,9 +392,42 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
     <span class="eyebrow">Acesso</span>
     <h1 id="gateTitulo">Vamos começar<br>sua curadoria.</h1>
 
-    <!-- entrar -->
-    <div id="boxLogin">
-      <p class="sub">Entre com o e-mail e a senha do seu acesso à Auto Curadoria. Ainda não tem senha? Digite só o e-mail e clique em Entrar que mandamos o link para criar.</p>
+    <!-- 1º passo: já tem senha ou é o primeiro acesso? -->
+    <div id="boxEscolha">
+      <p class="sub">Como você quer entrar?</p>
+      <div class="op-grade">
+        <button type="button" class="op lnk-gate" data-box="boxLogin"><span class="op__tit">Já tenho senha</span><span class="op__txt">Entre com seu e-mail e senha.</span></button>
+        <button type="button" class="op lnk-gate" data-box="boxPrimeiroTipo"><span class="op__tit">É meu primeiro acesso</span><span class="op__txt">Fui convidado ou minha empresa acabou de contratar a Auto Curadoria.</span></button>
+      </div>
+    </div>
+
+    <!-- primeiro acesso: convidado ou quem comprou? -->
+    <div id="boxPrimeiroTipo" style="display:none">
+      <button type="button" class="lnk-voltar lnk-gate" data-box="boxEscolha">← Voltar</button>
+      <p class="sub">Qual é o seu caso?</p>
+      <div class="op-grade">
+        <button type="button" class="op lnk-gate" data-box="boxConvite"><span class="op__tit">Fui convidado</span><span class="op__txt">Alguém da minha empresa me adicionou. Informo meu e-mail e recebo o link para criar a senha.</span></button>
+        <button type="button" class="op lnk-gate" data-box="boxPrimeiro"><span class="op__tit">Minha empresa contratou agora</span><span class="op__txt">Fui eu que comprei. Informo o CPF ou CNPJ da compra e viro o administrador da empresa.</span></button>
+      </div>
+    </div>
+
+    <!-- convidado: e-mail -> link para criar a senha -->
+    <div id="boxConvite" style="display:none">
+      <button type="button" class="lnk-voltar lnk-gate" data-box="boxPrimeiroTipo">← Voltar</button>
+      <p class="sub">Informe o e-mail em que você recebeu o convite. Mandamos para ele o link para você criar sua senha.</p>
+      <div class="campos">
+        <div><label for="convEmail">E-mail <span>*</span></label><input id="convEmail" type="email" autocomplete="username" placeholder="voce@empresa.com.br"></div>
+      </div>
+      <p class="erro" id="eConv"></p>
+      <div class="acoes">
+        <button class="btn btn--primary" id="btnConvite">Receber link →</button>
+      </div>
+    </div>
+
+    <!-- já tenho senha -->
+    <div id="boxLogin" style="display:none">
+      <button type="button" class="lnk-voltar lnk-gate" data-box="boxEscolha">← Voltar</button>
+      <p class="sub">Entre com o e-mail e a senha do seu acesso à Auto Curadoria.</p>
       <div class="campos">
         <div><label for="loginEmail">E-mail <span>*</span></label><input id="loginEmail" type="email" autocomplete="username" placeholder="voce@empresa.com.br"></div>
         <div><label for="loginSenha">Senha <span>*</span></label><input id="loginSenha" type="password" autocomplete="current-password"></div>
@@ -397,7 +438,6 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:var(--s-5);font-size:var(--t-body-sm)">
         <button type="button" class="lnk-gate" data-box="boxEsqueci" style="background:none;border:0;color:var(--fg-2);text-decoration:underline;cursor:pointer;padding:0;font:inherit">Esqueci minha senha</button>
-        <button type="button" class="lnk-gate" data-box="boxPrimeiro" style="background:none;border:0;color:var(--fg-2);text-decoration:underline;cursor:pointer;padding:0;font:inherit">Primeiro acesso da empresa</button>
       </div>
     </div>
 
@@ -416,6 +456,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 
     <!-- primeiro acesso: CPF/CNPJ da compra manda o link ao e-mail do comprador -->
     <div id="boxPrimeiro" style="display:none">
+      <button type="button" class="lnk-voltar lnk-gate" data-box="boxPrimeiroTipo">← Voltar</button>
       <p class="sub">Informe o CPF ou CNPJ usado na compra. Mandamos um link de acesso para o e-mail de quem comprou, que vira o administrador da empresa e convida os demais.</p>
       <div class="campos">
         <div><label for="documento">CPF ou CNPJ <span>*</span></label><input id="documento" inputmode="numeric" autocomplete="off" placeholder="Somente números"></div>
@@ -424,7 +465,6 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
       <div class="acoes">
         <button class="btn btn--primary" id="btnPrimeiro">Enviar link de acesso →</button>
         <a class="btn" id="btnComprar" href="https://checkout.profissionaissa.com.br/curadoria/checkout/4fbc7e0d-c39c-4241-9334-ef62c2326b55" style="display:none;background:#16a34a;color:#fff;box-shadow:0 0 40px #16a34a55">Adquirir Curadoria →</a>
-        <button class="btn btn--ghost lnk-gate" data-box="boxLogin">Voltar</button>
       </div>
     </div>
 
@@ -811,11 +851,16 @@ let formModo = 'novo', formAlvo = null;
 
 const postJSON = (url, corpo) => fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(corpo) }).then((r) => r.json());
 const escHTML = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const BOXES_GATE = ['boxLogin', 'boxEsqueci', 'boxPrimeiro', 'boxSenha', 'boxLogado'];
-function caixaGate(id) {
+const BOXES_GATE = ['boxEscolha', 'boxPrimeiroTipo', 'boxConvite', 'boxLogin', 'boxEsqueci', 'boxPrimeiro', 'boxSenha', 'boxLogado'];
+function caixaGate(id, focar = true) {
   BOXES_GATE.forEach((b) => { $('#' + b).style.display = b === id ? '' : 'none'; });
-  ['eGate', 'eEsq', 'ePrim', 'eSenha', 'eLogado'].forEach((e) => { $('#' + e).textContent = ''; });
+  ['eGate', 'eEsq', 'ePrim', 'eSenha', 'eLogado', 'eConv'].forEach((e) => { $('#' + e).textContent = ''; });
+  const foco = { boxLogin: $('#loginEmail').value ? '#loginSenha' : '#loginEmail', boxConvite: '#convEmail', boxEsqueci: '#esqEmail', boxPrimeiro: '#documento' }[id];
+  if (foco && focar) setTimeout(() => { try { $(foco).focus(); } catch (e) {} }, 30);
 }
+// quem já entrou neste navegador vai direto para e-mail + senha
+const ULT_EMAIL = 'ac_ultimo_email';
+try { const ult = localStorage.getItem(ULT_EMAIL); if (ult) { $('#loginEmail').value = ult; BOXES_GATE.forEach((b) => { $('#' + b).style.display = b === 'boxLogin' ? '' : 'none'; }); } } catch (e) {}
 function guardarSessao(t) {
   sessaoAtual = t || '';
   try { if (t) localStorage.setItem('ac_sessao', t); else localStorage.removeItem('ac_sessao'); } catch (e) {}
@@ -847,11 +892,35 @@ $('#btnEntrar').addEventListener('click', async () => {
     if (!j.ok) { $('#eGate').textContent = j.erro || 'Não foi possível entrar.'; return; }
     guardarSessao(j.sessao);
     $('#loginSenha').value = '';
+    try { localStorage.setItem(ULT_EMAIL, email.toLowerCase()); } catch (e) {}
     await abrirPainel();
   } catch (e) { $('#eGate').textContent = 'Não conseguimos entrar agora. Tente de novo em instantes.'; }
   finally { $('#btnEntrar').disabled = false; $('#btnEntrar').textContent = 'Entrar →'; }
 });
 comEnter('#loginEmail', '#btnEntrar'); comEnter('#loginSenha', '#btnEntrar');
+
+// convidado: o e-mail sem senha faz o servidor mandar o link de criar senha
+$('#btnConvite').addEventListener('click', async () => {
+  const email = $('#convEmail').value.trim();
+  $('#eConv').textContent = '';
+  if (!email) { $('#eConv').textContent = 'Informe seu e-mail.'; return; }
+  $('#btnConvite').disabled = true; $('#btnConvite').textContent = 'Enviando…';
+  try {
+    const j = await postJSON('/api/conta', { acao: 'entrar', email, senha: '' });
+    if (!j.ok && j.motivo === 'primeiro_acesso') { $('#eConv').textContent = j.msg; return; }
+    if (!j.ok && /senha/i.test(j.erro || '') && !/incorret/i.test(j.erro || '')) {
+      // já ativou o acesso: vai para o login com o e-mail preenchido
+      $('#loginEmail').value = email; caixaGate('boxLogin');
+      $('#eGate').textContent = 'Você já criou sua senha. Entre com ela, ou use "Esqueci minha senha".';
+      return;
+    }
+    $('#eConv').textContent = j.ok ? '' : (j.erro === 'E-mail ou senha incorretos.'
+      ? 'Não achamos um convite para este e-mail. Confira com o administrador da sua empresa.'
+      : (j.erro || 'Não foi possível enviar.'));
+  } catch (e) { $('#eConv').textContent = 'Não conseguimos enviar agora. Tente de novo.'; }
+  finally { $('#btnConvite').disabled = false; $('#btnConvite').textContent = 'Receber link →'; }
+});
+comEnter('#convEmail', '#btnConvite');
 
 // esqueci a senha
 $('#btnEsqueci').addEventListener('click', async () => {
@@ -1361,7 +1430,7 @@ $('#btnConvidar').addEventListener('click', async () => {
 $('#btnVoltar').addEventListener('click', (e) => {
   if ($('#gate').classList.contains('on')) return;   // já no gate -> deixa o link levar pra LP
   e.preventDefault();
-  if (sessaoAtual) abrirPainel(); else { mostra('gate'); caixaGate('boxLogin'); }
+  if (sessaoAtual) abrirPainel(); else { mostra('gate'); caixaGate($('#loginEmail').value ? 'boxLogin' : 'boxEscolha', false); }
 });
 
 // abertura: link do e-mail (?acesso=) > curadoria por link (?id=, tratado no fim) > sessão salva
