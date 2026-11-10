@@ -1164,8 +1164,24 @@ const _valorBRL = v => { const n = Math.round(Number(v)); return (!n || isNaN(n)
  * palestrante responde no tíquete, grava lá um JSON { <id_contato>: {d,v,o} }
  * (d=disponibilidade, v=valor_total, o=observação). Por-negócio: sem staleness.
  * Nunca lança — a resposta é enfeite do card, não pode derrubar o resultado. */
+// Preço de venda das respostas: o palestrante responde com o CACHÊ dele, mas o cliente vê o
+// valor de venda pela regra da curadoria (meio entre mínimo e máximo). A conta mora no
+// psa-ia-board (/api/precificar-disp); aqui só lemos o número pronto. Falhou -> {} e o
+// valor fica "a confirmar" (nunca mostra o cachê cru ao cliente).
+const PRECIFICAR_DISP = process.env.PRECIFICAR_DISP_URL || 'https://psa-ia-board.vercel.app/api/precificar-disp';
+async function precosDeVendaDisp(negocioId) {
+  try {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 6000);
+    const r = await fetch(PRECIFICAR_DISP, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dealId: String(negocioId) }), signal: ctl.signal });
+    clearTimeout(t);
+    const j = await r.json().catch(() => ({}));
+    if (!j.ok) { console.error('PRECIFICAR_DISP', r.status, j.erro || ''); return {}; }
+    return j.precos || {};
+  } catch (e) { console.error('PRECIFICAR_DISP falhou:', e.message); return {}; }
+}
+
 export async function respostasDisponibilidade(negocioId) {
-  const out = {};   // { <id_contato>: { disponivel, valor, obs } }
+  const out = {};   // { <id_contato>: { disponivel, valor, valorBruto, obs } }
   if (!negocioId) return out;
   try {
     const d = await hs(`/crm/v3/objects/deals/${negocioId}?properties=respostas_disponibilidade`, 'GET');
@@ -1173,13 +1189,16 @@ export async function respostasDisponibilidade(negocioId) {
     if (!raw) return out;
     let mapa;
     try { mapa = JSON.parse(raw); } catch (e) { return out; }
+    const temValor = Object.values(mapa || {}).some((r) => Number(r?.v) > 0);
+    const precos = temValor ? await precosDeVendaDisp(negocioId) : {};
     for (const [cid, r] of Object.entries(mapa || {})) {
       const disp = String(r?.d || '').trim().toLowerCase();
       const obs = String(r?.o || '').trim();
       if (!disp && !obs) continue;
       out[String(cid)] = {
         disponivel: disp === 'disponivel' ? true : (disp === 'indisponivel' ? false : null),
-        valor: _valorBRL(r?.v),
+        valor: _valorBRL(precos[String(cid)]),   // valor de VENDA (regra da curadoria)
+        valorBruto: _valorBRL(r?.v),              // cachê pedido: só p/ controle interno, nunca na tela
         obs,
       };
     }

@@ -166,7 +166,7 @@ export default async function handler(req, res) {
         for (const ind of cliente.indicacoes) {
           if (!pedidos.has(ind.nome)) continue;   // só quem o cliente solicitou nesta curadoria
           const r = respostas[idPorNome[ind.nome]];
-          if (r) ind.resposta = r;
+          if (r) ind.resposta = { disponivel: r.disponivel, valor: r.valor, obs: r.obs };   // sem o cachê bruto
         }
       } catch (e) { console.error('merge respostas disponibilidade:', e.message); }
     }

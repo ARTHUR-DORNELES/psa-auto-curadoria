@@ -13,7 +13,8 @@ import { redis, chave, chaveDeal, hs, lerCorpo, cors, respostasDisponibilidade }
 const APP_URL = process.env.APP_URL || 'https://lps.profissionaissa.com/auto-curadoria-briefing';
 const TTL = 60 * 60 * 24 * 90;
 
-const assinatura = (r) => `${r.disponivel}|${r.valor}|${r.obs}`;
+// usa o cachê bruto: mudar a forma de mostrar o valor não pode reenviar e-mail antigo
+const assinatura = (r) => `${r.disponivel}|${r.valorBruto ?? r.valor}|${r.obs}`;
 const linha = (nome, r) => {
   const st = r.disponivel === true ? 'disponível' : r.disponivel === false ? 'indisponível' : 'respondeu';
   return `${nome}: ${st}${r.disponivel !== false && r.valor ? `, ${r.valor}` : ''}`;
