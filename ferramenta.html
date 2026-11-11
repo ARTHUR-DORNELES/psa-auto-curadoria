@@ -304,6 +304,16 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
     .ac-opt:last-child{border-bottom:0}
     .ac-opt.sel,.ac-opt:hover{background:var(--psa-orange);color:#fff}
     .ac-opt .ac-livre{color:var(--fg-2);font-size:12px}
+    .ac-nao{display:none;margin-top:10px;border:1px solid var(--border);border-radius:12px;background:#ffffff06;padding:20px;text-align:center}
+    .ac-nao.on{display:block}
+    .ac-nao__tit{font-weight:700;font-size:16px;color:var(--fg-1);margin:0}
+    .ac-nao__txt{font-size:14px;color:var(--fg-2);margin:8px 0 0}
+    .ac-nao__acoes{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px}
+    .ac-nao__acoes a,.ac-nao__acoes button{display:inline-flex;align-items:center;justify-content:center;border-radius:10px;padding:9px 16px;font:inherit;font-size:14px;font-weight:700;cursor:pointer;text-decoration:none}
+    .ac-nao__cad{background:var(--psa-orange);color:#fff;border:0}
+    .ac-nao__cad:hover{background:var(--psa-orange-hi)}
+    .ac-nao__cop{background:none;color:var(--fg-1);border:1px solid var(--border-strong)}
+    .ac-nao__cop:hover{background:#ffffff0d}
     .ac-cont{font-family:var(--font-mono);font-size:12px;color:var(--fg-2);margin:10px 0 0}
     .ac-emp-label{display:block;font-size:var(--t-body-sm);color:var(--fg-2);margin:0 0 8px}
     /* abas do evento (projeto com vários temas) */
@@ -2015,7 +2025,7 @@ function renderProjeto(d) {
 
 // caminho "já tenho os nomes": coleta até 8 nomes e cria a curadoria de LISTA FECHADA
 async function pedeNomes() {
-  await digitarBolha('Perfeito! Comece a digitar o nome do palestrante e escolha da lista (até 8). Se não achar, pode digitar o nome completo mesmo assim.');
+  await digitarBolha('Perfeito! Comece a digitar o nome do palestrante e escolha da lista (até 8). Só entram palestrantes da PSA; se não achar alguém, mostro como cadastrar.');
   const area = $('#chatEntrada'); area.innerHTML = '';
   let base = [];
   try { const j = await (await fetch('/api/palestrantes')).json(); base = Array.isArray(j.nomes) ? j.nomes : []; } catch (e) {}
@@ -2033,9 +2043,22 @@ async function pedeNomes() {
   const inp = document.createElement('input'); inp.className = 'ac-input'; inp.type = 'text'; inp.autocomplete = 'off';
   inp.placeholder = 'Digite o nome do palestrante…';
   const list = document.createElement('div'); list.className = 'ac-list';
+  // palestrante fora da base não entra: mostra o mesmo aviso do Oráculo (cadastrar ou mandar o link)
+  const CADASTRO_URL = 'https://login.profissionaissa.com.br/dash/register?origin=login';
+  const naoAchou = document.createElement('div'); naoAchou.className = 'ac-nao'; naoAchou.setAttribute('role', 'status');
+  naoAchou.innerHTML = `<p class="ac-nao__tit">Não encontramos esse palestrante.</p>
+    <p class="ac-nao__txt">Ele ainda não está na PSA. Cadastre o palestrante agora ou envie o link para ele se cadastrar.</p>
+    <div class="ac-nao__acoes"><a class="ac-nao__cad" href="${CADASTRO_URL}" target="_blank" rel="noopener noreferrer">Cadastrar palestrante ↗</a>
+    <button type="button" class="ac-nao__cop">Copiar link para o palestrante</button></div>`;
+  const btnCopiar = naoAchou.querySelector('.ac-nao__cop');
+  btnCopiar.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(CADASTRO_URL); btnCopiar.textContent = 'Link copiado ✓'; }
+    catch (e) { btnCopiar.textContent = CADASTRO_URL; }
+    setTimeout(() => { btnCopiar.textContent = 'Copiar link para o palestrante'; }, 2500);
+  });
   const cont = document.createElement('p'); cont.className = 'ac-cont';
   const enviar = document.createElement('button'); enviar.className = 'btn btn--primary'; enviar.style.marginTop = '12px'; enviar.textContent = 'Montar curadoria →'; enviar.disabled = true;
-  wrap.append(empLabel, empInput, nomesLabel, chips, inp, list, cont, enviar);
+  wrap.append(empLabel, empInput, nomesLabel, chips, inp, list, naoAchou, cont, enviar);
   area.appendChild(wrap);
   let sel = -1;
 
@@ -2061,14 +2084,18 @@ async function pedeNomes() {
   };
   const render = (q) => {
     const nq = norm(q); sel = -1; list.innerHTML = '';
+    naoAchou.classList.remove('on');
     if (!nq) { list.className = 'ac-list'; return; }
-    base.filter(n => norm(n).includes(nq)).slice(0, 8).forEach(n => {
+    const achados = base.filter(n => norm(n).includes(nq)).slice(0, 8);
+    // sem nenhum parecido na base: aviso do Oráculo (se a base não carregou, deixa usar o nome digitado)
+    if (base.length && !achados.length && q.trim().length >= 3) naoAchou.classList.add('on');
+    achados.forEach(n => {
       const o = document.createElement('div'); o.className = 'ac-opt'; o.textContent = n;
       o.addEventListener('mousedown', ev => { ev.preventDefault(); addNome(n); });
       list.appendChild(o);
     });
     const temExato = base.some(n => norm(n) === nq);
-    if (!temExato && q.trim().length >= 3) {
+    if (!base.length && !temExato && q.trim().length >= 3) {
       const o = document.createElement('div'); o.className = 'ac-opt';
       o.innerHTML = `Usar "<strong>${q.replace(/</g, '&lt;').trim()}</strong>" <span class="ac-livre">(fora da lista)</span>`;
       o.addEventListener('mousedown', ev => { ev.preventDefault(); addNome(q); });
@@ -2083,7 +2110,7 @@ async function pedeNomes() {
     const n = list.children.length;
     if (e.key === 'ArrowDown') { e.preventDefault(); if (n) { sel = (sel + 1) % n; marca(); } }
     else if (e.key === 'ArrowUp') { e.preventDefault(); if (n) { sel = (sel - 1 + n) % n; marca(); } }
-    else if (e.key === 'Enter') { e.preventDefault(); if (sel >= 0 && list.children[sel]) list.children[sel].dispatchEvent(new MouseEvent('mousedown')); else if (inp.value.trim().length >= 3) addNome(inp.value); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (sel >= 0 && list.children[sel]) list.children[sel].dispatchEvent(new MouseEvent('mousedown')); else if (inp.value.trim().length >= 3) { const exato = base.find(n => norm(n) === norm(inp.value)); if (exato) addNome(exato); else if (!base.length) addNome(inp.value); } }
     else if (e.key === 'Escape') { list.className = 'ac-list'; }
   });
   inp.addEventListener('blur', () => setTimeout(() => { list.className = 'ac-list'; }, 150));
