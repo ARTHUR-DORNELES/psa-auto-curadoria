@@ -80,7 +80,7 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .lnk-voltar:hover{color:var(--fg-1)}
 .faixa-suporte{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;background:#f8d71b;color:#02060f;font-size:13px;font-weight:600;padding:8px 16px;text-align:center}
 .faixa-suporte button{background:#02060f;color:#fff;border:0;border-radius:999px;padding:6px 14px;font:inherit;font-size:12px;cursor:pointer}
-.modo-suporte #btnNovaBriefing,.modo-suporte #usuConvite,.modo-suporte .acoes-usu,.modo-suporte .acoes-cur,.modo-suporte #btnSair,.modo-suporte .btn-disp,.modo-suporte #refazer,.modo-suporte #quero-curador,.modo-suporte #tut,.modo-suporte #btnEmpresas,.modo-suporte #btnOraculo{display:none!important}
+.modo-suporte #btnDemandaGratuita,.modo-suporte #btnNovaBriefing,.modo-suporte #usuConvite,.modo-suporte .acoes-usu,.modo-suporte .acoes-cur,.modo-suporte #btnSair,.modo-suporte .btn-disp,.modo-suporte #refazer,.modo-suporte #quero-curador,.modo-suporte #tut,.modo-suporte #btnEmpresas,.modo-suporte #btnOraculo{display:none!important}
 .emp-resumo{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:var(--s-4)}
 .emp-kpi{border:1px solid var(--border-subtle);background:#ffffff08;border-radius:var(--r-md);padding:12px 16px;min-width:120px}
 .emp-kpi b{display:block;font-size:24px;line-height:1.1;font-family:var(--font-display,inherit)}
@@ -517,6 +517,9 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
         <div class="acoes" style="margin-top:var(--s-4)">
           <button class="btn btn--ghost" id="btnAbrirLista" style="display:none">Abrir minhas curadorias ↓</button>
         </div>
+        <div class="acoes" style="margin-top:var(--s-4)">
+          <button class="btn btn--ghost" id="btnDemandaGratuita" style="display:none">Abrir demandas gratuitas</button>
+        </div>
         <p class="sub" id="escolhaSub" style="display:none;margin-top:var(--s-6)">Escolha qual quer ver:</p>
         <div id="filtroAutorBox" style="display:none;max-width:360px;margin:0 0 var(--s-4)"><label for="filtroAutor">Filtrar por usuário</label><select id="filtroAutor"></select></div>
         <div id="escolhaLista" style="display:none;gap:10px;margin:var(--s-4) 0"></div>
@@ -867,6 +870,7 @@ const BOXES_GATE = ['boxEscolha', 'boxPrimeiroTipo', 'boxConvite', 'boxLogin', '
 function caixaGate(id, focar = true) {
   BOXES_GATE.forEach((b) => { $('#' + b).style.display = b === id ? '' : 'none'; });
   ['eGate', 'eEsq', 'ePrim', 'eSenha', 'eLogado', 'eConv'].forEach((e) => { $('#' + e).textContent = ''; });
+  $('#eLogado').style.color = '';
   const foco = { boxLogin: $('#loginEmail').value ? '#loginSenha' : '#loginEmail', boxConvite: '#convEmail', boxEsqueci: '#esqEmail', boxPrimeiro: '#documento' }[id];
   if (foco && focar) setTimeout(() => { try { $(foco).focus(); } catch (e) {} }, 30);
 }
@@ -1046,6 +1050,7 @@ async function abrirPainel() {
   $('#contaHeader').style.display = '';
   $('#btnEmpresas').style.display = u.superAdmin && !u.suporte ? '' : 'none';
   $('#btnOraculo').style.display = (u.superAdmin || u.oraculo) && !u.suporte ? '' : 'none';
+  $('#btnDemandaGratuita').style.display = u.gratuitas && !u.suporte ? '' : 'none';
   if (u.suporte) $('#gateTitulo').innerHTML = escHTML(($('#fsEmpresa').textContent || 'Empresa')) + '.';
   // sem celular: pede antes de tudo (abas e lista ficam escondidas até salvar)
   const semCel = !u.celular;
@@ -1163,6 +1168,16 @@ function montarLista(curadorias) {
 
 // Começar uma nova: abre a entrada do briefing (palestra/evento, nomes ou ajuda).
 $('#btnNovaBriefing').addEventListener('click', () => { iniciarEntrada(contatoNovo); });
+// Demanda gratuita: o time da PSA preenche o briefing completo do cliente e vira um negócio
+// na pipeline "Demandas gratuitas" (sem IA Curadoria).
+$('#btnDemandaGratuita').addEventListener('click', () => {
+  formModo = 'gratuita'; formAlvo = null;
+  ['p1', 'p2', 'p3'].forEach((p) => $('#' + p).querySelectorAll('input, textarea').forEach((el) => { el.value = ''; }));
+  ['p1', 'p2', 'p3'].forEach((p) => $('#' + p).querySelectorAll('select').forEach((el) => { el.selectedIndex = 0; el.dispatchEvent(new Event('change')); }));
+  ['e1', 'e2', 'e3'].forEach((e) => { const el = $('#' + e); if (el) el.textContent = ''; });
+  $('#enviar').textContent = 'Criar demanda gratuita →'; $('#enviar').disabled = false;
+  mostra('p1', 1);
+});
 // "Abrir minhas curadorias": só aqui a lista aparece.
 $('#btnAbrirLista').addEventListener('click', () => {
   $('#escolhaLista').style.display = 'grid';
@@ -2155,7 +2170,7 @@ async function enviarNomes(nomes, empresaEvento) {
 }
 
 // escape: "prefiro preencher um formulário" -> fluxo de 3 passos
-$('#chat-para-form').addEventListener('click', () => { formModo = 'novo'; formAlvo = null; mostra('p1', 1); });
+$('#chat-para-form').addEventListener('click', () => { formModo = 'novo'; formAlvo = null; $('#enviar').textContent = 'Gerar minha curadoria →'; mostra('p1', 1); });
 
 // Abre o formulário p1/p2/p3 pré-preenchido para COMPLETAR o briefing de uma curadoria de
 // LISTA FECHADA (o cliente pediu disponibilidade e faltavam os dados do evento). Ao enviar,
@@ -2205,7 +2220,7 @@ function telefoneInvalido(v) {
 /** Todos os selects/inputs visíveis do passo, menos os opcionais. */
 function faltaAlgo(passo) {
   return [...$('#' + passo).querySelectorAll('input, select, textarea')]
-    .filter(e => !OPCIONAIS.includes(e.id) && !e.disabled && !e.value.trim())
+    .filter(e => !(formModo === 'gratuita' ? ['microTema', 'macroTemaSecundario', 'palestranteDesejado'] : OPCIONAIS).includes(e.id) && !e.disabled && !e.value.trim())
     .map(e => ($('label[for="' + e.id + '"]')?.textContent || e.id).replace(/\s*\*$/, '').trim());
 }
 
@@ -2344,9 +2359,27 @@ $('#enviar').addEventListener('click', async () => {
   $('#enviar').disabled = true;
   // modo "briefing": salva o briefing na curadoria de LISTA FECHADA e dispara a disponibilidade
   if (formModo === 'briefing' && formAlvo) return salvarBriefingFormExistente();
+  if (formModo === 'gratuita') return salvarDemandaGratuita();
   await enviarBriefing(corpoDoFormulario(),
     (e) => { mostra('p3', 3); $('#e3').textContent = e.message + ' — se persistir, fale com um curador pelo site.'; $('#enviar').disabled = false; });
 });
+
+// demanda gratuita -> negócio na pipeline "Demandas gratuitas" (etapa Novo)
+async function salvarDemandaGratuita() {
+  $('#enviar').textContent = 'Criando…';
+  try {
+    const j = await postJSON('/api/conta', { acao: 'demanda-gratuita', sessao: sessaoAtual, ...corpoDoFormulario() });
+    if (!j.ok) throw new Error(j.erro || 'não consegui criar a demanda');
+    formModo = 'novo';
+    $('#enviar').textContent = 'Gerar minha curadoria →';
+    await abrirPainel();
+    $('#eLogado').style.color = '#37c07a';
+    $('#eLogado').innerHTML = `Demanda criada no HubSpot: <a href="${escHTML(j.url)}" target="_blank" rel="noopener" style="color:var(--psa-orange)">${escHTML(j.dealname)} ↗</a>`;
+  } catch (e) {
+    $('#e3').textContent = e.message;
+    $('#enviar').textContent = 'Criar demanda gratuita →';
+  } finally { $('#enviar').disabled = false; }
+}
 
 // salva o briefing do formulário na curadoria existente e dispara a disponibilidade pendente
 async function salvarBriefingFormExistente() {

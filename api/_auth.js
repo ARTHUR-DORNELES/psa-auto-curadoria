@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP } from './_lib.js';
+import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita } from './_lib.js';
 
 /**
  * Usuários por empresa. A assinatura continua sendo o negócio "Pago" casado pelo CPF/CNPJ
@@ -85,7 +85,7 @@ async function gravarUsuario(doc, u) {
   await redis().set(kUsuario(u.email), doc);
 }
 export const publico = (u) => ({ email: u.email, nome: u.nome || '', celular: u.celular || '', papel: u.papel, status: u.status, criadoEm: u.criadoEm || null, ultimoAcesso: u.ultimoAcesso || null,
-  ...(u.superAdmin ? { superAdmin: true } : {}), ...(u.oraculo ? { oraculo: true } : {}), ...(u.suporte ? { suporte: true } : {}) });
+  ...(u.superAdmin ? { superAdmin: true } : {}), ...(u.oraculo ? { oraculo: true } : {}), ...(u.gratuitas ? { gratuitas: true } : {}), ...(u.suporte ? { suporte: true } : {}) });
 
 // "Último acesso": gravado no login, ao criar a senha e a cada abertura do painel.
 // Só regrava se passou 10 min (evita escrever no Redis a cada clique). Nunca lança.
@@ -174,6 +174,20 @@ const SUPER = String(process.env.SUPER_ADMINS || 'renato.denck@profissionaissa.c
   .split(',').map((e) => normEmail(e)).filter(Boolean);
 export const ehSuper = (email) => SUPER.includes(normEmail(email));
 const SUPORTE_S = 60 * 60 * 4;
+// Demandas gratuitas: por enquanto só o Renato (lista editável por env, separada por vírgula)
+const GRATUITAS = String(process.env.DEMANDAS_GRATUITAS || 'renato.denck@profissionaissa.com')
+  .split(',').map((e) => normEmail(e)).filter(Boolean);
+export const podeGratuitas = (email) => GRATUITAS.includes(normEmail(email));
+const OBRIG_GRATUITA = ['nome', 'empresa', 'email', 'telefone', 'empresaPalestra', 'macroTema', 'publicoAlvo', 'formato', 'data', 'horario', 'duracao', 'localEvento', 'cidade', 'local', 'orcamento', 'vendaIngresso', 'motivacao', 'sentimento', 'briefing'];
+export async function demandaGratuita(sess, b) {
+  if (!sess || sess.suporte || !podeGratuitas(sess.email)) return { ok: false, erro: 'Acesso restrito.' };
+  const faltam = OBRIG_GRATUITA.filter((k) => !String(b[k] || '').trim());
+  if (faltam.length) return { ok: false, erro: `Falta preencher: ${faltam.join(', ')}.` };
+  const briefing = {};
+  for (const k of [...OBRIG_GRATUITA, 'microTema', 'macroTemaSecundario', 'palestranteDesejado']) briefing[k] = String(b[k] || '').trim().slice(0, 4000);
+  const r = await criarDemandaGratuita(briefing, { email: sess.email, nome: sess.nome });
+  return { ok: true, ...r, url: `https://app.hubspot.com/contacts/49656171/record/0-3/${r.negocioId}` };
+}
 
 // Oráculo: liberado empresa por empresa pelo suporte PSA (chave ac:org:<doc>:oraculo)
 const kOraculo = (doc) => `ac:org:${doc}:oraculo`;
@@ -284,7 +298,7 @@ export async function lerSessao(t) {
   const u = await lerUsuario(s.doc, s.email);
   if (!u || u.status !== 'ativo') return null;
   const sup = ehSuper(u.email);
-  return { doc: s.doc, email: u.email, nome: u.nome || '', celular: u.celular || '', papel: u.papel, superAdmin: sup, oraculo: sup || (await oraculoLiberado(s.doc).catch(() => false)) };
+  return { doc: s.doc, email: u.email, nome: u.nome || '', celular: u.celular || '', papel: u.papel, superAdmin: sup, oraculo: sup || (await oraculoLiberado(s.doc).catch(() => false)), gratuitas: podeGratuitas(u.email) };
 }
 export const encerrarSessao = (t) => (t ? redis().del(kSessao(t)) : 0);
 

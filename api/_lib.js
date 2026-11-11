@@ -279,6 +279,34 @@ async function criarNegocio(properties, contatoId) {
   throw new Error('negócio recusado mesmo após descartar propriedades');
 }
 
+// ── Demandas gratuitas ────────────────────────────────────────────────────────
+// Briefing completo preenchido pela PSA vira um negócio na pipeline "Demandas gratuitas"
+// (etapa Novo), com nome "<empresa do evento> | <data>". NÃO passa pela IA Curadoria: a
+// observação usa outro cabeçalho, para não casar com o gatilho da automação.
+const PIPE_GRATUITAS = process.env.PIPE_DEMANDAS_GRATUITAS || '883258246';
+const STAGE_GRATUITAS_NOVO = process.env.STAGE_DEMANDAS_GRATUITAS_NOVO || '1326633119';
+export async function criarDemandaGratuita(briefing, usuario) {
+  const [primeiro, ...resto] = (briefing.nome || '').trim().split(/\s+/);
+  const pc = { email: briefing.email, firstname: primeiro || '', lastname: resto.join(' '), phone: telefoneE164(briefing.telefone), company: briefing.empresa || '' };
+  let contatoId = '';
+  try { contatoId = (await hs('/crm/v3/objects/contacts', 'POST', { properties: pc })).id; }
+  catch (e) {
+    if (!/409|already exists/i.test(e.message)) throw e;
+    contatoId = e.message.match(/Existing ID:\s*(\d+)/)?.[1] || '';
+    if (contatoId) await hs(`/crm/v3/objects/contacts/${contatoId}`, 'PATCH', { properties: pc }).catch(() => {});
+  }
+  const empresaEvento = String(briefing.empresaPalestra || briefing.empresa || '').trim();
+  const props = _propsBriefing(briefing);
+  props.dealname = `${empresaEvento} | ${dataBR(briefing.data) || 'data a definir'}`.slice(0, 240);
+  if (usuario?.email) props[process.env.PROP_AUTOR || 'auto_curadoria_usuario'] = [usuario.nome, `<${usuario.email}>`].filter(Boolean).join(' ');
+  const deal = await criarNegocio({ ...props, pipeline: PIPE_GRATUITAS, dealstage: STAGE_GRATUITAS_NOVO }, contatoId);
+  const texto = notaDoBriefing(briefing, null, '')
+    .replace('AUTO CURADORIA — BRIEFING DO CLIENTE', 'DEMANDA GRATUITA — BRIEFING')
+    .replace(/^id: .*\n/m, usuario?.email ? `Registrado por: ${usuario.nome || ''} <${usuario.email}>\n` : '');
+  await nota(deal.id, texto).catch((e) => console.error('nota da demanda gratuita falhou:', e.message));
+  return { negocioId: deal.id, dealname: props.dealname };
+}
+
 // Etapas da pipeline Auto Curadoria resolvidas PELO NOME (label), em runtime e em cache.
 // Assim o time cria "Curadorias criadas"/"Curadorias finalizadas" no HubSpot sem eu
 // precisar caçar ids — o código acha pelo nome. Devolve null se a etapa ainda não existe
