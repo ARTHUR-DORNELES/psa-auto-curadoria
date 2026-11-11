@@ -1173,7 +1173,7 @@ $('#btnDemandaGratuita').addEventListener('click', () => {
   ['p1', 'p2', 'p3'].forEach((p) => $('#' + p).querySelectorAll('input, textarea').forEach((el) => { el.value = ''; }));
   ['p1', 'p2', 'p3'].forEach((p) => $('#' + p).querySelectorAll('select').forEach((el) => { el.selectedIndex = 0; el.dispatchEvent(new Event('change')); }));
   ['e1', 'e2', 'e3'].forEach((e) => { const el = $('#' + e); if (el) el.textContent = ''; });
-  $('#enviar').textContent = 'Criar demanda gratuita →'; $('#enviar').disabled = false;
+  $('#enviar').textContent = 'Criar palestra gratuita →'; $('#enviar').disabled = false;
   mostra('p1', 1);
 });
 // "Abrir minhas curadorias": só aqui a lista aparece.
@@ -2367,15 +2367,15 @@ async function salvarDemandaGratuita() {
   $('#enviar').textContent = 'Criando…';
   try {
     const j = await postJSON('/api/conta', { acao: 'demanda-gratuita', sessao: sessaoAtual, ...corpoDoFormulario() });
-    if (!j.ok) throw new Error(j.erro || 'não consegui criar a demanda');
+    if (!j.ok) throw new Error(j.erro || 'não consegui criar a palestra gratuita');
     formModo = 'novo';
     $('#enviar').textContent = 'Gerar minha curadoria →';
     await abrirPainel();
     $('#eLogado').style.color = '#37c07a';
-    $('#eLogado').innerHTML = `Demanda criada no HubSpot: <a href="${escHTML(j.url)}" target="_blank" rel="noopener" style="color:var(--psa-orange)">${escHTML(j.dealname)} ↗</a>`;
+    $('#eLogado').innerHTML = `Palestra gratuita criada no HubSpot: <a href="${escHTML(j.url)}" target="_blank" rel="noopener" style="color:var(--psa-orange)">${escHTML(j.dealname)} ↗</a>`;
   } catch (e) {
     $('#e3').textContent = e.message;
-    $('#enviar').textContent = 'Criar demanda gratuita →';
+    $('#enviar').textContent = 'Criar palestra gratuita →';
   } finally { $('#enviar').disabled = false; }
 }
 
