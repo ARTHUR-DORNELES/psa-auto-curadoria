@@ -2372,7 +2372,7 @@ async function salvarDemandaGratuita() {
     $('#enviar').textContent = 'Gerar minha curadoria →';
     await abrirPainel();
     $('#eLogado').style.color = '#37c07a';
-    $('#eLogado').innerHTML = `Palestra gratuita criada no HubSpot: <a href="${escHTML(j.url)}" target="_blank" rel="noopener" style="color:var(--psa-orange)">${escHTML(j.dealname)} ↗</a>`;
+    $('#eLogado').textContent = 'Palestra gratuita criada.';
   } catch (e) {
     $('#e3').textContent = e.message;
     $('#enviar').textContent = 'Criar palestra gratuita →';
