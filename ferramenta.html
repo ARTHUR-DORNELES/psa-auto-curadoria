@@ -1256,7 +1256,7 @@ function abaConta(aba) {
   $('#painelEmpresas').style.display = aba === 'empresas' ? '' : 'none';
 }
 // Oráculo (só suporte PSA): abre o Oráculo em tela cheia, por cima do painel
-$('#btnOraculo').addEventListener('click', () => { const w = $('#oraculoWrap'); if (w) w.style.display = 'flex'; });
+$('#btnOraculo').addEventListener('click', () => { const w = $('#oraculoWrap'); if (w) w.style.display = 'flex'; try { sessionStorage.setItem('oraculoAberto','1'); } catch(_){} });
 document.querySelectorAll('#abasConta button[data-aba]').forEach((b) => b.addEventListener('click', () => {
   abaConta(b.dataset.aba);
   if (b.dataset.aba === 'usuarios') { $('#usuLinkBox').style.display = 'none'; carregarUsuarios(); }
