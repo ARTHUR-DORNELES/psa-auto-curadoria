@@ -512,8 +512,10 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 
       <div id="escolha">
         <div class="acoes" style="margin-top:var(--s-5)">
-          <button class="btn" id="btnNovaBriefing" style="display:none;background:#16a34a;color:#fff;box-shadow:0 0 40px #16a34a55">Começar uma nova →</button>
-          <button class="btn btn--ghost" id="btnAbrirLista" style="display:none">Abrir minhas curadorias →</button>
+          <button class="btn" id="btnNovaBriefing" style="display:none;background:#16a34a;color:#fff;box-shadow:0 0 40px #16a34a55">Começar uma nova curadoria</button>
+        </div>
+        <div class="acoes" style="margin-top:var(--s-4)">
+          <button class="btn btn--ghost" id="btnAbrirLista" style="display:none">Abrir minhas curadorias ↓</button>
         </div>
         <p class="sub" id="escolhaSub" style="display:none;margin-top:var(--s-6)">Escolha qual quer ver:</p>
         <div id="filtroAutorBox" style="display:none;max-width:360px;margin:0 0 var(--s-4)"><label for="filtroAutor">Filtrar por usuário</label><select id="filtroAutor"></select></div>
@@ -1151,7 +1153,7 @@ function montarLista(curadorias) {
     });
   };
   $('#btnAbrirLista').style.display = n ? '' : 'none';
-  $('#btnAbrirLista').textContent = admin ? 'Abrir curadorias da empresa →' : 'Abrir minhas curadorias →';
+  $('#btnAbrirLista').textContent = 'Abrir minhas curadorias ↓';
   $('#escolhaLista').style.display = 'none';
   $('#escolhaSub').style.display = 'none';
   $('#escolhaSub').textContent = admin
