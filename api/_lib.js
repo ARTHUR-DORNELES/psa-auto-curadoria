@@ -335,7 +335,7 @@ export async function listarPalestrasGratuitas(soIds = null) {
     for (let i = 0; i < ids.length; i += 100) {
       const r = await comToken((t) => hs(`/crm/v3/objects/${OBJ_CANDIDATOS}/batch/read`, 'POST', {
         inputs: ids.slice(i, i + 100).map((id) => ({ id })),
-        properties: ['nome_do_palestrante', 'link_do_perfil_do_palestrante', 'argumentacao', 'valor_do_cache_proposto', 'resposta_ao_palestrante', PROP_MSG_CANDIDATO, 'email', 'hs_createdate'],
+        properties: ['nome_do_palestrante', 'link_do_perfil_do_palestrante', 'argumentacao', 'resposta_ao_palestrante', PROP_MSG_CANDIDATO, 'email', 'hs_createdate'],   // sem cachê: palestra gratuita
       }, t || undefined));
       for (const c of r.results || []) cand[c.id] = { id: c.id, ...c.properties };
     }
