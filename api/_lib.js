@@ -298,6 +298,9 @@ export async function criarDemandaGratuita(briefing, usuario) {
   const empresaEvento = String(briefing.empresaPalestra || briefing.empresa || '').trim();
   const props = _propsBriefing(briefing);
   props.dealname = `${empresaEvento} | ${dataBR(briefing.data) || 'data a definir'}`.slice(0, 240);
+  // orçamento da palestra gratuita vai em "Budget do Evento" (texto), não no enum de faixas
+  delete props.janeiro___orcamento;
+  props.budget_evento = 'Gratuito';
   if (usuario?.email) props[process.env.PROP_AUTOR || 'auto_curadoria_usuario'] = [usuario.nome, `<${usuario.email}>`].filter(Boolean).join(' ');
   // "Objetivos do evento" é obrigatório na palestra gratuita: sem ele, nem cria
   if (!String(props.objetivos_do_evento || '').trim()) throw new Error('Faltou o objetivo do evento (motivo, como o público deve sair e contexto).');
