@@ -8,7 +8,6 @@
   "functions": {
     "api/curar.js": { "maxDuration": 60 },
     "api/chat.js": { "maxDuration": 30 },
-    "api/conta.js": { "maxDuration": 60 },
     "api/palestrantes.js": { "maxDuration": 60 }
   }
 }
