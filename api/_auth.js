@@ -182,10 +182,13 @@ const OBRIG_GRATUITA = ['nome', 'empresa', 'email', 'telefone', 'empresaPalestra
 // Cada empresa vê só as palestras gratuitas que ela criou (índice no Redis por documento).
 // O suporte PSA (super admin) vê a pipeline inteira.
 const kGratuitas = (doc) => `ac:org:${doc}:gratuitas`;
+// a empresa não recebe o contato direto do palestrante (fala pela PSA); o e-mail só é usado no servidor
+const semContato = (c) => { delete c.email; delete c.telefone; return c; };
 export async function palestrasGratuitas(sess) {
   if (!sess || sess.suporte || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };
   const ids = ehSuper(sess.email) ? null : await redis().smembers(kGratuitas(sess.doc));
   const r = await listarPalestrasGratuitas(ids);
+  r.palestras.forEach((p) => p.candidatos.forEach(semContato));
   if (!ehSuper(sess.email)) { delete r.erroDetalhe; return { ok: true, todas: false, ...r }; }   // detalhe técnico só para o suporte PSA
   // suporte PSA: diz de qual empresa é cada palestra (para o filtro)
   const docPorDeal = {};
@@ -225,7 +228,7 @@ export async function candidatosDaGratuita(sess, b) {
   if (!ehSuper(sess.email) && !(await redis().sismember(kGratuitas(sess.doc), id))) return { ok: false, erro: 'Esta palestra não é da sua empresa.' };
   const { palestras, erroCandidatos } = await listarPalestrasGratuitas([id]);
   if (!palestras.length) return { ok: false, erro: 'Palestra não encontrada.' };
-  return { ok: true, candidatos: await enriquecerCandidatos(palestras[0].candidatos), erroCandidatos };
+  return { ok: true, candidatos: (await enriquecerCandidatos(palestras[0].candidatos)).map(semContato), erroCandidatos };
 }
 // Aprovar/reprovar um candidato de uma palestra gratuita da própria empresa
 export async function responderCandidato(sess, b) {

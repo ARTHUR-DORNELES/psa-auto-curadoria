@@ -1522,8 +1522,6 @@ async function carregarGratuitas(aviso) {
       box.innerHTML = lista.map((c, n) => {
         const nome = escHTML(c.nome_do_palestrante || c.email || 'Palestrante');
         const contato = [
-          c.email ? `<a href="mailto:${escHTML(c.email)}">${escHTML(c.email)}</a>` : '',
-          c.telefone ? `<a href="https://wa.me/${escHTML(String(c.telefone).replace(/\D/g, ''))}" target="_blank" rel="noopener">${escHTML(c.telefone)}</a>` : '',
           c.link_do_perfil_do_palestrante ? `<a href="${escHTML(c.link_do_perfil_do_palestrante)}" target="_blank" rel="noopener">perfil na plataforma ↗</a>` : '',
         ].filter(Boolean).join('');
         return `<article class="ind gr-ind">
@@ -1537,6 +1535,7 @@ async function carregarGratuitas(aviso) {
             ${contato ? `<div class="gr__ct" style="margin:-4px 0 14px">${contato}</div>` : ''}
             ${c.wiki ? `<div class="gr__rot" style="margin:0 0 8px">Por que este palestrante</div><ul class="gr__pq--carregando" data-pq="${escHTML(c.id)}"><li>Gerando os porquês…</li></ul>` : ''}
             ${c.argumentacao ? `<div class="gr__rot">Argumentação do palestrante para esta demanda</div><p class="gr__ca">${linkar(c.argumentacao)}</p>` : ''}
+            <div class="resp" style="margin-top:14px"><div class="resp__campo resp__campo--sim"><span class="resp__rot">Disponibilidade</span><span class="resp__val">Disponível para a data do evento</span></div></div>
             <div class="gr__dec" data-cand="${escHTML(c.id)}"></div>
           </div>
           ${fotoCard({ foto: c.foto })}

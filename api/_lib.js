@@ -389,8 +389,6 @@ export async function enriquecerCandidatos(cands) {
     // só a wiki de APRESENTAÇÃO (peça para o cliente); a interna nunca vai para a empresa
     const wiki = String(p.palestrante_wiki_apresentacao_url || '').trim();
     if (/^https?:\/\//i.test(wiki)) c.wiki = wiki;
-    // contato direto do palestrante (e-mail vem da candidatura; telefone do contato)
-    c.telefone = String(p.mobilephone || p.whatsapp || p.phone || '').trim();
     c.foto = await _fotoDoPerfil(c.link_do_perfil_do_palestrante);
     if (!c.foto) { const d = String(p.mande_uma_foto_bem_bonita_pra_gente_ || '').trim(); if (_ehImagem(d)) c.foto = d; }
   }));
