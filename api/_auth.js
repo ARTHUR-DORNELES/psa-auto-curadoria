@@ -214,7 +214,7 @@ async function nomeDaEmpresa(doc) {
   try { const c = await redis().get(k); if (c) return c; } catch (e) {}
   let nome = '';
   try { nome = String((await assinaturaAtivaPorDocumento(doc))?.props?.dealname || '').trim(); } catch (e) {}
-  if (nome) await redis().set(k, nome, 'EX', 86400).catch(() => {});
+  if (nome) await redis().set(k, nome, 'EX', 600).catch(() => {});   // 10 min: renomear o negócio aparece logo
   return nome;
 }
 // candidatos de UMA palestra, com foto e wiki (a empresa só abre as palestras dela)
