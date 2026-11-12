@@ -298,9 +298,15 @@ export async function criarDemandaGratuita(briefing, usuario) {
   const empresaEvento = String(briefing.empresaPalestra || briefing.empresa || '').trim();
   const props = _propsBriefing(briefing);
   props.dealname = `${empresaEvento} | ${dataBR(briefing.data) || 'data a definir'}`.slice(0, 240);
-  // orçamento da palestra gratuita vai em "Budget do Evento" (texto), não no enum de faixas
+  // mesmas propriedades que a automação "Cria demandas Oportunidades Gratuitas" usa
   delete props.janeiro___orcamento;
-  props.budget_evento = 'Gratuito';
+  props.budget_evento = 'Gratuito';   // texto livre (o enum de faixas não tem "Gratuito")
+  const online = /online/i.test(String(briefing.formato || '')) || briefing.local === 'Online';
+  props.presencial_ou_online_ = online ? 'Online' : 'Presencial';
+  if (briefing.data) props.data_prevista_do_evento = Date.parse(`${briefing.data}T00:00:00Z`);
+  if (!online && briefing.cidade) props.cidade = `${briefing.cidade}, ${briefing.local}`;
+  if (briefing.nomeEvento) props.nome_do_evento = briefing.nomeEvento;
+  if (briefing.qtdEspectadores) props.quantidade_de_espectadores_new = briefing.qtdEspectadores;
   if (usuario?.email) props[process.env.PROP_AUTOR || 'auto_curadoria_usuario'] = [usuario.nome, `<${usuario.email}>`].filter(Boolean).join(' ');
   // "Objetivos do evento" é obrigatório na palestra gratuita: sem ele, nem cria
   if (!String(props.objetivos_do_evento || '').trim()) throw new Error('Faltou o objetivo do evento (motivo, como o público deve sair e contexto).');
@@ -314,7 +320,8 @@ export async function criarDemandaGratuita(briefing, usuario) {
   } catch (e) { console.error('GRATUITA_OBJETIVOS', deal.id, e.message); }
   const texto = notaDoBriefing(briefing, null, '')
     .replace('AUTO CURADORIA — BRIEFING DO CLIENTE', 'DEMANDA GRATUITA — BRIEFING')
-    .replace(/^id: .*\n/m, usuario?.email ? `Registrado por: ${usuario.nome || ''} <${usuario.email}>\n` : '');
+    .replace(/^id: .*\n/m, usuario?.email ? `Registrado por: ${usuario.nome || ''} <${usuario.email}>\n` : '')
+    .replace('— EVENTO —', `— EVENTO —\nNome do evento: ${briefing.nomeEvento || 'não informado'}\nQuantidade de espectadores: ${briefing.qtdEspectadores || 'não informado'}`);
   await nota(deal.id, texto).catch((e) => console.error('nota da demanda gratuita falhou:', e.message));
   return { negocioId: deal.id, dealname: props.dealname };
 }

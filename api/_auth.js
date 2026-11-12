@@ -178,7 +178,7 @@ const SUPORTE_S = 60 * 60 * 4;
 const GRATUITAS = String(process.env.DEMANDAS_GRATUITAS || 'renato.denck@profissionaissa.com')
   .split(',').map((e) => normEmail(e)).filter(Boolean);
 export const podeGratuitas = (email) => GRATUITAS.includes(normEmail(email));
-const OBRIG_GRATUITA = ['nome', 'empresa', 'email', 'telefone', 'empresaPalestra', 'macroTema', 'publicoAlvo', 'formato', 'data', 'horario', 'duracao', 'localEvento', 'cidade', 'local', 'orcamento', 'vendaIngresso', 'motivacao', 'sentimento', 'briefing'];
+const OBRIG_GRATUITA = ['nome', 'empresa', 'email', 'telefone', 'empresaPalestra', 'nomeEvento', 'qtdEspectadores', 'macroTema', 'publicoAlvo', 'formato', 'data', 'horario', 'duracao', 'localEvento', 'cidade', 'local', 'orcamento', 'vendaIngresso', 'motivacao', 'sentimento', 'briefing'];
 export async function demandaGratuita(sess, b) {
   if (!sess || sess.suporte || !podeGratuitas(sess.email)) return { ok: false, erro: 'Acesso restrito.' };
   b.orcamento = 'Gratuito';   // palestra gratuita: orçamento é sempre gratuito

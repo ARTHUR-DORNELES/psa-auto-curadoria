@@ -626,6 +626,10 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
         <div><label for="local">Estado <span>*</span></label><select id="local"><option value="">Selecione</option></select></div>
         <div><label for="cidade">Cidade <span>*</span></label><select id="cidade" disabled><option value="">Selecione o estado primeiro</option></select></div>
       </div>
+      <div class="dupla so-gratuita" style="display:none">
+        <div><label for="nomeEvento">Nome do evento <span>*</span></label><input id="nomeEvento" disabled placeholder="Ex: Novembro Azul, SIPAT 2026"></div>
+        <div><label for="qtdEspectadores">Quantidade de espectadores <span>*</span></label><select id="qtdEspectadores" disabled><option value="">Selecione</option><option>De 10 - 50 Espectadores</option><option>De 50 - 100 Espectadores</option><option>De 100 - 200 Espectadores</option><option>De 200 - 500 Espectadores</option><option>De 500 - 1000 Espectadores</option><option>Mais de 1000 Espectadores</option></select></div>
+      </div>
       <div class="dupla">
         <div><label for="orcamento">Orçamento <span>*</span></label><select id="orcamento"><option value="">Selecione</option></select></div>
         <div><label for="vendaIngresso">Evento com venda de ingresso? <span>*</span></label><select id="vendaIngresso"><option value="">Selecione</option></select></div>
@@ -1188,6 +1192,9 @@ function orcamentoGratuito(ligar) {
   let op = [...sel.options].find((o) => o.value === 'Gratuito');
   if (ligar) { if (!op) { op = new Option('Gratuito', 'Gratuito'); sel.add(op); } sel.value = 'Gratuito'; sel.disabled = true; }
   else { if (op) op.remove(); if (sel.disabled) { sel.disabled = false; sel.selectedIndex = 0; } }
+  // nome do evento e quantidade de espectadores: só existem na palestra gratuita
+  document.querySelectorAll('.so-gratuita').forEach((d) => { d.style.display = ligar ? '' : 'none'; });
+  ['#nomeEvento', '#qtdEspectadores'].forEach((id) => { $(id).disabled = !ligar; if (!ligar) $(id).value = ''; });
 }
 $('#btnNovaBriefing').addEventListener('click', () => { orcamentoGratuito(false); iniciarEntrada(contatoNovo); });
 // Demanda gratuita: o time da PSA preenche o briefing completo do cliente e vira um negócio
@@ -2373,6 +2380,7 @@ function corpoDoFormulario() {
     motivacao: $('#motivacao').value, sentimento: $('#sentimento').value,
     palestranteDesejado: $('#palestranteDesejado').value, empresaPalestra: $('#empresaPalestra').value,
     briefing: $('#briefing').value,
+    ...(formModo === 'gratuita' ? { nomeEvento: $('#nomeEvento').value, qtdEspectadores: $('#qtdEspectadores').value } : {}),
   };
 }
 
