@@ -398,6 +398,14 @@ export async function enriquecerCandidatos(cands) {
 // Decisão sobre o candidato da palestra gratuita: "Aprovado" ou "Reprovado" em
 // "Resposta ao palestrante" + texto livre opcional em "Mensagem ao palestrante".
 export const PROP_MSG_CANDIDATO = process.env.PROP_MSG_CANDIDATO || 'mensagem_ao_palestrante';
+// Etapas da pipeline de gratuitas (ids fixos, sobrescrevíveis por env)
+export const ETAPAS_GRAT = {
+  novo: STAGE_GRATUITAS_NOVO,
+  selecionado: process.env.STAGE_GRAT_SELECIONADO || '1326633123',
+  fechado: process.env.STAGE_GRAT_FECHADO || '1326633124',
+  perdido: process.env.STAGE_GRAT_PERDIDO || '1326633125',
+};
+export const moverGratuita = (dealId, etapa) => hs(`/crm/v3/objects/deals/${dealId}`, 'PATCH', { properties: { dealstage: etapa } });
 export async function responderCandidatoHS(candidatoId, resposta, mensagem) {
   const corpo = { properties: { resposta_ao_palestrante: resposta, [PROP_MSG_CANDIDATO]: mensagem || '' } };
   const caminho = `/crm/v3/objects/${OBJ_CANDIDATOS}/${candidatoId}`;

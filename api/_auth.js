@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos, responderCandidatoHS } from './_lib.js';
+import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos, responderCandidatoHS, ETAPAS_GRAT, moverGratuita } from './_lib.js';
 
 /**
  * Usuários por empresa. A assinatura continua sendo o negócio "Pago" casado pelo CPF/CNPJ
@@ -234,9 +234,42 @@ export async function responderCandidato(sess, b) {
   // o candidato precisa ser desta palestra
   const { palestras } = await listarPalestrasGratuitas([dealId]);
   if (!palestras.length || !palestras[0].candidatos.some((c) => String(c.id) === candId)) return { ok: false, erro: 'Este candidato não é desta palestra.' };
+  const pal = palestras[0];
+  if (pal.dealstage === ETAPAS_GRAT.perdido) return { ok: false, erro: 'Esta demanda foi cancelada.' };
   try { await responderCandidatoHS(candId, resposta, mensagem); }
   catch (e) { console.error('RESPONDER_CANDIDATO', e.message.slice(0, 300)); return { ok: false, erro: /40[13]/.test(e.message) ? 'Sem permissão para gravar a resposta no HubSpot.' : 'Não consegui gravar a resposta agora.' }; }
-  return { ok: true, resposta, mensagem };
+  // etapa segue as respostas: com aprovado -> Palestrante selecionado; com aprovado e
+  // todos respondidos -> Negócio fechado. Sem aprovado, não mexe.
+  const cands = pal.candidatos.map((c) => (String(c.id) === candId ? { ...c, resposta_ao_palestrante: resposta } : c));
+  const pendentes = cands.filter((c) => !c.resposta_ao_palestrante).length;
+  const temAprovado = cands.some((c) => c.resposta_ao_palestrante === 'Aprovado');
+  let etapa = pal.dealstage;
+  const alvo = temAprovado ? (pendentes ? ETAPAS_GRAT.selecionado : ETAPAS_GRAT.fechado) : null;
+  if (alvo && alvo !== pal.dealstage) {
+    try { await moverGratuita(dealId, alvo); etapa = alvo; } catch (e) { console.error('MOVER_GRATUITA', e.message.slice(0, 300)); }
+  }
+  return { ok: true, resposta, mensagem, etapa: nomeEtapaGrat(etapa), pendentes };
+}
+const nomeEtapaGrat = (id) => ({ [ETAPAS_GRAT.novo]: 'Novo', [ETAPAS_GRAT.selecionado]: 'Palestrante selecionado', [ETAPAS_GRAT.fechado]: 'Negócio fechado', [ETAPAS_GRAT.perdido]: 'Negócio perdido' })[id] || id;
+
+// Cancelar a demanda: todos os candidatos recebem "Demanda cancelada" e o negócio vai para Negócio perdido
+export async function cancelarGratuita(sess, b) {
+  if (!sess || sess.suporte || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };
+  const dealId = String(b.dealId || '').replace(/\D/g, '');
+  if (!dealId) return { ok: false, erro: 'Palestra não informada.' };
+  if (!ehSuper(sess.email) && !(await redis().sismember(kGratuitas(sess.doc), dealId))) return { ok: false, erro: 'Esta palestra não é da sua empresa.' };
+  const { palestras } = await listarPalestrasGratuitas([dealId]);
+  if (!palestras.length) return { ok: false, erro: 'Palestra não encontrada.' };
+  const mensagem = String(b.mensagem || '').trim().slice(0, 3000) || 'A demanda foi cancelada pelo contratante. Obrigado pelo interesse.';
+  const falhas = [];
+  for (const c of palestras[0].candidatos) {
+    try { await responderCandidatoHS(String(c.id), 'Demanda cancelada', mensagem); }
+    catch (e) { falhas.push(c.nome_do_palestrante || c.id); console.error('CANCELAR_CANDIDATO', c.id, e.message.slice(0, 200)); }
+  }
+  if (falhas.length) return { ok: false, erro: `Não consegui avisar ${falhas.length} candidato(s): ${falhas.join(', ')}. A demanda não foi cancelada.` };
+  try { await moverGratuita(dealId, ETAPAS_GRAT.perdido); }
+  catch (e) { console.error('CANCELAR_GRATUITA', e.message.slice(0, 300)); return { ok: false, erro: 'Os candidatos foram avisados, mas não consegui mover o negócio. Tente de novo.' }; }
+  return { ok: true, etapa: 'Negócio perdido' };
 }
 export async function demandaGratuita(sess, b) {
   if (!sess || sess.suporte || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };

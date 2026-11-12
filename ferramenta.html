@@ -106,6 +106,12 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .gr__res{font-size:12px;font-weight:700;border-radius:999px;padding:4px 12px}
 .gr__res--ok{background:#16a34a22;color:#37c07a;border:1px solid #37c07a66}
 .gr__res--no{background:#ef44441a;color:#ff8080;border:1px solid #ef444466}
+.gr__aviso{font-size:12px;margin-top:10px;padding:8px 12px;border-radius:10px;background:#f8d71b14;border:1px solid #f8d71b55;color:#f8d71b}
+.gr__aviso--ok{background:#16a34a14;border-color:#37c07a66;color:#37c07a}
+.gr__aviso--x{background:#ef44441a;border-color:#ef444466;color:#ff8080}
+.gr__acoes{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.gr__cancel{background:none;border:0;color:#ff8080;font:inherit;font-size:12px;text-decoration:underline;cursor:pointer;margin-top:12px}
+.gr__etapa--fim{color:var(--fg-2)}
 .gr__mudar{background:none;border:0;color:var(--fg-3);font:inherit;font-size:12px;text-decoration:underline;cursor:pointer}
 .gr__ct{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:4px;font-size:12px}
 .gr__ct a{color:var(--psa-orange-hi);text-decoration:none}
@@ -1411,7 +1417,24 @@ async function carregarGratuitas(aviso) {
         ${p.empresa ? `<div class="gr__meta" style="margin-top:2px;color:var(--psa-orange-hi)">${escHTML(p.empresa)}</div>` : ''}
         ${p.titulo_da_oportunidade ? `<div class="gr__sub">${escHTML(p.titulo_da_oportunidade)}</div>` : ''}
         <div class="gr__meta">${escHTML(meta)} · <a href="https://app.hubspot.com/contacts/49656171/record/0-3/${encodeURIComponent(p.id)}" target="_blank" rel="noopener" style="color:var(--fg-2)">abrir no HubSpot ↗</a></div>
-      </div><span class="gr__etapa${/novo/i.test(p.etapa) ? ' gr__etapa--novo' : ''}">${escHTML(p.etapa || '')}</span></div>`;
+      </div><span class="gr__etapa"></span></div><div class="gr__aviso" style="display:none"></div>`;
+    // status: etapa + aviso de quem ainda está sem resposta (não dá para fechar assim)
+    const pintarStatus = () => {
+      const chip = card.querySelector('.gr__etapa'), av = card.querySelector('.gr__aviso');
+      chip.textContent = p.etapa || '';
+      chip.className = 'gr__etapa' + (/novo/i.test(p.etapa) ? ' gr__etapa--novo' : /fechado|perdido/i.test(p.etapa) ? ' gr__etapa--fim' : '');
+      const pend = p.candidatos.filter((c) => !c.resposta_ao_palestrante).length;
+      const aprov = p.candidatos.filter((c) => c.resposta_ao_palestrante === 'Aprovado').length;
+      let txt = '', cls = 'gr__aviso';
+      if (/perdido/i.test(p.etapa)) { txt = 'Demanda cancelada. Os candidatos foram avisados.'; cls += ' gr__aviso--x'; }
+      else if (/fechado/i.test(p.etapa)) { txt = 'Palestra fechada: palestrante escolhido e todos os candidatos responderam.'; cls += ' gr__aviso--ok'; }
+      else if (aprov && pend) txt = `⚠ ${pend} candidato${pend === 1 ? '' : 's'} sem resposta. A palestra só pode ser fechada quando todos os não escolhidos tiverem resposta (Reprovado).`;
+      else if (!aprov && p.candidatos.length) txt = 'Aprove o palestrante escolhido para mover para "Palestrante selecionado".';
+      av.textContent = txt; av.className = cls; av.style.display = txt ? '' : 'none';
+      card.classList.toggle('gr--fim', /fechado|perdido/i.test(p.etapa));
+      if (btnCancel) btnCancel.style.display = /fechado|perdido/i.test(p.etapa) ? 'none' : '';
+      box.querySelectorAll('.gr__dec').forEach((d) => { d.style.display = /perdido/i.test(p.etapa) ? 'none' : ''; });
+    };
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'gr__btn';
     b.textContent = n ? `Ver ${n} candidato${n === 1 ? '' : 's'} ↓` : 'Nenhum candidato ainda';
@@ -1439,7 +1462,7 @@ async function carregarGratuitas(aviso) {
       const r = c.resposta_ao_palestrante;
       if (r) {
         const msg = c.mensagem_ao_palestrante;
-        el.innerHTML = `<span class="gr__res ${r === 'Aprovado' ? 'gr__res--ok' : 'gr__res--no'}">${r === 'Aprovado' ? '✓ Aprovado' : '✕ Reprovado'}</span><button type="button" class="gr__mudar">mudar</button>`
+        el.innerHTML = `<span class="gr__res ${r === 'Aprovado' ? 'gr__res--ok' : 'gr__res--no'}">${r === 'Aprovado' ? '✓ Aprovado' : r === 'Demanda cancelada' ? '✕ Demanda cancelada' : '✕ Reprovado'}</span><button type="button" class="gr__mudar">mudar</button>`
           + (msg ? `<p class="gr__msg">Resposta enviada: ${escHTML(msg)}</p>` : '');
         el.querySelector('.gr__mudar').addEventListener('click', () => { el.innerHTML = ''; botoes(el, c); });
         return;
@@ -1452,6 +1475,9 @@ async function carregarGratuitas(aviso) {
         const r = await postJSON('/api/conta', { acao: 'gratuitas-responder', sessao: sessaoAtual, dealId: p.id, candidatoId: c.id, resposta, mensagem: mensagem || '' });
         if (!r.ok) { alert(r.erro || 'Não foi possível.'); el.querySelectorAll('button,select').forEach((x) => { x.disabled = false; }); return; }
         c.resposta_ao_palestrante = r.resposta; c.mensagem_ao_palestrante = r.mensagem; el.innerHTML = ''; pintarDecisao(el, c);
+        const orig = p.candidatos.find((x) => String(x.id) === String(c.id)); if (orig) orig.resposta_ao_palestrante = r.resposta;
+        if (r.etapa) p.etapa = r.etapa;
+        pintarStatus();
       } catch (e) { alert('Não foi possível salvar.'); el.querySelectorAll('button,select').forEach((x) => { x.disabled = false; }); }
     };
     const botoes = (el, c) => {
@@ -1477,8 +1503,27 @@ async function carregarGratuitas(aviso) {
       box.style.display = abrir ? 'grid' : 'none';
       b.textContent = abrir ? 'Esconder candidatos ↑' : `Ver ${n} candidato${n === 1 ? '' : 's'} ↓`;
     });
-    card.append(b, box);
+    const btnCancel = document.createElement('button');
+    btnCancel.type = 'button'; btnCancel.className = 'gr__cancel'; btnCancel.textContent = 'Cancelar demanda';
+    btnCancel.addEventListener('click', async () => {
+      const n = p.candidatos.length;
+      if (!confirm(`Cancelar a demanda "${titulo}"?${n ? `\n\nOs ${n} candidato${n === 1 ? '' : 's'} recebem a resposta "Demanda cancelada"` : ''} e o negócio vai para Negócio perdido.`)) return;
+      const msg = n ? prompt('Mensagem para os candidatos (opcional):', 'A demanda foi cancelada pelo contratante. Obrigado pelo interesse.') : '';
+      if (msg === null) return;
+      btnCancel.disabled = true; btnCancel.textContent = 'Cancelando…';
+      try {
+        const r = await postJSON('/api/conta', { acao: 'gratuitas-cancelar', sessao: sessaoAtual, dealId: p.id, mensagem: msg || '' });
+        if (!r.ok) { alert(r.erro || 'Não foi possível cancelar.'); return; }
+        p.etapa = r.etapa; p.candidatos.forEach((c) => { c.resposta_ao_palestrante = 'Demanda cancelada'; });
+        pintarCands(p.candidatos); pintarStatus();
+      } catch (e) { alert('Não foi possível cancelar agora.'); }
+      finally { btnCancel.disabled = false; btnCancel.textContent = 'Cancelar demanda'; }
+    });
+    const acoes = document.createElement('div'); acoes.className = 'gr__acoes';
+    acoes.append(b, btnCancel);
+    card.append(acoes, box);
     lista.appendChild(card);
+    pintarStatus();
   });
   if (j.todas) fsel.onchange();
 }
