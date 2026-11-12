@@ -553,6 +553,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
           <button class="btn" id="btnNovaGratuita" style="background:#16a34a;color:#fff;box-shadow:0 0 40px #16a34a55">Nova palestra gratuita</button>
         </div>
         <p class="sub" id="grResumo" style="margin-bottom:var(--s-4)"></p>
+        <div id="grFiltroBox" style="display:none;max-width:360px;margin:0 0 var(--s-4)"><label for="grFiltro">Filtrar por empresa</label><select id="grFiltro"></select></div>
         <div id="grLista" style="display:grid;gap:12px"></div>
       </div>
 
@@ -1370,11 +1371,24 @@ async function carregarGratuitas(aviso) {
   const ps = j.palestras || [];
   const totalCand = ps.reduce((a, p) => a + p.candidatos.length, 0);
   if (!aviso) $('#grResumo').textContent = (j.todas ? 'Todas as empresas (suporte PSA) · ' : '') + `${ps.length} palestra${ps.length === 1 ? '' : 's'} gratuita${ps.length === 1 ? '' : 's'} · ${totalCand} candidato${totalCand === 1 ? '' : 's'}`
-    + (j.erroCandidatos ? ` · atenção: ${j.erroCandidatos}` : '');
+    + (j.erroCandidatos ? ` · atenção: ${j.erroCandidatos}` : '') + (j.erroDetalhe ? ` (${j.erroDetalhe})` : '');
   lista.innerHTML = ps.length ? '' : '<p class="sub">Nenhuma palestra gratuita ainda.</p>';
+  // suporte PSA: filtro por empresa (cada palestra vem com o nome da empresa que criou)
+  const fbox = $('#grFiltroBox'), fsel = $('#grFiltro');
+  if (j.todas) {
+    const cont = {};
+    ps.forEach((p) => { cont[p.empresa] = (cont[p.empresa] || 0) + 1; });
+    const antes = fsel.value || '*';
+    fsel.innerHTML = `<option value="*">Todas as empresas (${ps.length})</option>`
+      + Object.keys(cont).sort((a, b) => a.localeCompare(b)).map((e) => `<option value="${escHTML(e)}">${escHTML(e)} (${cont[e]})</option>`).join('');
+    fsel.value = cont[antes] ? antes : '*';
+    fsel.onchange = () => lista.querySelectorAll('.gr').forEach((c) => { c.style.display = fsel.value === '*' || c.dataset.empresa === fsel.value ? '' : 'none'; });
+    fbox.style.display = '';
+  } else fbox.style.display = 'none';
   ps.forEach((p) => {
     const card = document.createElement('div');
     card.className = 'gr';
+    if (p.empresa) card.dataset.empresa = p.empresa;
     const titulo = p.nome_do_evento || p.dealname;
     const local = p.presencial_ou_online_ === 'Online' ? 'Online' : (p.cidade || '');
     const meta = [p.data_prevista_do_evento ? `evento ${dataBRcurta(p.data_prevista_do_evento + 'T12:00:00')}` : '', local, p.quantidade_de_espectadores_new, p.macro_tema,
@@ -1382,6 +1396,7 @@ async function carregarGratuitas(aviso) {
     const n = p.candidatos.length;
     card.innerHTML = `<div class="gr__top"><div style="min-width:0">
         <p class="gr__tit">${escHTML(titulo)}</p>
+        ${p.empresa ? `<div class="gr__meta" style="margin-top:2px;color:var(--psa-orange-hi)">${escHTML(p.empresa)}</div>` : ''}
         ${p.titulo_da_oportunidade ? `<div class="gr__sub">${escHTML(p.titulo_da_oportunidade)}</div>` : ''}
         <div class="gr__meta">${escHTML(meta)} · <a href="https://app.hubspot.com/contacts/49656171/record/0-3/${encodeURIComponent(p.id)}" target="_blank" rel="noopener" style="color:var(--fg-2)">abrir no HubSpot ↗</a></div>
       </div><span class="gr__etapa${/novo/i.test(p.etapa) ? ' gr__etapa--novo' : ''}">${escHTML(p.etapa || '')}</span></div>`;
@@ -1420,6 +1435,7 @@ async function carregarGratuitas(aviso) {
     card.append(b, box);
     lista.appendChild(card);
   });
+  if (j.todas) fsel.onchange();
 }
 
 // ── suporte PSA: lista de empresas e entrada somente leitura ──

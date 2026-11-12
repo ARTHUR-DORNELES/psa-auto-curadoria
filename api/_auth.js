@@ -185,7 +185,32 @@ const kGratuitas = (doc) => `ac:org:${doc}:gratuitas`;
 export async function palestrasGratuitas(sess) {
   if (!sess || sess.suporte || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };
   const ids = ehSuper(sess.email) ? null : await redis().smembers(kGratuitas(sess.doc));
-  return { ok: true, todas: !ids, ...(await listarPalestrasGratuitas(ids)) };
+  const r = await listarPalestrasGratuitas(ids);
+  if (!ehSuper(sess.email)) { delete r.erroDetalhe; return { ok: true, todas: false, ...r }; }   // detalhe técnico só para o suporte PSA
+  // suporte PSA: diz de qual empresa é cada palestra (para o filtro)
+  const docPorDeal = {};
+  let cursor = '0';
+  do {
+    const [c, keys] = await redis().scan(cursor, 'MATCH', 'ac:org:*:gratuitas', 'COUNT', 500);
+    cursor = c;
+    for (const k of keys) { const doc = k.split(':')[2]; for (const id of await redis().smembers(k)) docPorDeal[id] = doc; }
+  } while (cursor !== '0');
+  const nomes = {};
+  for (const doc of [...new Set(Object.values(docPorDeal))]) nomes[doc] = await nomeDaEmpresa(doc);
+  for (const p of r.palestras) {
+    const doc = docPorDeal[p.id];
+    p.empresa = doc ? (nomes[doc] || `Documento ${doc}`) : 'Site / automação da PSA';
+  }
+  return { ok: true, todas: true, ...r };
+}
+// nome da empresa = nome do negócio da assinatura (cache de 1 dia)
+async function nomeDaEmpresa(doc) {
+  const k = `ac:org:${doc}:nome`;
+  try { const c = await redis().get(k); if (c) return c; } catch (e) {}
+  let nome = '';
+  try { nome = String((await assinaturaAtivaPorDocumento(doc))?.props?.dealname || '').trim(); } catch (e) {}
+  if (nome) await redis().set(k, nome, 'EX', 86400).catch(() => {});
+  return nome;
 }
 // candidatos de UMA palestra, com foto e wiki (a empresa só abre as palestras dela)
 export async function candidatosDaGratuita(sess, b) {

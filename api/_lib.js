@@ -308,30 +308,45 @@ export async function listarPalestrasGratuitas(soIds = null) {
     .sort((a, b) => String(b.properties.createdate || '').localeCompare(String(a.properties.createdate || '')));
   // negócio -> ids dos candidatos (associações em lote)
   const porDeal = {};
-  let erroCandidatos = '';
+  let erroCandidatos = '', erroDetalhe = '';
+  // candidatos são objeto personalizado: se o token principal não tiver o escopo, tenta o
+  // token extra (o mesmo de ler owners, guardado no Redis/env), quando existir
+  let tokCand;
+  const comToken = async (fn) => {
+    try { return await fn(tokCand); }
+    catch (e) {
+      if (tokCand !== undefined || !/HubSpot 40[13]/.test(e.message)) throw e;
+      tokCand = (await ownersToken().catch(() => null)) || null;
+      if (!tokCand) throw e;
+      return fn(tokCand);
+    }
+  };
   try {
     for (let i = 0; i < deals.length; i += 100) {
-      const a = await hs(`/crm/v4/associations/deals/${OBJ_CANDIDATOS}/batch/read`, 'POST', { inputs: deals.slice(i, i + 100).map((d) => ({ id: d.id })) });
+      const a = await comToken((t) => hs(`/crm/v4/associations/deals/${OBJ_CANDIDATOS}/batch/read`, 'POST', { inputs: deals.slice(i, i + 100).map((d) => ({ id: d.id })) }, t || undefined));
       for (const r of a.results || []) porDeal[String(r.from.id)] = (r.to || []).map((t) => String(t.toObjectId));
     }
-  } catch (e) { erroCandidatos = /403/.test(e.message) ? 'sem permissão para ler os candidatos no HubSpot' : 'não consegui ler os candidatos'; console.error('GRATUITAS_ASSOC', e.message.slice(0, 200)); }
+  } catch (e) { erroCandidatos = /HubSpot 403/.test(e.message) ? 'sem permissão para ler os candidatos no HubSpot' : 'não consegui ler os candidatos'; erroDetalhe = e.message.slice(0, 300); console.error('GRATUITAS_ASSOC', e.message.slice(0, 300)); }
   const ids = [...new Set(Object.values(porDeal).flat())];
   const cand = {};
   try {
     for (let i = 0; i < ids.length; i += 100) {
-      const r = await hs(`/crm/v3/objects/${OBJ_CANDIDATOS}/batch/read`, 'POST', {
+      const r = await comToken((t) => hs(`/crm/v3/objects/${OBJ_CANDIDATOS}/batch/read`, 'POST', {
         inputs: ids.slice(i, i + 100).map((id) => ({ id })),
         properties: ['nome_do_palestrante', 'link_do_perfil_do_palestrante', 'argumentacao', 'valor_do_cache_proposto', 'resposta_ao_palestrante', 'email', 'hs_createdate'],
-      });
+      }, t || undefined));
       for (const c of r.results || []) cand[c.id] = { id: c.id, ...c.properties };
     }
-  } catch (e) { erroCandidatos = erroCandidatos || 'não consegui ler os candidatos'; console.error('GRATUITAS_CAND', e.message.slice(0, 200)); }
+  } catch (e) {
+    erroCandidatos = erroCandidatos || (/HubSpot 403/.test(e.message) ? 'sem permissão para ler os candidatos no HubSpot' : 'não consegui ler os candidatos');
+    erroDetalhe = erroDetalhe || e.message.slice(0, 300); console.error('GRATUITAS_CAND', e.message.slice(0, 300));
+  }
   const palestras = deals.map((d) => ({
     id: d.id, ...d.properties, etapa: etapa[d.properties.dealstage] || d.properties.dealstage,
     candidatos: (porDeal[d.id] || []).map((id) => cand[id]).filter(Boolean)
       .sort((x, y) => String(y.hs_createdate || '').localeCompare(String(x.hs_createdate || ''))),
   }));
-  return { palestras, erroCandidatos };
+  return { palestras, erroCandidatos, erroDetalhe };
 }
 
 // Foto e wiki dos candidatos (só quando a lista de uma palestra é aberta):
