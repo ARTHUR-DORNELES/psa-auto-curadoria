@@ -1395,7 +1395,7 @@ async function carregarGratuitas(aviso) {
         return `<div class="gr__c">${foto}<div style="min-width:0">
           ${c.link_do_perfil_do_palestrante ? `<a class="gr__cn" href="${escHTML(c.link_do_perfil_do_palestrante)}" target="_blank" rel="noopener">${nome} ↗</a>` : `<span class="gr__cn">${nome}</span>`}${c.wiki ? `<a class="gr__wiki" href="${escHTML(c.wiki)}" target="_blank" rel="noopener" title="Wiki do palestrante">W.</a>` : ''}
           <span class="gr__cv">${escHTML([cache, c.resposta_ao_palestrante, c.hs_createdate ? `em ${dataBRcurta(c.hs_createdate)}` : ''].filter(Boolean).join(' · '))}</span>
-          ${!c.wiki && (c.email || c.telefone) ? `<div class="gr__ct">${c.email ? `<a href="mailto:${escHTML(c.email)}">${escHTML(c.email)}</a>` : ''}${c.telefone ? `<a href="https://wa.me/${escHTML(String(c.telefone).replace(/\D/g, ''))}" target="_blank" rel="noopener">${escHTML(c.telefone)}</a>` : ''}</div>` : ''}
+          ${(c.email || c.telefone) ? `<div class="gr__ct">${c.email ? `<a href="mailto:${escHTML(c.email)}">${escHTML(c.email)}</a>` : ''}${c.telefone ? `<a href="https://wa.me/${escHTML(String(c.telefone).replace(/\D/g, ''))}" target="_blank" rel="noopener">${escHTML(c.telefone)}</a>` : ''}</div>` : ''}
           ${c.argumentacao ? `<p class="gr__ca">${escHTML(c.argumentacao)}</p>` : ''}</div></div>`;
       }).join('');
     };
