@@ -83,7 +83,11 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .modo-suporte .gr__dec,.modo-suporte #btnDemandaGratuita,.modo-suporte #btnNovaGratuita,.modo-suporte #btnNovaBriefing,.modo-suporte #usuConvite,.modo-suporte .acoes-usu>button:not(.ok-suporte),.modo-suporte .acoes-cur,.modo-suporte #btnSair,.modo-suporte .btn-disp,.modo-suporte #refazer,.modo-suporte #quero-curador,.modo-suporte #tut,.modo-suporte #btnEmpresas,.modo-suporte #btnOraculo{display:none!important}
 .gr{border:1px solid var(--border-subtle);border-radius:var(--r-md);padding:16px 18px;background:#ffffff04}
 .gr__top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 16px;align-items:flex-start}
-.gr__tit{font-weight:700;font-size:16px;margin:0}
+.gr__tit{font-weight:700;font-size:16px;margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.gr__data{font-size:13px;font-weight:700;color:#02060f;background:var(--psa-orange-hi,#ff6e22);border-radius:999px;padding:3px 11px}
+.gr__voltar{background:none;border:0;color:var(--fg-2);font:inherit;font-size:var(--t-body-sm);cursor:pointer;padding:0;margin:0 0 var(--s-3)}
+.gr__voltar:hover{color:var(--fg-1)}
+.gr-oculto{display:none!important}
 .gr__sub{font-size:13px;color:var(--fg-2);margin-top:4px}
 .gr__meta{font-size:12px;color:var(--fg-3);margin-top:6px}
 .gr__etapa{font-size:11px;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--border);border-radius:999px;padding:3px 10px;white-space:nowrap}
@@ -1375,11 +1379,33 @@ document.querySelectorAll('#abasConta button[data-aba]').forEach((b) => b.addEve
 }));
 
 // ── palestras gratuitas: lista + candidatos ──
+// foco: com os candidatos de uma palestra abertos, só ela aparece (o resto volta ao fechar)
+function focoGratuita(card) {
+  const lista = $('#grLista');
+  let volta = $('#grVoltar');
+  if (!volta) {
+    volta = document.createElement('button');
+    volta.type = 'button'; volta.id = 'grVoltar'; volta.className = 'gr__voltar'; volta.textContent = '← Todas as palestras';
+    volta.addEventListener('click', () => { const aberto = lista.querySelector('.gr--foco .gr__btn'); if (aberto) aberto.click(); else focoGratuita(null); });
+    lista.parentNode.insertBefore(volta, lista);
+  }
+  lista.querySelectorAll('.gr').forEach((c) => c.classList.toggle('gr--foco', c === card));
+  ['#btnNovaGratuita', '#grResumo', '#grFiltroBox'].forEach((s) => { const el = $(s); if (el) el.closest('.acoes, p, div').classList.toggle('gr-oculto', !!card); });
+  volta.style.display = card ? '' : 'none';
+  if (card) {
+    lista.querySelectorAll('.gr').forEach((c) => { if (c !== card) c.style.display = 'none'; });
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    const f = $('#grFiltro');
+    lista.querySelectorAll('.gr').forEach((c) => { c.style.display = !f || !f.value || f.value === '*' || $('#grFiltroBox').style.display === 'none' || c.dataset.empresa === f.value ? '' : 'none'; });
+  }
+}
 // texto da candidatura: escapa e transforma URLs (ex.: vídeo da palestra) em link
 const linkar = (t) => escHTML(String(t || '').trim()).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
 async function carregarGratuitas(aviso) {
   const lista = $('#grLista');
   lista.innerHTML = '<p class="sub">Carregando…</p>';
+  focoGratuita(null);
   $('#grResumo').textContent = aviso || '';
   $('#grResumo').style.color = aviso ? '#37c07a' : '';
   let j;
@@ -1409,11 +1435,12 @@ async function carregarGratuitas(aviso) {
     if (p.empresa) card.dataset.empresa = p.empresa;
     const titulo = p.nome_do_evento || p.dealname;
     const local = p.presencial_ou_online_ === 'Online' ? 'Online' : (p.cidade || '');
-    const meta = [p.data_prevista_do_evento ? `evento ${dataBRcurta(p.data_prevista_do_evento + 'T12:00:00')}` : '', local, p.quantidade_de_espectadores_new, p.macro_tema,
+    const dataEv = p.data_prevista_do_evento ? dataBRcurta(p.data_prevista_do_evento + 'T12:00:00') : '';
+    const meta = [local, p.quantidade_de_espectadores_new, p.macro_tema,
       `criada em ${dataBRcurta(p.createdate)}`].filter(Boolean).join(' · ');
     const n = p.candidatos.length;
     card.innerHTML = `<div class="gr__top"><div style="min-width:0">
-        <p class="gr__tit">${escHTML(titulo)}</p>
+        <p class="gr__tit">${escHTML(titulo)}${dataEv ? `<span class="gr__data">${escHTML(dataEv)}</span>` : ''}</p>
         ${p.empresa ? `<div class="gr__meta" style="margin-top:2px;color:var(--psa-orange-hi)">${escHTML(p.empresa)}</div>` : ''}
         ${p.titulo_da_oportunidade ? `<div class="gr__sub">${escHTML(p.titulo_da_oportunidade)}</div>` : ''}
         <div class="gr__meta">${escHTML(meta)} · <a href="https://app.hubspot.com/contacts/49656171/record/0-3/${encodeURIComponent(p.id)}" target="_blank" rel="noopener" style="color:var(--fg-2)">abrir no HubSpot ↗</a></div>
@@ -1501,7 +1528,8 @@ async function carregarGratuitas(aviso) {
           .then((r) => { if (r && r.ok) pintarCands(r.candidatos); }).catch(() => {});
       }
       box.style.display = abrir ? 'grid' : 'none';
-      b.textContent = abrir ? 'Esconder candidatos ↑' : `Ver ${n} candidato${n === 1 ? '' : 's'} ↓`;
+      b.textContent = abrir ? '← Voltar para todas as palestras' : `Ver ${n} candidato${n === 1 ? '' : 's'} ↓`;
+      focoGratuita(abrir ? card : null);
     });
     const btnCancel = document.createElement('button');
     btnCancel.type = 'button'; btnCancel.className = 'gr__cancel'; btnCancel.textContent = 'Cancelar demanda';
