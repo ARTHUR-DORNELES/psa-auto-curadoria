@@ -1,5 +1,5 @@
 import { lerCorpo, cors } from './_lib.js';
-import { login, lerLink, definirSenha, esqueciSenha, primeiroAcesso, lerSessao, encerrarSessao, gerenciar, publico, salvarMeuCelular, empresas, entrarComoSuporte, liberarOraculo, definirQtdUsuarios, definirLimiteDisp, demandaGratuita, palestrasGratuitas, liberarGratuitas, candidatosDaGratuita, responderCandidato, cancelarGratuita, porquesDoCandidato } from './_auth.js';
+import { login, lerLink, definirSenha, esqueciSenha, primeiroAcesso, lerSessao, encerrarSessao, gerenciar, publico, salvarMeuCelular, empresas, entrarComoSuporte, liberarOraculo, definirQtdUsuarios, definirLimiteDisp, demandaGratuita, palestrasGratuitas, liberarGratuitas, candidatosDaGratuita, responderCandidato, cancelarGratuita, porquesDoCandidato, finalizarGratuita } from './_auth.js';
 
 // Conta e usuários (uma função só, por `acao`):
 //   entrar {email,senha}        -> { sessao, usuario }
@@ -40,6 +40,7 @@ export default async function handler(req, res) {
       case 'empresa-usuarios': return res.status(200).json(await definirQtdUsuarios(await lerSessao(b.sessao), b));
       case 'empresa-limite-disp': return res.status(200).json(await definirLimiteDisp(await lerSessao(b.sessao), b));
       case 'gratuitas-porques': return res.status(200).json(await porquesDoCandidato(await lerSessao(b.sessao), b));
+      case 'gratuitas-finalizar': return res.status(200).json(await finalizarGratuita(await lerSessao(b.sessao), b));
       case 'gratuitas-cancelar': return res.status(200).json(await cancelarGratuita(await lerSessao(b.sessao), b));
       case 'gratuitas-responder': return res.status(200).json(await responderCandidato(await lerSessao(b.sessao), b));
       case 'gratuitas-candidatos': return res.status(200).json(await candidatosDaGratuita(await lerSessao(b.sessao), b));

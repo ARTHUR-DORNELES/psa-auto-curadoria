@@ -246,14 +246,14 @@ export async function responderCandidato(sess, b) {
   if (pal.dealstage === ETAPAS_GRAT.perdido) return { ok: false, erro: 'Esta demanda foi cancelada.' };
   try { await responderCandidatoHS(candId, resposta, mensagem); }
   catch (e) { console.error('RESPONDER_CANDIDATO', e.message.slice(0, 300)); return { ok: false, erro: /40[13]/.test(e.message) ? 'Sem permissão para gravar a resposta no HubSpot.' : 'Não consegui gravar a resposta agora.' }; }
-  // etapa segue as respostas: com aprovado -> Palestrante selecionado; com aprovado e
-  // todos respondidos -> Negócio fechado. Sem aprovado, não mexe.
+  // com aprovado -> Palestrante selecionado. Fechar é decisão da empresa (botão Finalizar),
+  // porque pode haver mais de um palestrante escolhido.
   const cands = pal.candidatos.map((c) => (String(c.id) === candId ? { ...c, resposta_ao_palestrante: resposta } : c));
   const pendentes = cands.filter((c) => !c.resposta_ao_palestrante).length;
   const temAprovado = cands.some((c) => c.resposta_ao_palestrante === 'Aprovado');
   let etapa = pal.dealstage;
-  const alvo = temAprovado ? (pendentes ? ETAPAS_GRAT.selecionado : ETAPAS_GRAT.fechado) : null;
-  if (alvo && alvo !== pal.dealstage) {
+  const alvo = temAprovado && pal.dealstage === ETAPAS_GRAT.novo ? ETAPAS_GRAT.selecionado : null;
+  if (alvo) {
     try { await moverGratuita(dealId, alvo); etapa = alvo; } catch (e) { console.error('MOVER_GRATUITA', e.message.slice(0, 300)); }
   }
   return { ok: true, resposta, mensagem, etapa: nomeEtapaGrat(etapa), pendentes };
@@ -270,6 +270,25 @@ export async function porquesDoCandidato(sess, b) {
   const c = palestras[0]?.candidatos.find((x) => String(x.id) === candId);
   if (!c) return { ok: false, erro: 'Este candidato não é desta palestra.' };
   return { ok: true, porques: await porquesDoPalestrante(dealId, c.email, c.nome_do_palestrante) };
+}
+
+// Finalizar a demanda: precisa de ao menos 1 aprovado e de resposta para todos -> Negócio fechado
+export async function finalizarGratuita(sess, b) {
+  if (!sess || sess.suporte || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };
+  const dealId = String(b.dealId || '').replace(/\D/g, '');
+  if (!dealId) return { ok: false, erro: 'Palestra não informada.' };
+  if (!ehSuper(sess.email) && !(await redis().sismember(kGratuitas(sess.doc), dealId))) return { ok: false, erro: 'Esta palestra não é da sua empresa.' };
+  const { palestras } = await listarPalestrasGratuitas([dealId]);
+  const pal = palestras[0];
+  if (!pal) return { ok: false, erro: 'Palestra não encontrada.' };
+  if (pal.dealstage === ETAPAS_GRAT.perdido) return { ok: false, erro: 'Esta demanda foi cancelada.' };
+  const aprovados = pal.candidatos.filter((c) => c.resposta_ao_palestrante === 'Aprovado').length;
+  const pendentes = pal.candidatos.filter((c) => !c.resposta_ao_palestrante).length;
+  if (!aprovados) return { ok: false, erro: 'Aprove pelo menos um palestrante antes de finalizar.' };
+  if (pendentes) return { ok: false, erro: `Ainda há ${pendentes} candidato${pendentes === 1 ? '' : 's'} sem resposta. Responda todos (Aprovado ou Reprovado) para finalizar.` };
+  try { await moverGratuita(dealId, ETAPAS_GRAT.fechado); }
+  catch (e) { console.error('FINALIZAR_GRATUITA', e.message.slice(0, 300)); return { ok: false, erro: 'Não consegui finalizar agora. Tente de novo.' }; }
+  return { ok: true, etapa: 'Negócio fechado' };
 }
 
 // Cancelar a demanda: todos os candidatos recebem "Demanda cancelada" e o negócio vai para Negócio perdido
