@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos, responderCandidatoHS, ETAPAS_GRAT, moverGratuita } from './_lib.js';
+import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos, responderCandidatoHS, ETAPAS_GRAT, moverGratuita, porquesDoPalestrante } from './_lib.js';
 
 /**
  * Usuários por empresa. A assinatura continua sendo o negócio "Pago" casado pelo CPF/CNPJ
@@ -256,6 +256,18 @@ export async function responderCandidato(sess, b) {
   return { ok: true, resposta, mensagem, etapa: nomeEtapaGrat(etapa), pendentes };
 }
 const nomeEtapaGrat = (id) => ({ [ETAPAS_GRAT.novo]: 'Novo', [ETAPAS_GRAT.selecionado]: 'Palestrante selecionado', [ETAPAS_GRAT.fechado]: 'Negócio fechado', [ETAPAS_GRAT.perdido]: 'Negócio perdido' })[id] || id;
+
+// 3 porquês de UM candidato (só quem tem wiki tem porquês)
+export async function porquesDoCandidato(sess, b) {
+  if (!sess || sess.suporte || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };
+  const dealId = String(b.dealId || '').replace(/\D/g, ''), candId = String(b.candidatoId || '').replace(/\D/g, '');
+  if (!dealId || !candId) return { ok: false, erro: 'Candidato não informado.' };
+  if (!ehSuper(sess.email) && !(await redis().sismember(kGratuitas(sess.doc), dealId))) return { ok: false, erro: 'Esta palestra não é da sua empresa.' };
+  const { palestras } = await listarPalestrasGratuitas([dealId]);
+  const c = palestras[0]?.candidatos.find((x) => String(x.id) === candId);
+  if (!c) return { ok: false, erro: 'Este candidato não é desta palestra.' };
+  return { ok: true, porques: await porquesDoPalestrante(dealId, c.email, c.nome_do_palestrante) };
+}
 
 // Cancelar a demanda: todos os candidatos recebem "Demanda cancelada" e o negócio vai para Negócio perdido
 export async function cancelarGratuita(sess, b) {

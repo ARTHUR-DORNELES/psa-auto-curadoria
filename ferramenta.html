@@ -137,6 +137,9 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .gr__ca{font-size:13px;color:var(--fg-2);margin:4px 0 0;line-height:1.5;white-space:pre-line;overflow-wrap:anywhere}
 .gr__ca a{color:var(--psa-orange-hi)}
 .gr__rot{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3);margin-top:10px}
+.gr__pq{margin:4px 0 0;padding:0 0 0 18px;font-size:13px;color:var(--fg-1);line-height:1.5}
+.gr__pq li{margin:3px 0}
+.gr__pq--carregando{list-style:none;padding:0;color:var(--fg-3);font-size:12px}
 .gr__rot + .gr__ca{margin-top:3px;border-left:2px solid var(--border);padding-left:10px}
 .emp-resumo{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:var(--s-4)}
 .emp-kpi{border:1px solid var(--border-subtle);background:#ffffff08;border-radius:var(--r-md);padding:12px 16px;min-width:120px}
@@ -1518,10 +1521,27 @@ async function carregarGratuitas(aviso) {
           ${c.link_do_perfil_do_palestrante ? `<a class="gr__cn" href="${escHTML(c.link_do_perfil_do_palestrante)}" target="_blank" rel="noopener">${nome} ↗</a>` : `<span class="gr__cn">${nome}</span>`}${c.wiki ? `<a class="gr__wiki" href="${escHTML(c.wiki)}" target="_blank" rel="noopener" title="Wiki do palestrante">W.</a>` : ''}
           <span class="gr__cv">${escHTML(c.hs_createdate ? `em ${dataBRcurta(c.hs_createdate)}` : '')}</span>
           ${(c.email || c.telefone) ? `<div class="gr__ct">${c.email ? `<a href="mailto:${escHTML(c.email)}">${escHTML(c.email)}</a>` : ''}${c.telefone ? `<a href="https://wa.me/${escHTML(String(c.telefone).replace(/\D/g, ''))}" target="_blank" rel="noopener">${escHTML(c.telefone)}</a>` : ''}</div>` : ''}
+          ${c.wiki ? `<div class="gr__rot">Por que este palestrante (PSA)</div><ul class="gr__pq gr__pq--carregando" data-pq="${escHTML(c.id)}"><li>${c._porques ? '' : 'Gerando os porquês…'}</li></ul>` : ''}
           ${c.argumentacao ? `<div class="gr__rot">Argumentação do palestrante para esta demanda</div><p class="gr__ca">${linkar(c.argumentacao)}</p>` : ''}
           <div class="gr__dec" data-cand="${escHTML(c.id)}"></div></div></div>`;
       }).join('');
       lista.forEach((c) => pintarDecisao(box.querySelector(`.gr__dec[data-cand="${CSS.escape(String(c.id))}"]`), c));
+      lista.forEach((c) => { if (c.wiki) pintarPorques(c); });
+    };
+    // 3 porquês (psa-ia-board, fatos da wiki): busca 1 vez por candidato e guarda na tela
+    const pintarPorques = (c) => {
+      const ul = box.querySelector(`.gr__pq[data-pq="${CSS.escape(String(c.id))}"]`);
+      if (!ul) return;
+      const mostra = () => {
+        if (!c._porques.length) { ul.previousElementSibling?.remove(); ul.remove(); return; }
+        ul.className = 'gr__pq'; ul.innerHTML = c._porques.map((x) => `<li>${escHTML(x)}</li>`).join('');
+      };
+      if (c._porques) return mostra();
+      if (c._pqPromessa) { c._pqPromessa.then(mostra); return; }
+      c._pqPromessa = postJSON('/api/conta', { acao: 'gratuitas-porques', sessao: sessaoAtual, dealId: p.id, candidatoId: c.id })
+        .then((r) => { c._porques = (r && r.ok && r.porques) || []; })
+        .catch(() => { c._porques = []; });
+      c._pqPromessa.then(() => { const atual = box.querySelector(`.gr__pq[data-pq="${CSS.escape(String(c.id))}"]`); if (atual) pintarPorques(c); });
     };
     // Aprovado / Reprovado (com motivo): grava "Resposta ao palestrante" no HubSpot
     const pintarDecisao = (el, c) => {

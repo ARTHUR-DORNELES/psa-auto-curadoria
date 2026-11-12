@@ -421,6 +421,23 @@ export async function responderCandidatoHS(candidatoId, resposta, mensagem) {
   }
 }
 
+// 3 porquês do candidato para a palestra gratuita: a conta é do psa-ia-board (rota do gerador
+// de propostas, liberada para negócios da pipeline de gratuitas). Fatos só da wiki; resultado
+// guardado lá por negócio + palestrante. Falhou -> [] (a tela segue sem os porquês).
+const PORQUES_URL = process.env.PORQUES_URL || 'https://psa-ia-board.vercel.app/api/proposta/porques';
+export async function porquesDoPalestrante(dealId, email, nome) {
+  try {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 110000);
+    const r = await fetch(PORQUES_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, signal: ctl.signal,
+      body: JSON.stringify({ dealId: String(dealId), palestrantes: [{ email, nome }] }) });
+    clearTimeout(t);
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { console.error('PORQUES', r.status, JSON.stringify(j).slice(0, 200)); return []; }
+    const p = (j.palestrantes || [])[0] || {};
+    return (p.args || []).map((x) => String(x).trim()).filter(Boolean).slice(0, 3);
+  } catch (e) { console.error('PORQUES falhou:', e.message); return []; }
+}
+
 export async function criarDemandaGratuita(briefing, usuario) {
   const [primeiro, ...resto] = (briefing.nome || '').trim().split(/\s+/);
   const pc = { email: briefing.email, firstname: primeiro || '', lastname: resto.join(' '), phone: telefoneE164(briefing.telefone), company: briefing.empresa || '' };
