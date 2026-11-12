@@ -183,7 +183,7 @@ const OBRIG_GRATUITA = ['nome', 'empresa', 'email', 'telefone', 'empresaPalestra
 // O suporte PSA (super admin) vê a pipeline inteira.
 const kGratuitas = (doc) => `ac:org:${doc}:gratuitas`;
 // a empresa não recebe o contato direto do palestrante (fala pela PSA); o e-mail só é usado no servidor
-const semContato = (c) => { delete c.email; delete c.telefone; return c; };
+const semContato = (c) => { delete c.email; delete c.telefone; delete c.link_do_perfil_do_palestrante; return c; };
 export async function palestrasGratuitas(sess) {
   if (!sess || sess.suporte || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };
   const ids = ehSuper(sess.email) ? null : await redis().smembers(kGratuitas(sess.doc));
