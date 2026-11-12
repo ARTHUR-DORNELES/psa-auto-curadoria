@@ -210,7 +210,7 @@ export async function palestrasGratuitas(sess) {
 }
 // nome da empresa = nome do negócio da assinatura (cache de 1 dia)
 async function nomeDaEmpresa(doc) {
-  const k = `ac:org:${doc}:nome`;
+  const k = `ac:org:${doc}:nome:v2`;   // v2: descarta o cache antigo de 1 dia
   try { const c = await redis().get(k); if (c) return c; } catch (e) {}
   let nome = '';
   try { nome = String((await assinaturaAtivaPorDocumento(doc))?.props?.dealname || '').trim(); } catch (e) {}
