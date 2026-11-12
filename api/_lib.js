@@ -299,7 +299,16 @@ export async function criarDemandaGratuita(briefing, usuario) {
   const props = _propsBriefing(briefing);
   props.dealname = `${empresaEvento} | ${dataBR(briefing.data) || 'data a definir'}`.slice(0, 240);
   if (usuario?.email) props[process.env.PROP_AUTOR || 'auto_curadoria_usuario'] = [usuario.nome, `<${usuario.email}>`].filter(Boolean).join(' ');
+  // "Objetivos do evento" é obrigatório na palestra gratuita: sem ele, nem cria
+  if (!String(props.objetivos_do_evento || '').trim()) throw new Error('Faltou o objetivo do evento (motivo, como o público deve sair e contexto).');
   const deal = await criarNegocio({ ...props, pipeline: PIPE_GRATUITAS, dealstage: STAGE_GRATUITAS_NOVO }, contatoId);
+  // confere no HubSpot que ficou gravado (o criarNegocio descarta propriedade recusada)
+  try {
+    const lido = await hs(`/crm/v3/objects/deals/${deal.id}?properties=objetivos_do_evento`, 'GET');
+    if (!String(lido.properties?.objetivos_do_evento || '').trim()) {
+      await hs(`/crm/v3/objects/deals/${deal.id}`, 'PATCH', { properties: { objetivos_do_evento: props.objetivos_do_evento } });
+    }
+  } catch (e) { console.error('GRATUITA_OBJETIVOS', deal.id, e.message); }
   const texto = notaDoBriefing(briefing, null, '')
     .replace('AUTO CURADORIA — BRIEFING DO CLIENTE', 'DEMANDA GRATUITA — BRIEFING')
     .replace(/^id: .*\n/m, usuario?.email ? `Registrado por: ${usuario.nome || ''} <${usuario.email}>\n` : '');
