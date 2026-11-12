@@ -136,6 +136,8 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .gr__cv{font-size:12px;color:var(--fg-3);margin-left:8px}
 .gr__ca{font-size:13px;color:var(--fg-2);margin:4px 0 0;line-height:1.5;white-space:pre-line;overflow-wrap:anywhere}
 .gr__ca a{color:var(--psa-orange-hi)}
+.gr__rot{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3);margin-top:10px}
+.gr__rot + .gr__ca{margin-top:3px;border-left:2px solid var(--border);padding-left:10px}
 .emp-resumo{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:var(--s-4)}
 .emp-kpi{border:1px solid var(--border-subtle);background:#ffffff08;border-radius:var(--r-md);padding:12px 16px;min-width:120px}
 .emp-kpi b{display:block;font-size:24px;line-height:1.1;font-family:var(--font-display,inherit)}
@@ -1516,7 +1518,7 @@ async function carregarGratuitas(aviso) {
           ${c.link_do_perfil_do_palestrante ? `<a class="gr__cn" href="${escHTML(c.link_do_perfil_do_palestrante)}" target="_blank" rel="noopener">${nome} ↗</a>` : `<span class="gr__cn">${nome}</span>`}${c.wiki ? `<a class="gr__wiki" href="${escHTML(c.wiki)}" target="_blank" rel="noopener" title="Wiki do palestrante">W.</a>` : ''}
           <span class="gr__cv">${escHTML(c.hs_createdate ? `em ${dataBRcurta(c.hs_createdate)}` : '')}</span>
           ${(c.email || c.telefone) ? `<div class="gr__ct">${c.email ? `<a href="mailto:${escHTML(c.email)}">${escHTML(c.email)}</a>` : ''}${c.telefone ? `<a href="https://wa.me/${escHTML(String(c.telefone).replace(/\D/g, ''))}" target="_blank" rel="noopener">${escHTML(c.telefone)}</a>` : ''}</div>` : ''}
-          ${c.argumentacao ? `<p class="gr__ca">${linkar(c.argumentacao)}</p>` : ''}
+          ${c.argumentacao ? `<div class="gr__rot">Argumentação do palestrante para esta demanda</div><p class="gr__ca">${linkar(c.argumentacao)}</p>` : ''}
           <div class="gr__dec" data-cand="${escHTML(c.id)}"></div></div></div>`;
       }).join('');
       lista.forEach((c) => pintarDecisao(box.querySelector(`.gr__dec[data-cand="${CSS.escape(String(c.id))}"]`), c));
