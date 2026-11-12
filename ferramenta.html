@@ -95,6 +95,9 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .gr__foto{width:52px;height:52px;border-radius:50%;object-fit:cover;background:#ffffff10;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--fg-3);font-size:18px}
 .gr__wiki{display:inline-flex;align-items:center;justify-content:center;margin-left:8px;font-size:11px;font-weight:800;color:#02060f;background:#f8d71b;border-radius:6px;padding:2px 7px;text-decoration:none;vertical-align:1px}
 .gr__wiki:hover{background:#fff}
+.gr__ct{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:4px;font-size:12px}
+.gr__ct a{color:var(--psa-orange-hi);text-decoration:none}
+.gr__ct a:hover{text-decoration:underline}
 .gr__cn{font-weight:700;font-size:14px;color:var(--fg-1);text-decoration:none}
 .gr__cn:hover{color:var(--psa-orange-hi)}
 .gr__cv{font-size:12px;color:var(--fg-3);margin-left:8px}
@@ -1392,6 +1395,7 @@ async function carregarGratuitas(aviso) {
         return `<div class="gr__c">${foto}<div style="min-width:0">
           ${c.link_do_perfil_do_palestrante ? `<a class="gr__cn" href="${escHTML(c.link_do_perfil_do_palestrante)}" target="_blank" rel="noopener">${nome} ↗</a>` : `<span class="gr__cn">${nome}</span>`}${c.wiki ? `<a class="gr__wiki" href="${escHTML(c.wiki)}" target="_blank" rel="noopener" title="Wiki do palestrante">W.</a>` : ''}
           <span class="gr__cv">${escHTML([cache, c.resposta_ao_palestrante, c.hs_createdate ? `em ${dataBRcurta(c.hs_createdate)}` : ''].filter(Boolean).join(' · '))}</span>
+          ${!c.wiki && (c.email || c.telefone) ? `<div class="gr__ct">${c.email ? `<a href="mailto:${escHTML(c.email)}">${escHTML(c.email)}</a>` : ''}${c.telefone ? `<a href="https://wa.me/${escHTML(String(c.telefone).replace(/\D/g, ''))}" target="_blank" rel="noopener">${escHTML(c.telefone)}</a>` : ''}</div>` : ''}
           ${c.argumentacao ? `<p class="gr__ca">${escHTML(c.argumentacao)}</p>` : ''}</div></div>`;
       }).join('');
     };

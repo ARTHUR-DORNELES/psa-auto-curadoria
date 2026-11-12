@@ -359,7 +359,7 @@ export async function enriquecerCandidatos(cands) {
     try {
       const r = await hs('/crm/v3/objects/contacts/batch/read', 'POST', {
         idProperty: 'email', inputs: emails.slice(0, 100).map((id) => ({ id })),
-        properties: ['email', 'hs_additional_emails', 'palestrante_wiki_url', 'palestrante_wiki_apresentacao_url', 'mande_uma_foto_bem_bonita_pra_gente_'],
+        properties: ['email', 'hs_additional_emails', 'palestrante_wiki_url', 'palestrante_wiki_apresentacao_url', 'mande_uma_foto_bem_bonita_pra_gente_', 'mobilephone', 'phone', 'whatsapp'],
       });
       for (const c of r.results || []) {
         const p = c.properties || {};
@@ -371,6 +371,8 @@ export async function enriquecerCandidatos(cands) {
     const p = porEmail[String(c.email || '').trim().toLowerCase()] || {};
     const wiki = String(p.palestrante_wiki_apresentacao_url || '').trim() || String(p.palestrante_wiki_url || '').trim();
     if (/^https?:\/\//i.test(wiki)) c.wiki = wiki;
+    // sem wiki: a empresa fala direto com o palestrante (e-mail + telefone do contato)
+    else c.telefone = String(p.mobilephone || p.whatsapp || p.phone || '').trim();
     c.foto = await _fotoDoPerfil(c.link_do_perfil_do_palestrante);
     if (!c.foto) { const d = String(p.mande_uma_foto_bem_bonita_pra_gente_ || '').trim(); if (_ehImagem(d)) c.foto = d; }
   }));
