@@ -99,6 +99,17 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .gr__foto{width:52px;height:52px;border-radius:50%;object-fit:cover;background:#ffffff10;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--fg-3);font-size:18px}
 .gr__wiki{display:inline-flex;align-items:center;justify-content:center;margin-left:8px;font-size:11px;font-weight:800;color:#02060f;background:#f8d71b;border-radius:6px;padding:2px 7px;text-decoration:none;vertical-align:1px}
 .gr__wiki:hover{background:#fff}
+/* popup da wiki (W.) */
+.wk{position:fixed;inset:0;z-index:2147483100;background:#000000b3;display:none;align-items:center;justify-content:center;padding:24px}
+.wk.on{display:flex}
+.wk__caixa{background:#fff;border-radius:14px;width:min(1000px,100%);height:min(88vh,100%);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px #0009}
+.wk__top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#02060f;color:#fff;font-size:13px}
+.wk__top a{color:#cbd5e1;text-decoration:none;font-size:12px}
+.wk__top a:hover{color:#fff}
+.wk__x{background:none;border:1px solid #ffffff44;color:#fff;border-radius:8px;width:32px;height:32px;font-size:18px;line-height:1;cursor:pointer}
+.wk__x:hover{background:#ffffff1a}
+.wk iframe{flex:1;border:0;width:100%;background:#fff}
+@media(max-width:640px){.wk{padding:0}.wk__caixa{height:100%;border-radius:0}}
 .gr__dec{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
 .gr__ok,.gr__no{border-radius:999px;padding:6px 14px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;border:1px solid}
 .gr__ok{background:#16a34a;border-color:#16a34a;color:#fff}
@@ -1377,6 +1388,33 @@ document.querySelectorAll('#abasConta button[data-aba]').forEach((b) => b.addEve
   if (b.dataset.aba === 'empresas') carregarEmpresas();
   if (b.dataset.aba === 'gratuitas') carregarGratuitas();
 }));
+
+// ── wiki do palestrante em popup (qualquer "W." da página: curadoria e palestras gratuitas) ──
+function abrirWiki(url, nome) {
+  let wk = $('#wkPopup');
+  if (!wk) {
+    wk = document.createElement('div');
+    wk.id = 'wkPopup'; wk.className = 'wk'; wk.setAttribute('role', 'dialog'); wk.setAttribute('aria-modal', 'true');
+    wk.innerHTML = '<div class="wk__caixa"><div class="wk__top"><strong id="wkTitulo">Wiki do palestrante</strong><span style="display:flex;align-items:center;gap:14px"><a id="wkNova" href="#" target="_blank" rel="noopener">abrir em nova aba ↗</a><button type="button" class="wk__x" aria-label="Fechar">×</button></span></div><iframe title="Wiki do palestrante"></iframe></div>';
+    document.body.appendChild(wk);
+    const fechar = () => { wk.classList.remove('on'); wk.querySelector('iframe').src = 'about:blank'; document.body.style.overflow = ''; };
+    wk.querySelector('.wk__x').addEventListener('click', fechar);
+    wk.addEventListener('click', (e) => { if (e.target === wk) fechar(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && wk.classList.contains('on')) fechar(); });
+  }
+  $('#wkTitulo').textContent = nome ? `Wiki · ${nome}` : 'Wiki do palestrante';
+  $('#wkNova').href = url;
+  wk.querySelector('iframe').src = url;
+  wk.classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+document.addEventListener('click', (e) => {
+  const a = e.target.closest && e.target.closest('a.gr__wiki, a.ind__rede--wiki');
+  if (!a || e.ctrlKey || e.metaKey || e.shiftKey) return;   // Ctrl/Cmd+clique continua abrindo em nova aba
+  e.preventDefault();
+  const nome = (a.closest('.gr__c')?.querySelector('.gr__cn')?.textContent || a.closest('article')?.querySelector('.ind__nome')?.textContent || '').replace('↗', '').trim();
+  abrirWiki(a.href, nome);
+});
 
 // ── palestras gratuitas: lista + candidatos ──
 // foco: com os candidatos de uma palestra abertos, só ela aparece (o resto volta ao fechar)
