@@ -198,8 +198,13 @@ export async function palestrasGratuitas(sess) {
   const nomes = {};
   for (const doc of [...new Set(Object.values(docPorDeal))]) nomes[doc] = await nomeDaEmpresa(doc);
   for (const p of r.palestras) {
-    const doc = docPorDeal[p.id];
-    p.empresa = doc ? (nomes[doc] || `Documento ${doc}`) : 'Site / automação da PSA';
+    let doc = docPorDeal[p.id];
+    // criada antes do registro por empresa: descobre a empresa pelo e-mail de quem criou
+    if (!doc) {
+      const email = normEmail((String(p.auto_curadoria_usuario || '').match(/<([^>]+)>/) || [])[1] || '');
+      if (email) { doc = await redis().get(kUsuario(email)).catch(() => null); if (doc && !(doc in nomes)) nomes[doc] = await nomeDaEmpresa(doc); }
+    }
+    p.empresa = doc ? (nomes[doc] || `Documento ${doc}`) : 'Empresa não identificada';
   }
   return { ok: true, todas: true, ...r };
 }

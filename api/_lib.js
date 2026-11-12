@@ -296,7 +296,9 @@ export async function listarPalestrasGratuitas(soIds = null) {
     soIds
       ? (soIds.length ? hs('/crm/v3/objects/deals/batch/read', 'POST', { inputs: soIds.slice(0, 100).map((id) => ({ id: String(id) })), properties: [...PROPS, 'pipeline'] }) : { results: [] })
       : hs('/crm/v3/objects/deals/search', 'POST', {
-        filterGroups: [{ filters: [{ propertyName: 'pipeline', operator: 'EQ', value: PIPE_GRATUITAS }] }],
+        // só as criadas pela Auto Curadoria (têm quem criou); as do site/automação antiga ficam de fora
+        filterGroups: [{ filters: [{ propertyName: 'pipeline', operator: 'EQ', value: PIPE_GRATUITAS },
+          { propertyName: process.env.PROP_AUTOR || 'auto_curadoria_usuario', operator: 'HAS_PROPERTY' }] }],
         sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }], properties: PROPS, limit: 100,
       }),
     hs(`/crm/v3/pipelines/deals/${PIPE_GRATUITAS}`, 'GET').catch(() => ({ stages: [] })),
