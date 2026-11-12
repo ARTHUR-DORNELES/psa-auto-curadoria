@@ -333,7 +333,7 @@ export async function listarPalestrasGratuitas(soIds = null) {
     for (let i = 0; i < ids.length; i += 100) {
       const r = await comToken((t) => hs(`/crm/v3/objects/${OBJ_CANDIDATOS}/batch/read`, 'POST', {
         inputs: ids.slice(i, i + 100).map((id) => ({ id })),
-        properties: ['nome_do_palestrante', 'link_do_perfil_do_palestrante', 'argumentacao', 'valor_do_cache_proposto', 'resposta_ao_palestrante', 'email', 'hs_createdate'],
+        properties: ['nome_do_palestrante', 'link_do_perfil_do_palestrante', 'argumentacao', 'valor_do_cache_proposto', 'resposta_ao_palestrante', PROP_MSG_CANDIDATO, 'email', 'hs_createdate'],
       }, t || undefined));
       for (const c of r.results || []) cand[c.id] = { id: c.id, ...c.properties };
     }
@@ -393,6 +393,22 @@ export async function enriquecerCandidatos(cands) {
     if (!c.foto) { const d = String(p.mande_uma_foto_bem_bonita_pra_gente_ || '').trim(); if (_ehImagem(d)) c.foto = d; }
   }));
   return cands;
+}
+
+// Decisão sobre o candidato da palestra gratuita: "Aprovado" ou "Reprovado" em
+// "Resposta ao palestrante" + texto livre opcional em "Mensagem ao palestrante".
+export const PROP_MSG_CANDIDATO = process.env.PROP_MSG_CANDIDATO || 'mensagem_ao_palestrante';
+export async function responderCandidatoHS(candidatoId, resposta, mensagem) {
+  const corpo = { properties: { resposta_ao_palestrante: resposta, [PROP_MSG_CANDIDATO]: mensagem || '' } };
+  const caminho = `/crm/v3/objects/${OBJ_CANDIDATOS}/${candidatoId}`;
+  try { return await hs(caminho, 'PATCH', corpo); }
+  catch (e) {
+    // o token principal não tem o escopo do objeto personalizado: usa o token extra
+    if (!/HubSpot 40[13]/.test(e.message)) throw e;
+    const t = await ownersToken().catch(() => null);
+    if (!t) throw e;
+    return hs(caminho, 'PATCH', corpo, t);
+  }
 }
 
 export async function criarDemandaGratuita(briefing, usuario) {

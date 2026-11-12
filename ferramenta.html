@@ -80,7 +80,7 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .lnk-voltar:hover{color:var(--fg-1)}
 .faixa-suporte{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;background:#f8d71b;color:#02060f;font-size:13px;font-weight:600;padding:8px 16px;text-align:center}
 .faixa-suporte button{background:#02060f;color:#fff;border:0;border-radius:999px;padding:6px 14px;font:inherit;font-size:12px;cursor:pointer}
-.modo-suporte #btnDemandaGratuita,.modo-suporte #btnNovaGratuita,.modo-suporte #btnNovaBriefing,.modo-suporte #usuConvite,.modo-suporte .acoes-usu>button:not(.ok-suporte),.modo-suporte .acoes-cur,.modo-suporte #btnSair,.modo-suporte .btn-disp,.modo-suporte #refazer,.modo-suporte #quero-curador,.modo-suporte #tut,.modo-suporte #btnEmpresas,.modo-suporte #btnOraculo{display:none!important}
+.modo-suporte .gr__dec,.modo-suporte #btnDemandaGratuita,.modo-suporte #btnNovaGratuita,.modo-suporte #btnNovaBriefing,.modo-suporte #usuConvite,.modo-suporte .acoes-usu>button:not(.ok-suporte),.modo-suporte .acoes-cur,.modo-suporte #btnSair,.modo-suporte .btn-disp,.modo-suporte #refazer,.modo-suporte #quero-curador,.modo-suporte #tut,.modo-suporte #btnEmpresas,.modo-suporte #btnOraculo{display:none!important}
 .gr{border:1px solid var(--border-subtle);border-radius:var(--r-md);padding:16px 18px;background:#ffffff04}
 .gr__top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 16px;align-items:flex-start}
 .gr__tit{font-weight:700;font-size:16px;margin:0}
@@ -95,6 +95,18 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .gr__foto{width:52px;height:52px;border-radius:50%;object-fit:cover;background:#ffffff10;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--fg-3);font-size:18px}
 .gr__wiki{display:inline-flex;align-items:center;justify-content:center;margin-left:8px;font-size:11px;font-weight:800;color:#02060f;background:#f8d71b;border-radius:6px;padding:2px 7px;text-decoration:none;vertical-align:1px}
 .gr__wiki:hover{background:#fff}
+.gr__dec{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.gr__ok,.gr__no{border-radius:999px;padding:6px 14px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;border:1px solid}
+.gr__ok{background:#16a34a;border-color:#16a34a;color:#fff}
+.gr__ok:hover{background:#15803d}
+.gr__no{background:none;border-color:#ef4444aa;color:#ff8080}
+.gr__no:hover{background:#ef44441a}
+.gr__dec textarea{width:100%;min-height:70px;font-size:13px;padding:8px 10px}
+.gr__msg{font-size:12px;color:var(--fg-2);margin:6px 0 0;white-space:pre-line;width:100%}
+.gr__res{font-size:12px;font-weight:700;border-radius:999px;padding:4px 12px}
+.gr__res--ok{background:#16a34a22;color:#37c07a;border:1px solid #37c07a66}
+.gr__res--no{background:#ef44441a;color:#ff8080;border:1px solid #ef444466}
+.gr__mudar{background:none;border:0;color:var(--fg-3);font:inherit;font-size:12px;text-decoration:underline;cursor:pointer}
 .gr__ct{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:4px;font-size:12px}
 .gr__ct a{color:var(--psa-orange-hi);text-decoration:none}
 .gr__ct a:hover{text-decoration:underline}
@@ -1414,10 +1426,43 @@ async function carregarGratuitas(aviso) {
         const foto = c.foto ? `<img class="gr__foto" src="${escHTML(c.foto)}" alt="">` : `<div class="gr__foto">${ini}</div>`;
         return `<div class="gr__c">${foto}<div style="min-width:0">
           ${c.link_do_perfil_do_palestrante ? `<a class="gr__cn" href="${escHTML(c.link_do_perfil_do_palestrante)}" target="_blank" rel="noopener">${nome} ↗</a>` : `<span class="gr__cn">${nome}</span>`}${c.wiki ? `<a class="gr__wiki" href="${escHTML(c.wiki)}" target="_blank" rel="noopener" title="Wiki do palestrante">W.</a>` : ''}
-          <span class="gr__cv">${escHTML([cache, c.resposta_ao_palestrante, c.hs_createdate ? `em ${dataBRcurta(c.hs_createdate)}` : ''].filter(Boolean).join(' · '))}</span>
+          <span class="gr__cv">${escHTML([cache, c.hs_createdate ? `em ${dataBRcurta(c.hs_createdate)}` : ''].filter(Boolean).join(' · '))}</span>
           ${(c.email || c.telefone) ? `<div class="gr__ct">${c.email ? `<a href="mailto:${escHTML(c.email)}">${escHTML(c.email)}</a>` : ''}${c.telefone ? `<a href="https://wa.me/${escHTML(String(c.telefone).replace(/\D/g, ''))}" target="_blank" rel="noopener">${escHTML(c.telefone)}</a>` : ''}</div>` : ''}
-          ${c.argumentacao ? `<p class="gr__ca">${linkar(c.argumentacao)}</p>` : ''}</div></div>`;
+          ${c.argumentacao ? `<p class="gr__ca">${linkar(c.argumentacao)}</p>` : ''}
+          <div class="gr__dec" data-cand="${escHTML(c.id)}"></div></div></div>`;
       }).join('');
+      lista.forEach((c) => pintarDecisao(box.querySelector(`.gr__dec[data-cand="${CSS.escape(String(c.id))}"]`), c));
+    };
+    // Aprovado / Reprovado (com motivo): grava "Resposta ao palestrante" no HubSpot
+    const pintarDecisao = (el, c) => {
+      if (!el) return;
+      const r = c.resposta_ao_palestrante;
+      if (r) {
+        const msg = c.mensagem_ao_palestrante;
+        el.innerHTML = `<span class="gr__res ${r === 'Aprovado' ? 'gr__res--ok' : 'gr__res--no'}">${r === 'Aprovado' ? '✓ Aprovado' : '✕ Reprovado'}</span><button type="button" class="gr__mudar">mudar</button>`
+          + (msg ? `<p class="gr__msg">Resposta enviada: ${escHTML(msg)}</p>` : '');
+        el.querySelector('.gr__mudar').addEventListener('click', () => { el.innerHTML = ''; botoes(el, c); });
+        return;
+      }
+      botoes(el, c);
+    };
+    const responder = async (el, c, resposta, mensagem) => {
+      el.querySelectorAll('button,select').forEach((x) => { x.disabled = true; });
+      try {
+        const r = await postJSON('/api/conta', { acao: 'gratuitas-responder', sessao: sessaoAtual, dealId: p.id, candidatoId: c.id, resposta, mensagem: mensagem || '' });
+        if (!r.ok) { alert(r.erro || 'Não foi possível.'); el.querySelectorAll('button,select').forEach((x) => { x.disabled = false; }); return; }
+        c.resposta_ao_palestrante = r.resposta; c.mensagem_ao_palestrante = r.mensagem; el.innerHTML = ''; pintarDecisao(el, c);
+      } catch (e) { alert('Não foi possível salvar.'); el.querySelectorAll('button,select').forEach((x) => { x.disabled = false; }); }
+    };
+    const botoes = (el, c) => {
+      el.innerHTML = '<button type="button" class="gr__ok">✓ Aprovado</button><button type="button" class="gr__no">✕ Reprovado</button>';
+      el.querySelector('.gr__ok').addEventListener('click', () => responder(el, c, 'Aprovado'));
+      el.querySelector('.gr__no').addEventListener('click', () => {
+        el.innerHTML = `<textarea aria-label="Resposta ao candidato" placeholder="Resposta ao candidato (opcional): ex. agradecemos o interesse, mas seguimos com outro perfil para este evento."></textarea><button type="button" class="gr__no">Confirmar reprovação</button><button type="button" class="gr__mudar">cancelar</button>`;
+        const txt = el.querySelector('textarea'); txt.focus();
+        el.querySelector('.gr__no').addEventListener('click', () => responder(el, c, 'Reprovado', txt.value));
+        el.querySelector('.gr__mudar').addEventListener('click', () => botoes(el, c));
+      });
     };
     pintarCands(p.candidatos);
     let enriquecido = false;

@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos } from './_lib.js';
+import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos, responderCandidatoHS } from './_lib.js';
 
 /**
  * Usuários por empresa. A assinatura continua sendo o negócio "Pago" casado pelo CPF/CNPJ
@@ -221,6 +221,22 @@ export async function candidatosDaGratuita(sess, b) {
   const { palestras, erroCandidatos } = await listarPalestrasGratuitas([id]);
   if (!palestras.length) return { ok: false, erro: 'Palestra não encontrada.' };
   return { ok: true, candidatos: await enriquecerCandidatos(palestras[0].candidatos), erroCandidatos };
+}
+// Aprovar/reprovar um candidato de uma palestra gratuita da própria empresa
+export async function responderCandidato(sess, b) {
+  if (!sess || sess.suporte || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };
+  const dealId = String(b.dealId || '').replace(/\D/g, ''), candId = String(b.candidatoId || '').replace(/\D/g, '');
+  const resposta = String(b.resposta || '');
+  const mensagem = String(b.mensagem || '').trim().slice(0, 3000);
+  if (!dealId || !candId) return { ok: false, erro: 'Candidato não informado.' };
+  if (!['Aprovado', 'Reprovado'].includes(resposta)) return { ok: false, erro: 'Resposta inválida.' };
+  if (!ehSuper(sess.email) && !(await redis().sismember(kGratuitas(sess.doc), dealId))) return { ok: false, erro: 'Esta palestra não é da sua empresa.' };
+  // o candidato precisa ser desta palestra
+  const { palestras } = await listarPalestrasGratuitas([dealId]);
+  if (!palestras.length || !palestras[0].candidatos.some((c) => String(c.id) === candId)) return { ok: false, erro: 'Este candidato não é desta palestra.' };
+  try { await responderCandidatoHS(candId, resposta, mensagem); }
+  catch (e) { console.error('RESPONDER_CANDIDATO', e.message.slice(0, 300)); return { ok: false, erro: /40[13]/.test(e.message) ? 'Sem permissão para gravar a resposta no HubSpot.' : 'Não consegui gravar a resposta agora.' }; }
+  return { ok: true, resposta, mensagem };
 }
 export async function demandaGratuita(sess, b) {
   if (!sess || sess.suporte || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };
