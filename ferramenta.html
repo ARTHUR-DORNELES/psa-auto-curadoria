@@ -80,7 +80,7 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .lnk-voltar:hover{color:var(--fg-1)}
 .faixa-suporte{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;background:#f8d71b;color:#02060f;font-size:13px;font-weight:600;padding:8px 16px;text-align:center}
 .faixa-suporte button{background:#02060f;color:#fff;border:0;border-radius:999px;padding:6px 14px;font:inherit;font-size:12px;cursor:pointer}
-.modo-suporte #btnDemandaGratuita,.modo-suporte #btnNovaBriefing,.modo-suporte #usuConvite,.modo-suporte .acoes-usu,.modo-suporte .acoes-cur,.modo-suporte #btnSair,.modo-suporte .btn-disp,.modo-suporte #refazer,.modo-suporte #quero-curador,.modo-suporte #tut,.modo-suporte #btnEmpresas,.modo-suporte #btnOraculo{display:none!important}
+.modo-suporte #btnDemandaGratuita,.modo-suporte #btnNovaBriefing,.modo-suporte #usuConvite,.modo-suporte .acoes-usu>button:not(.ok-suporte),.modo-suporte .acoes-cur,.modo-suporte #btnSair,.modo-suporte .btn-disp,.modo-suporte #refazer,.modo-suporte #quero-curador,.modo-suporte #tut,.modo-suporte #btnEmpresas,.modo-suporte #btnOraculo{display:none!important}
 .emp-resumo{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:var(--s-4)}
 .emp-kpi{border:1px solid var(--border-subtle);background:#ffffff08;border-radius:var(--r-md);padding:12px 16px;min-width:120px}
 .emp-kpi b{display:block;font-size:24px;line-height:1.1;font-family:var(--font-display,inherit)}
@@ -1234,7 +1234,7 @@ async function carregarUsuarios() {
       if (!celularOk(v)) { alert('Celular inválido. Use +55, DDD e número, ex.: +55 41 99999-9999.'); return; }
       if (await op({ op: 'celular', celular: v })) carregarUsuarios();
     });
-    if (pend) link('Reenviar convite', 'var(--fg-2)', async () => { const r = await op({ op: 'reenviar' }); if (r) mostrarLinkConvite(u.email, r); });
+    if (pend) { link('Reenviar convite', 'var(--fg-2)', async () => { const r = await op({ op: 'reenviar' }); if (r) mostrarLinkConvite(u.email, r); }); acoes.lastChild.classList.add('ok-suporte'); }
     if (!eu) link(u.papel === 'admin' ? 'Tornar usuário' : 'Tornar administrador', 'var(--fg-2)', async () => {
       if (await op({ op: 'papel', papel: u.papel === 'admin' ? 'usuario' : 'admin' })) carregarUsuarios();
     });

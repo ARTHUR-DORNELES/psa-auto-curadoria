@@ -456,7 +456,8 @@ async function primeiroAcessoPorEmail(email, docConhecido, pendente) {
 // ── gestão (só admin) ───────────────────────────────────────────────────────
 export async function gerenciar(sess, acao, b = {}) {
   if (!sess || sess.papel !== 'admin') return { ok: false, erro: 'Só administradores gerenciam usuários.' };
-  if (sess.suporte && acao !== 'listar') return { ok: false, erro: 'Modo suporte: somente leitura.' };
+  // suporte PSA: só lê, com uma exceção, reenviar convite/link de senha (ajuda o cliente sem mexer em nada)
+  if (sess.suporte && !['listar', 'reenviar'].includes(acao)) return { ok: false, erro: 'Modo suporte: somente leitura.' };
   const doc = sess.doc;
   const email = normEmail(b.email);
   const papel = b.papel === 'admin' ? 'admin' : 'usuario';
@@ -494,7 +495,7 @@ export async function gerenciar(sess, acao, b = {}) {
   if (acao === 'reenviar') {
     const tipo = alvo.status === 'ativo' ? 'senha' : 'convite';
     const l = await criarLink(doc, email, tipo);
-    const env = await enviarLinkPorEmail({ email, nome: alvo.nome, url: l.url, tipo: tipo === 'senha' ? 'redefinir_senha' : 'convite', convidadoPor: sess.nome || sess.email });
+    const env = await enviarLinkPorEmail({ email, nome: alvo.nome, url: l.url, tipo: tipo === 'senha' ? 'redefinir_senha' : 'convite', convidadoPor: sess.suporte ? 'PSA' : (sess.nome || sess.email) });
     return { ok: true, enviado: env.enviado, link: l.url };
   }
   if (acao === 'celular') {
