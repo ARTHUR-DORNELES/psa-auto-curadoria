@@ -181,6 +181,7 @@ export const podeGratuitas = (email) => GRATUITAS.includes(normEmail(email));
 const OBRIG_GRATUITA = ['nome', 'empresa', 'email', 'telefone', 'empresaPalestra', 'macroTema', 'publicoAlvo', 'formato', 'data', 'horario', 'duracao', 'localEvento', 'cidade', 'local', 'orcamento', 'vendaIngresso', 'motivacao', 'sentimento', 'briefing'];
 export async function demandaGratuita(sess, b) {
   if (!sess || sess.suporte || !podeGratuitas(sess.email)) return { ok: false, erro: 'Acesso restrito.' };
+  b.orcamento = 'Gratuito';   // palestra gratuita: orçamento é sempre gratuito
   const online = /online/i.test(String(b.formato || '')) || String(b.local || '') === 'Online';
   if (online) { b.local = b.local || 'Online'; b.localEvento = String(b.localEvento || '').trim() || 'Online'; }
   const faltam = OBRIG_GRATUITA.filter((k) => !(online && k === 'cidade') && !String(b[k] || '').trim());

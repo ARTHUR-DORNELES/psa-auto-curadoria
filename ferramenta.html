@@ -1182,7 +1182,14 @@ function montarLista(curadorias) {
 }
 
 // Começar uma nova: abre a entrada do briefing (palestra/evento, nomes ou ajuda).
-$('#btnNovaBriefing').addEventListener('click', () => { iniciarEntrada(contatoNovo); });
+// Palestra gratuita: o orçamento é sempre "Gratuito" (opção extra, travada); fora dela some.
+function orcamentoGratuito(ligar) {
+  const sel = $('#orcamento');
+  let op = [...sel.options].find((o) => o.value === 'Gratuito');
+  if (ligar) { if (!op) { op = new Option('Gratuito', 'Gratuito'); sel.add(op); } sel.value = 'Gratuito'; sel.disabled = true; }
+  else { if (op) op.remove(); if (sel.disabled) { sel.disabled = false; sel.selectedIndex = 0; } }
+}
+$('#btnNovaBriefing').addEventListener('click', () => { orcamentoGratuito(false); iniciarEntrada(contatoNovo); });
 // Demanda gratuita: o time da PSA preenche o briefing completo do cliente e vira um negócio
 // na pipeline "Demandas gratuitas" (sem IA Curadoria).
 $('#btnDemandaGratuita').addEventListener('click', () => {
@@ -1191,6 +1198,7 @@ $('#btnDemandaGratuita').addEventListener('click', () => {
   ['p1', 'p2', 'p3'].forEach((p) => $('#' + p).querySelectorAll('select').forEach((el) => { el.selectedIndex = 0; el.dispatchEvent(new Event('change')); }));
   ['e1', 'e2', 'e3'].forEach((e) => { const el = $('#' + e); if (el) el.textContent = ''; });
   $('#enviar').textContent = 'Criar palestra gratuita →'; $('#enviar').disabled = false;
+  orcamentoGratuito(true);
   mostra('p1', 1);
 });
 // "Abrir minhas curadorias": só aqui a lista aparece.
@@ -2185,13 +2193,13 @@ async function enviarNomes(nomes, empresaEvento) {
 }
 
 // escape: "prefiro preencher um formulário" -> fluxo de 3 passos
-$('#chat-para-form').addEventListener('click', () => { formModo = 'novo'; formAlvo = null; $('#enviar').textContent = 'Gerar minha curadoria →'; mostra('p1', 1); });
+$('#chat-para-form').addEventListener('click', () => { formModo = 'novo'; formAlvo = null; orcamentoGratuito(false); $('#enviar').textContent = 'Gerar minha curadoria →'; mostra('p1', 1); });
 
 // Abre o formulário p1/p2/p3 pré-preenchido para COMPLETAR o briefing de uma curadoria de
 // LISTA FECHADA (o cliente pediu disponibilidade e faltavam os dados do evento). Ao enviar,
 // salva via acao='briefing' e dispara a disponibilidade pendente. Sem passar pelo Santiago.
 function abrirBriefingForm(d, dispNome) {
-  formModo = 'briefing'; formAlvo = { id: d.id, dispNome: dispNome || '' };
+  formModo = 'briefing'; formAlvo = { id: d.id, dispNome: dispNome || '' }; orcamentoGratuito(false);
   const b = d.briefing || {};
   const set = (id, v) => { const el = $('#' + id); if (el && v != null && v !== '') el.value = v; };
   set('nome', b.nome); set('empresa', b.empresa); set('email', b.email); set('telefone', b.telefone);
