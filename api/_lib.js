@@ -334,6 +334,49 @@ export async function listarPalestrasGratuitas(soIds = null) {
   return { palestras, erroCandidatos };
 }
 
+// Foto e wiki dos candidatos (só quando a lista de uma palestra é aberta):
+// - foto: og:image do perfil público na plataforma (cache de 7 dias no Redis);
+// - wiki: do contato do palestrante no HubSpot, achado pelo e-mail (apresentação > interna).
+async function _fotoDoPerfil(url) {
+  if (!/^https:\/\/palestrantes\.profissionaissa\.com\.br\//i.test(url || '')) return '';
+  const k = `ac:fotoperfil:${url}`;
+  try { const c = await redis().get(k); if (c !== null) return c; } catch (e) {}
+  let foto = '';
+  try {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 5000);
+    const html = await (await fetch(url, { signal: ctl.signal })).text();
+    clearTimeout(t);
+    foto = (html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) || [])[1] || '';
+    if (!_ehImagem(foto) && !/^https:\/\//i.test(foto)) foto = '';
+  } catch (e) { return ''; }
+  try { await redis().set(k, foto, 'EX', 7 * 24 * 3600); } catch (e) {}
+  return foto;
+}
+export async function enriquecerCandidatos(cands) {
+  const emails = [...new Set(cands.map((c) => String(c.email || '').trim().toLowerCase()).filter((e) => e.includes('@')))];
+  const porEmail = {};
+  if (emails.length) {
+    try {
+      const r = await hs('/crm/v3/objects/contacts/batch/read', 'POST', {
+        idProperty: 'email', inputs: emails.slice(0, 100).map((id) => ({ id })),
+        properties: ['email', 'hs_additional_emails', 'palestrante_wiki_url', 'palestrante_wiki_apresentacao_url', 'mande_uma_foto_bem_bonita_pra_gente_'],
+      });
+      for (const c of r.results || []) {
+        const p = c.properties || {};
+        for (const e of [p.email, ...String(p.hs_additional_emails || '').split(';')]) if (e) porEmail[e.trim().toLowerCase()] = p;
+      }
+    } catch (e) { console.error('GRATUITAS_CONTATOS', e.message.slice(0, 200)); }
+  }
+  await Promise.all(cands.map(async (c) => {
+    const p = porEmail[String(c.email || '').trim().toLowerCase()] || {};
+    const wiki = String(p.palestrante_wiki_apresentacao_url || '').trim() || String(p.palestrante_wiki_url || '').trim();
+    if (/^https?:\/\//i.test(wiki)) c.wiki = wiki;
+    c.foto = await _fotoDoPerfil(c.link_do_perfil_do_palestrante);
+    if (!c.foto) { const d = String(p.mande_uma_foto_bem_bonita_pra_gente_ || '').trim(); if (_ehImagem(d)) c.foto = d; }
+  }));
+  return cands;
+}
+
 export async function criarDemandaGratuita(briefing, usuario) {
   const [primeiro, ...resto] = (briefing.nome || '').trim().split(/\s+/);
   const pc = { email: briefing.email, firstname: primeiro || '', lastname: resto.join(' '), phone: telefoneE164(briefing.telefone), company: briefing.empresa || '' };

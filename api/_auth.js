@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas } from './_lib.js';
+import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos } from './_lib.js';
 
 /**
  * Usuários por empresa. A assinatura continua sendo o negócio "Pago" casado pelo CPF/CNPJ
@@ -186,6 +186,16 @@ export async function palestrasGratuitas(sess) {
   if (!sess || sess.suporte || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };
   const ids = ehSuper(sess.email) ? null : await redis().smembers(kGratuitas(sess.doc));
   return { ok: true, todas: !ids, ...(await listarPalestrasGratuitas(ids)) };
+}
+// candidatos de UMA palestra, com foto e wiki (a empresa só abre as palestras dela)
+export async function candidatosDaGratuita(sess, b) {
+  if (!sess || sess.suporte || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };
+  const id = String(b.dealId || '').replace(/\D/g, '');
+  if (!id) return { ok: false, erro: 'Palestra não informada.' };
+  if (!ehSuper(sess.email) && !(await redis().sismember(kGratuitas(sess.doc), id))) return { ok: false, erro: 'Esta palestra não é da sua empresa.' };
+  const { palestras, erroCandidatos } = await listarPalestrasGratuitas([id]);
+  if (!palestras.length) return { ok: false, erro: 'Palestra não encontrada.' };
+  return { ok: true, candidatos: await enriquecerCandidatos(palestras[0].candidatos), erroCandidatos };
 }
 export async function demandaGratuita(sess, b) {
   if (!sess || sess.suporte || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };

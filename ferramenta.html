@@ -91,7 +91,10 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .gr__btn{background:none;border:1px solid var(--border);color:var(--fg-1);border-radius:999px;padding:6px 14px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;margin-top:12px}
 .gr__btn:hover{border-color:var(--psa-orange);color:var(--psa-orange-hi)}
 .gr__cands{display:none;margin-top:12px;display:grid;gap:8px}
-.gr__c{border-top:1px solid var(--border-subtle);padding-top:10px}
+.gr__c{border-top:1px solid var(--border-subtle);padding-top:12px;display:grid;grid-template-columns:52px minmax(0,1fr);gap:12px;align-items:start}
+.gr__foto{width:52px;height:52px;border-radius:50%;object-fit:cover;background:#ffffff10;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--fg-3);font-size:18px}
+.gr__wiki{display:inline-flex;align-items:center;justify-content:center;margin-left:8px;font-size:11px;font-weight:800;color:#02060f;background:#f8d71b;border-radius:6px;padding:2px 7px;text-decoration:none;vertical-align:1px}
+.gr__wiki:hover{background:#fff}
 .gr__cn{font-weight:700;font-size:14px;color:var(--fg-1);text-decoration:none}
 .gr__cn:hover{color:var(--psa-orange-hi)}
 .gr__cv{font-size:12px;color:var(--fg-3);margin-left:8px}
@@ -1380,15 +1383,28 @@ async function carregarGratuitas(aviso) {
     b.disabled = !n;
     const box = document.createElement('div');
     box.className = 'gr__cands'; box.style.display = 'none';
-    box.innerHTML = p.candidatos.map((c) => {
-      const cache = Number(c.valor_do_cache_proposto) > 0 ? `cachê proposto R$ ${Number(c.valor_do_cache_proposto).toLocaleString('pt-BR')}` : '';
-      const nome = escHTML(c.nome_do_palestrante || c.email || 'Palestrante');
-      return `<div class="gr__c">${c.link_do_perfil_do_palestrante ? `<a class="gr__cn" href="${escHTML(c.link_do_perfil_do_palestrante)}" target="_blank" rel="noopener">${nome} ↗</a>` : `<span class="gr__cn">${nome}</span>`}
-        <span class="gr__cv">${escHTML([cache, c.resposta_ao_palestrante, c.hs_createdate ? `em ${dataBRcurta(c.hs_createdate)}` : ''].filter(Boolean).join(' · '))}</span>
-        ${c.argumentacao ? `<p class="gr__ca">${escHTML(c.argumentacao)}</p>` : ''}</div>`;
-    }).join('');
+    const pintarCands = (lista) => {
+      box.innerHTML = lista.map((c) => {
+        const cache = Number(c.valor_do_cache_proposto) > 0 ? `cachê proposto R$ ${Number(c.valor_do_cache_proposto).toLocaleString('pt-BR')}` : '';
+        const nome = escHTML(c.nome_do_palestrante || c.email || 'Palestrante');
+        const ini = escHTML((c.nome_do_palestrante || '?').trim().charAt(0).toUpperCase());
+        const foto = c.foto ? `<img class="gr__foto" src="${escHTML(c.foto)}" alt="">` : `<div class="gr__foto">${ini}</div>`;
+        return `<div class="gr__c">${foto}<div style="min-width:0">
+          ${c.link_do_perfil_do_palestrante ? `<a class="gr__cn" href="${escHTML(c.link_do_perfil_do_palestrante)}" target="_blank" rel="noopener">${nome} ↗</a>` : `<span class="gr__cn">${nome}</span>`}${c.wiki ? `<a class="gr__wiki" href="${escHTML(c.wiki)}" target="_blank" rel="noopener" title="Wiki do palestrante">W.</a>` : ''}
+          <span class="gr__cv">${escHTML([cache, c.resposta_ao_palestrante, c.hs_createdate ? `em ${dataBRcurta(c.hs_createdate)}` : ''].filter(Boolean).join(' · '))}</span>
+          ${c.argumentacao ? `<p class="gr__ca">${escHTML(c.argumentacao)}</p>` : ''}</div></div>`;
+      }).join('');
+    };
+    pintarCands(p.candidatos);
+    let enriquecido = false;
     b.addEventListener('click', () => {
       const abrir = box.style.display === 'none';
+      // 1ª abertura: busca foto e wiki dos candidatos desta palestra
+      if (abrir && !enriquecido) {
+        enriquecido = true;
+        postJSON('/api/conta', { acao: 'gratuitas-candidatos', sessao: sessaoAtual, dealId: p.id })
+          .then((r) => { if (r && r.ok) pintarCands(r.candidatos); }).catch(() => {});
+      }
       box.style.display = abrir ? 'grid' : 'none';
       b.textContent = abrir ? 'Esconder candidatos ↑' : `Ver ${n} candidato${n === 1 ? '' : 's'} ↓`;
     });

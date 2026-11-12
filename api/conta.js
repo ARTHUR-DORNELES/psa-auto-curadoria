@@ -1,5 +1,5 @@
 import { lerCorpo, cors } from './_lib.js';
-import { login, lerLink, definirSenha, esqueciSenha, primeiroAcesso, lerSessao, encerrarSessao, gerenciar, publico, salvarMeuCelular, empresas, entrarComoSuporte, liberarOraculo, definirQtdUsuarios, definirLimiteDisp, demandaGratuita, palestrasGratuitas, liberarGratuitas } from './_auth.js';
+import { login, lerLink, definirSenha, esqueciSenha, primeiroAcesso, lerSessao, encerrarSessao, gerenciar, publico, salvarMeuCelular, empresas, entrarComoSuporte, liberarOraculo, definirQtdUsuarios, definirLimiteDisp, demandaGratuita, palestrasGratuitas, liberarGratuitas, candidatosDaGratuita } from './_auth.js';
 
 // Conta e usuários (uma função só, por `acao`):
 //   entrar {email,senha}        -> { sessao, usuario }
@@ -39,6 +39,7 @@ export default async function handler(req, res) {
       case 'oraculo-liberar': return res.status(200).json(await liberarOraculo(await lerSessao(b.sessao), b));
       case 'empresa-usuarios': return res.status(200).json(await definirQtdUsuarios(await lerSessao(b.sessao), b));
       case 'empresa-limite-disp': return res.status(200).json(await definirLimiteDisp(await lerSessao(b.sessao), b));
+      case 'gratuitas-candidatos': return res.status(200).json(await candidatosDaGratuita(await lerSessao(b.sessao), b));
       case 'gratuitas-listar': return res.status(200).json(await palestrasGratuitas(await lerSessao(b.sessao)));
       case 'demanda-gratuita': return res.status(200).json(await demandaGratuita(await lerSessao(b.sessao), b));
       case 'suporte-entrar': return res.status(200).json(await entrarComoSuporte(await lerSessao(b.sessao), b));
