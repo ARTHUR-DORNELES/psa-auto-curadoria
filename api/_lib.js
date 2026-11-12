@@ -285,7 +285,59 @@ async function criarNegocio(properties, contatoId) {
 // observação usa outro cabeçalho, para não casar com o gatilho da automação.
 const PIPE_GRATUITAS = process.env.PIPE_DEMANDAS_GRATUITAS || '883258246';
 const STAGE_GRATUITAS_NOVO = process.env.STAGE_DEMANDAS_GRATUITAS_NOVO || '1326633119';
+// Título e "Sobre a oportunidade" da palestra gratuita: o texto que o palestrante lê na
+// plataforma. Escrito pela IA a partir do briefing, SEM nome da empresa, do contato ou
+// valores (é anúncio aberto). Falhou ou recusou -> segue sem os dois, nunca trava a criação.
+async function textoDaOportunidade(b) {
+  try {
+    const { default: Anthropic } = await import('@anthropic-ai/sdk');
+    const client = new Anthropic({ timeout: 25000, maxRetries: 1 });
+    const dados = [
+      `Nome do evento: ${b.nomeEvento}`, `Tema: ${b.macroTema}${b.microTema ? ` (${b.microTema})` : ''}`,
+      `Público: ${b.publicoAlvo}`, `Quantidade de espectadores: ${b.qtdEspectadores}`,
+      `Formato: ${b.formato}`, `Duração: ${b.duracao}`, `Data: ${dataBR(b.data) || 'a definir'}`,
+      `Local: ${b.local === 'Online' ? 'online' : `${b.cidade || ''}, ${b.local || ''}`}`,
+      `Motivo da busca: ${b.motivacao}`, `Como o público deve sair: ${b.sentimento}`,
+      `Contexto: ${b.briefing}`,
+    ].join('\n');
+    const pedido = {
+      model: 'claude-opus-5-5',
+      max_tokens: 4000,
+      output_config: {
+        effort: 'low',
+        format: { type: 'json_schema', schema: {
+          type: 'object', additionalProperties: false, required: ['titulo', 'sobre'],
+          properties: { titulo: { type: 'string' }, sobre: { type: 'string' } },
+        } },
+      },
+      system: [
+        'Você escreve anúncios de oportunidades de palestra GRATUITA para palestrantes da PSA (Profissionais S.A.).',
+        'Devolva um título e um texto "sobre a oportunidade", em português do Brasil.',
+        'Título: uma linha, até 110 caracteres, no estilo "Tema em Foco: palestra sobre X no Evento".',
+        'Sobre: 3 parágrafos curtos. 1) quem convida e o contexto do evento, 2) o que a palestra deve abordar e o perfil de palestrante ideal, 3) convite para manifestar interesse.',
+        'Regras: nunca cite o nome da empresa, do contato, e-mails, telefones ou valores; fale de "uma organização" ou "a empresa". Use só o que está nos dados, sem inventar números, nomes ou fatos. Não use travessão. Tom profissional e convidativo.',
+      ].join('\n'),
+      messages: [{ role: 'user', content: dados }],
+    };
+    // com modelo reserva em caso de recusa; se o recurso não for aceito, vai sem ele
+    let r;
+    try { r = await client.beta.messages.create({ ...pedido, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' }); }
+    catch (e) {
+      if (!(e instanceof Anthropic.BadRequestError)) throw e;
+      console.error('GRATUITA_TEXTO_SEM_FALLBACK', e.message.slice(0, 200));
+      r = await client.messages.create(pedido);
+    }
+    if (r.stop_reason === 'refusal') return null;
+    const txt = (r.content.find((c) => c.type === 'text') || {}).text || '';
+    const j = JSON.parse(txt);
+    const titulo = String(j.titulo || '').replace(/\s*[—–]\s*/g, ', ').trim().slice(0, 200);
+    const sobre = String(j.sobre || '').replace(/\s*[—–]\s*/g, ', ').trim().slice(0, 5000);
+    return titulo && sobre ? { titulo, sobre } : null;
+  } catch (e) { console.error('GRATUITA_TEXTO', e.message); return null; }
+}
+
 export async function criarDemandaGratuita(briefing, usuario) {
+  const textoIA = textoDaOportunidade(briefing);   // roda junto com o cadastro do contato
   const [primeiro, ...resto] = (briefing.nome || '').trim().split(/\s+/);
   const pc = { email: briefing.email, firstname: primeiro || '', lastname: resto.join(' '), phone: telefoneE164(briefing.telefone), company: briefing.empresa || '' };
   let contatoId = '';
@@ -307,6 +359,8 @@ export async function criarDemandaGratuita(briefing, usuario) {
   if (!online && briefing.cidade) props.cidade = `${briefing.cidade}, ${briefing.local}`;
   if (briefing.nomeEvento) props.nome_do_evento = briefing.nomeEvento;
   if (briefing.qtdEspectadores) props.quantidade_de_espectadores_new = briefing.qtdEspectadores;
+  const op = await textoIA;
+  if (op) { props.titulo_da_oportunidade = op.titulo; props.sobre_a_oportunidade = op.sobre; }
   if (usuario?.email) props[process.env.PROP_AUTOR || 'auto_curadoria_usuario'] = [usuario.nome, `<${usuario.email}>`].filter(Boolean).join(' ');
   // "Objetivos do evento" é obrigatório na palestra gratuita: sem ele, nem cria
   if (!String(props.objetivos_do_evento || '').trim()) throw new Error('Faltou o objetivo do evento (motivo, como o público deve sair e contexto).');
