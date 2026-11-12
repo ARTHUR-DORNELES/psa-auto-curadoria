@@ -1509,13 +1509,12 @@ async function carregarGratuitas(aviso) {
     box.className = 'gr__cands'; box.style.display = 'none';
     const pintarCands = (lista) => {
       box.innerHTML = lista.map((c) => {
-        const cache = Number(c.valor_do_cache_proposto) > 0 ? `cachê proposto R$ ${Number(c.valor_do_cache_proposto).toLocaleString('pt-BR')}` : '';
         const nome = escHTML(c.nome_do_palestrante || c.email || 'Palestrante');
         const ini = escHTML((c.nome_do_palestrante || '?').trim().charAt(0).toUpperCase());
         const foto = c.foto ? `<img class="gr__foto" src="${escHTML(c.foto)}" alt="">` : `<div class="gr__foto">${ini}</div>`;
         return `<div class="gr__c">${foto}<div style="min-width:0">
           ${c.link_do_perfil_do_palestrante ? `<a class="gr__cn" href="${escHTML(c.link_do_perfil_do_palestrante)}" target="_blank" rel="noopener">${nome} ↗</a>` : `<span class="gr__cn">${nome}</span>`}${c.wiki ? `<a class="gr__wiki" href="${escHTML(c.wiki)}" target="_blank" rel="noopener" title="Wiki do palestrante">W.</a>` : ''}
-          <span class="gr__cv">${escHTML([cache, c.hs_createdate ? `em ${dataBRcurta(c.hs_createdate)}` : ''].filter(Boolean).join(' · '))}</span>
+          <span class="gr__cv">${escHTML(c.hs_createdate ? `em ${dataBRcurta(c.hs_createdate)}` : '')}</span>
           ${(c.email || c.telefone) ? `<div class="gr__ct">${c.email ? `<a href="mailto:${escHTML(c.email)}">${escHTML(c.email)}</a>` : ''}${c.telefone ? `<a href="https://wa.me/${escHTML(String(c.telefone).replace(/\D/g, ''))}" target="_blank" rel="noopener">${escHTML(c.telefone)}</a>` : ''}</div>` : ''}
           ${c.argumentacao ? `<p class="gr__ca">${linkar(c.argumentacao)}</p>` : ''}
           <div class="gr__dec" data-cand="${escHTML(c.id)}"></div></div></div>`;
