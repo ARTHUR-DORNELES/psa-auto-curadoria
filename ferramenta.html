@@ -1443,7 +1443,7 @@ async function carregarGratuitas(aviso) {
         <p class="gr__tit">${escHTML(titulo)}${dataEv ? `<span class="gr__data">${escHTML(dataEv)}</span>` : ''}</p>
         ${p.empresa ? `<div class="gr__meta" style="margin-top:2px;color:var(--psa-orange-hi)">${escHTML(p.empresa)}</div>` : ''}
         ${p.titulo_da_oportunidade ? `<div class="gr__sub">${escHTML(p.titulo_da_oportunidade)}</div>` : ''}
-        <div class="gr__meta">${escHTML(meta)} · <a href="https://app.hubspot.com/contacts/49656171/record/0-3/${encodeURIComponent(p.id)}" target="_blank" rel="noopener" style="color:var(--fg-2)">abrir no HubSpot ↗</a></div>
+        <div class="gr__meta">${escHTML(meta)}${j.todas ? ` · <a href="https://app.hubspot.com/contacts/49656171/record/0-3/${encodeURIComponent(p.id)}" target="_blank" rel="noopener" style="color:var(--fg-2)">abrir no HubSpot ↗</a>` : ''}</div>
       </div><span class="gr__etapa"></span></div><div class="gr__aviso" style="display:none"></div>`;
     // status: etapa + aviso de quem ainda está sem resposta (não dá para fechar assim)
     const pintarStatus = () => {
