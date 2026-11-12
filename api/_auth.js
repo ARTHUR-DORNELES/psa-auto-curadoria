@@ -181,7 +181,9 @@ export const podeGratuitas = (email) => GRATUITAS.includes(normEmail(email));
 const OBRIG_GRATUITA = ['nome', 'empresa', 'email', 'telefone', 'empresaPalestra', 'macroTema', 'publicoAlvo', 'formato', 'data', 'horario', 'duracao', 'localEvento', 'cidade', 'local', 'orcamento', 'vendaIngresso', 'motivacao', 'sentimento', 'briefing'];
 export async function demandaGratuita(sess, b) {
   if (!sess || sess.suporte || !podeGratuitas(sess.email)) return { ok: false, erro: 'Acesso restrito.' };
-  const faltam = OBRIG_GRATUITA.filter((k) => !String(b[k] || '').trim());
+  const online = /online/i.test(String(b.formato || '')) || String(b.local || '') === 'Online';
+  if (online) { b.local = b.local || 'Online'; b.localEvento = String(b.localEvento || '').trim() || 'Online'; }
+  const faltam = OBRIG_GRATUITA.filter((k) => !(online && k === 'cidade') && !String(b[k] || '').trim());
   if (faltam.length) return { ok: false, erro: `Falta preencher: ${faltam.join(', ')}.` };
   const briefing = {};
   for (const k of [...OBRIG_GRATUITA, 'microTema', 'macroTemaSecundario', 'palestranteDesejado']) briefing[k] = String(b[k] || '').trim().slice(0, 4000);

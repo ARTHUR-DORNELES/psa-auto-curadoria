@@ -19,7 +19,10 @@ export default async function handler(req, res) {
   try {
     const b = await lerCorpo(req);
 
-    const faltando = OBRIGATORIOS.filter(c => !String(b[c] || '').trim());
+    // evento online (formato online ou estado "Online") não tem cidade nem espaço físico
+    const online = /online/i.test(String(b.formato || '')) || String(b.local || '') === 'Online';
+    if (online) { b.local = b.local || 'Online'; b.localEvento = String(b.localEvento || '').trim() || 'Online'; }
+    const faltando = OBRIGATORIOS.filter(c => !(online && c === 'cidade') && !String(b[c] || '').trim());
     if (faltando.length) return res.status(400).json({ erro: `campos obrigatórios: ${faltando.join(', ')}` });
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(b.email)) return res.status(400).json({ erro: 'e-mail inválido' });
 

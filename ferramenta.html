@@ -831,6 +831,22 @@ $('#local').addEventListener('change', () => {
     ''));
   lista.forEach(n => cidade.add(new Option(n, n)));
   cidade.disabled = !lista.length;
+  aplicarOnline();
+});
+// Evento online (formato "... online" ou estado "Online"): estado vira Online, cidade e
+// local do evento não se aplicam (ficam desabilitados e o obrigatório não trava).
+function aplicarOnline() {
+  const online = /online/i.test($('#formato').value) || $('#local').value === 'Online';
+  const loc = $('#localEvento');
+  if (online) {
+    if ($('#local').value !== 'Online') { $('#local').value = 'Online'; $('#local').dispatchEvent(new Event('change')); return; }
+    loc.value = 'Online'; loc.disabled = true;
+  } else if (loc.disabled) { loc.disabled = false; if (loc.value === 'Online') loc.value = ''; }
+}
+$('#formato').addEventListener('change', () => {
+  const eraOnline = $('#local').value === 'Online';
+  if (!/online/i.test($('#formato').value) && eraOnline) { $('#local').value = ''; $('#local').dispatchEvent(new Event('change')); }
+  aplicarOnline();
 });
 
 const utm = {};

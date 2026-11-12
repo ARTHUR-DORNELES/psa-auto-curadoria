@@ -216,7 +216,12 @@ export default async function handler(req, res) {
   // campos definidos FORA do chat (por palestrante/aba num evento): tema, recorte, orçamento.
   // O Santiago não pergunta esses.
   const pularSet = new Set(pular);
-  const OBRIG = OBRIGATORIOS.filter(c => !pularSet.has(c));
+  const OBRIG_BASE = OBRIGATORIOS.filter(c => !pularSet.has(c));
+  // evento online: não pergunta estado, cidade nem local do evento (preenche "Online")
+  const ehOnline = (s) => /online/i.test(String(s.formato || '')) || s.estado === 'Online';
+  const SO_PRESENCIAL = ['estado', 'cidade', 'localEvento'];
+  const obrigDe = (s) => (ehOnline(s) ? OBRIG_BASE.filter(c => !SO_PRESENCIAL.includes(c)) : OBRIG_BASE);
+  const OBRIG = obrigDe(slots);
   // campos que o Santiago PODE perguntar (obrigatórios + os opcionais formato/data/microTema).
   // Sem isso, ao perguntar um opcional o servidor forçava o widget pro próximo obrigatório e
   // a resposta caía no campo errado (ex.: perguntava formato/data mas mostrava seletor de hora).
@@ -270,6 +275,7 @@ export default async function handler(req, res) {
       novos[k] = val;
     }
     const slots2 = { ...slots, ...novos };
+    if (ehOnline(slots2)) { slots2.estado = 'Online'; if (!slots2.localEvento) slots2.localEvento = 'Online'; delete slots2.cidade; }
     // relato de abertura: a pessoa descreveu o evento com as próprias palavras.
     // Guardamos o texto cru como contexto (detalhe pro curador) — o modelo já extraiu
     // os campos estruturados acima.
@@ -308,7 +314,7 @@ export default async function handler(req, res) {
     // a DATA é perguntada sempre (mesmo sendo opcional responder): marca quando já foi perguntada
     // (o cliente respondeu ao widget de data, com uma data ou com "A definir").
     if (campoRespondido === 'data' || slots2.data) slots2._dataOk = true;
-    const faltando2 = OBRIG.filter(c => !slots2[c]);
+    const faltando2 = obrigDe(slots2).filter(c => !slots2[c]);
     const dataPendente = !pularSet.has('data') && !slots2._dataOk;   // ainda não perguntamos a data
     const completo = faltando2.length === 0 && !dataPendente;
 
@@ -325,6 +331,7 @@ export default async function handler(req, res) {
         let alvo = (out.proximoCampo && PERGUNTAVEIS.has(out.proximoCampo) && !slots2[out.proximoCampo])
           ? out.proximoCampo
           : faltando2[0];
+        if (ehOnline(slots2) && SO_PRESENCIAL.includes(alvo)) alvo = faltando2[0];
         // a DATA vem ANTES do horário: se vamos perguntar horário/duração (ou acabaram os
         // obrigatórios) e a data ainda não foi perguntada, pergunta a DATA primeiro.
         if (dataPendente && (alvo === 'horario' || alvo === 'duracao' || !alvo)) alvo = 'data';
