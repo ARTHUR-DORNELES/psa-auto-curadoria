@@ -288,18 +288,24 @@ const STAGE_GRATUITAS_NOVO = process.env.STAGE_DEMANDAS_GRATUITAS_NOVO || '13266
 // Palestras gratuitas da pipeline + candidatos (objeto "Candidatos Ecossistema", 2-58134668,
 // associado ao negócio pela plataforma quando o palestrante se candidata).
 const OBJ_CANDIDATOS = process.env.OBJ_CANDIDATOS || '2-58134668';
-export async function listarPalestrasGratuitas() {
+// soIds = negócios da empresa (null = a pipeline inteira, só para o suporte PSA)
+export async function listarPalestrasGratuitas(soIds = null) {
   const PROPS = ['dealname', 'dealstage', 'createdate', 'nome_do_evento', 'titulo_da_oportunidade', 'data_prevista_do_evento',
     'cidade', 'presencial_ou_online_', 'quantidade_de_espectadores_new', 'macro_tema', 'auto_curadoria_usuario', 'formato_evento'];
   const [busca, pipe] = await Promise.all([
-    hs('/crm/v3/objects/deals/search', 'POST', {
-      filterGroups: [{ filters: [{ propertyName: 'pipeline', operator: 'EQ', value: PIPE_GRATUITAS }] }],
-      sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }], properties: PROPS, limit: 100,
-    }),
+    soIds
+      ? (soIds.length ? hs('/crm/v3/objects/deals/batch/read', 'POST', { inputs: soIds.slice(0, 100).map((id) => ({ id: String(id) })), properties: [...PROPS, 'pipeline'] }) : { results: [] })
+      : hs('/crm/v3/objects/deals/search', 'POST', {
+        filterGroups: [{ filters: [{ propertyName: 'pipeline', operator: 'EQ', value: PIPE_GRATUITAS }] }],
+        sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }], properties: PROPS, limit: 100,
+      }),
     hs(`/crm/v3/pipelines/deals/${PIPE_GRATUITAS}`, 'GET').catch(() => ({ stages: [] })),
   ]);
   const etapa = Object.fromEntries((pipe.stages || []).map((s) => [s.id, s.label]));
-  const deals = busca.results || [];
+  // da empresa: só os que continuam na pipeline de gratuitas, mais novos primeiro
+  const deals = (busca.results || [])
+    .filter((d) => !soIds || d.properties.pipeline === PIPE_GRATUITAS)
+    .sort((a, b) => String(b.properties.createdate || '').localeCompare(String(a.properties.createdate || '')));
   // negócio -> ids dos candidatos (associações em lote)
   const porDeal = {};
   let erroCandidatos = '';

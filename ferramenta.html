@@ -1358,7 +1358,7 @@ async function carregarGratuitas(aviso) {
   if (!j.ok) { lista.innerHTML = `<p class="erro">${escHTML(j.erro || 'Não foi possível.')}</p>`; return; }
   const ps = j.palestras || [];
   const totalCand = ps.reduce((a, p) => a + p.candidatos.length, 0);
-  if (!aviso) $('#grResumo').textContent = `${ps.length} palestra${ps.length === 1 ? '' : 's'} gratuita${ps.length === 1 ? '' : 's'} · ${totalCand} candidato${totalCand === 1 ? '' : 's'}`
+  if (!aviso) $('#grResumo').textContent = (j.todas ? 'Todas as empresas (suporte PSA) · ' : '') + `${ps.length} palestra${ps.length === 1 ? '' : 's'} gratuita${ps.length === 1 ? '' : 's'} · ${totalCand} candidato${totalCand === 1 ? '' : 's'}`
     + (j.erroCandidatos ? ` · atenção: ${j.erroCandidatos}` : '');
   lista.innerHTML = ps.length ? '' : '<p class="sub">Nenhuma palestra gratuita ainda.</p>';
   ps.forEach((p) => {

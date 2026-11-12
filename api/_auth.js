@@ -179,9 +179,13 @@ const GRATUITAS = String(process.env.DEMANDAS_GRATUITAS || 'renato.denck@profiss
   .split(',').map((e) => normEmail(e)).filter(Boolean);
 export const podeGratuitas = (email) => GRATUITAS.includes(normEmail(email));
 const OBRIG_GRATUITA = ['nome', 'empresa', 'email', 'telefone', 'empresaPalestra', 'nomeEvento', 'qtdEspectadores', 'macroTema', 'publicoAlvo', 'formato', 'data', 'horario', 'duracao', 'localEvento', 'cidade', 'local', 'orcamento', 'vendaIngresso', 'motivacao', 'sentimento', 'briefing'];
+// Cada empresa vê só as palestras gratuitas que ela criou (índice no Redis por documento).
+// O suporte PSA (super admin) vê a pipeline inteira.
+const kGratuitas = (doc) => `ac:org:${doc}:gratuitas`;
 export async function palestrasGratuitas(sess) {
   if (!sess || sess.suporte || !podeGratuitas(sess.email)) return { ok: false, erro: 'Acesso restrito.' };
-  return { ok: true, ...(await listarPalestrasGratuitas()) };
+  const ids = ehSuper(sess.email) ? null : await redis().smembers(kGratuitas(sess.doc));
+  return { ok: true, todas: !ids, ...(await listarPalestrasGratuitas(ids)) };
 }
 export async function demandaGratuita(sess, b) {
   if (!sess || sess.suporte || !podeGratuitas(sess.email)) return { ok: false, erro: 'Acesso restrito.' };
@@ -193,6 +197,7 @@ export async function demandaGratuita(sess, b) {
   const briefing = {};
   for (const k of [...OBRIG_GRATUITA, 'microTema', 'macroTemaSecundario', 'palestranteDesejado']) briefing[k] = String(b[k] || '').trim().slice(0, 4000);
   const r = await criarDemandaGratuita(briefing, { email: sess.email, nome: sess.nome });
+  await redis().sadd(kGratuitas(sess.doc), String(r.negocioId)).catch((e) => console.error('GRATUITA_INDICE', e.message));
   return { ok: true, ...r, url: `https://app.hubspot.com/contacts/49656171/record/0-3/${r.negocioId}` };
 }
 
