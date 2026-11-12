@@ -198,6 +198,8 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
    card fica e um SELO no canto mostra o estado (substitui o checkbox). O selo também é clicável. */
 .ind{transition:transform .25s ease,box-shadow .2s ease,opacity .2s ease}
 .ind--arrastavel{touch-action:pan-y;cursor:grab}
+/* Firefox: sem isto, segurar o mouse na foto/texto inicia o "arrastar imagem"/seleção nativo e cancela o gesto */
+.ind--arrastavel img{-webkit-user-drag:none;user-select:none;pointer-events:none}
 .ind--drag{transition:none;cursor:grabbing;z-index:3;user-select:none}
 .ind--manter{box-shadow:0 0 0 2px #22c55e}
 .ind--shake{animation:indShake .4s}
@@ -3144,8 +3146,10 @@ function wireNomes(d) {
     art.addEventListener('pointerdown', ev => {
       if (art.classList.contains('ind--travado')) return;   // solicitou disponibilidade: travado
       if (ev.target.closest('button,a,input,label,.acoes-pos,.resp,.ind__stamp')) return;   // não atrapalha ações/selo
+      if (ev.pointerType === 'mouse') { if (ev.button !== 0) return; ev.preventDefault(); }   // Firefox: impede arrastar imagem/selecionar texto, que cancelava o gesto
       drag = true; x0 = ev.clientX; dx = 0; pid = ev.pointerId; try { art.setPointerCapture(pid); } catch (e) {} art.classList.add('ind--drag');
     });
+    art.addEventListener('dragstart', ev => ev.preventDefault());   // nenhum arrastar nativo dentro do card
     art.addEventListener('pointermove', ev => {
       if (!drag) return; dx = ev.clientX - x0;
       art.style.transform = `translateX(${dx}px) rotate(${dx * 0.02}deg)`;
