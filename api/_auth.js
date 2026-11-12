@@ -183,12 +183,12 @@ const OBRIG_GRATUITA = ['nome', 'empresa', 'email', 'telefone', 'empresaPalestra
 // O suporte PSA (super admin) vê a pipeline inteira.
 const kGratuitas = (doc) => `ac:org:${doc}:gratuitas`;
 export async function palestrasGratuitas(sess) {
-  if (!sess || sess.suporte || !podeGratuitas(sess.email)) return { ok: false, erro: 'Acesso restrito.' };
+  if (!sess || sess.suporte || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };
   const ids = ehSuper(sess.email) ? null : await redis().smembers(kGratuitas(sess.doc));
   return { ok: true, todas: !ids, ...(await listarPalestrasGratuitas(ids)) };
 }
 export async function demandaGratuita(sess, b) {
-  if (!sess || sess.suporte || !podeGratuitas(sess.email)) return { ok: false, erro: 'Acesso restrito.' };
+  if (!sess || sess.suporte || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };
   b.orcamento = 'Gratuito';   // palestra gratuita: orçamento é sempre gratuito
   const online = /online/i.test(String(b.formato || '')) || String(b.local || '') === 'Online';
   if (online) { b.local = b.local || 'Online'; b.localEvento = String(b.localEvento || '').trim() || 'Online'; }
@@ -202,6 +202,17 @@ export async function demandaGratuita(sess, b) {
 }
 
 // Oráculo: liberado empresa por empresa pelo suporte PSA (chave ac:org:<doc>:oraculo)
+// Palestras gratuitas liberadas por empresa (liga/desliga na aba Empresas)
+const kGratOn = (doc) => `ac:org:${doc}:gratuitas_on`;
+export const gratuitasLiberadas = async (doc) => (doc ? (await redis().get(kGratOn(doc))) === '1' : false);
+export async function liberarGratuitas(sess, b) {
+  if (!sess || !ehSuper(sess.realEmail || sess.email) || sess.suporte) return { ok: false, erro: 'Acesso restrito.' };
+  let doc = normalizaDocumento(b.doc)?.valor || '';
+  if (!doc && b.dealId) doc = await documentoDoNegocio(String(b.dealId).replace(/\D/g, ''));
+  if (!doc) return { ok: false, erro: 'Não achamos o CPF/CNPJ dessa empresa no HubSpot (contato ou empresa do negócio).' };
+  if (b.liberar) await redis().set(kGratOn(doc), '1'); else await redis().del(kGratOn(doc));
+  return { ok: true, doc, gratuitas: !!b.liberar };
+}
 const kOraculo = (doc) => `ac:org:${doc}:oraculo`;
 export const oraculoLiberado = async (doc) => (doc ? (await redis().get(kOraculo(doc))) === '1' : false);
 export async function liberarOraculo(sess, b) {
@@ -260,7 +271,7 @@ async function _empresas() {
   for (const doc of docs) {
     const usuarios = await listarUsuarios(doc).catch(() => []);
     const ultimo = usuarios.map((u) => u.ultimoAcesso).filter(Boolean).sort().pop() || null;
-    const base = { doc, oraculo: await oraculoLiberado(doc).catch(() => false), limiteDisp: await limiteDispDaEmpresa(doc).catch(() => LIMITE_DISP), usuarios: usuarios.length, ultimoAcesso: ultimo, admins: usuarios.filter((u) => u.papel === 'admin').map((u) => u.nome || u.email) };
+    const base = { doc, oraculo: await oraculoLiberado(doc).catch(() => false), gratuitas: await gratuitasLiberadas(doc).catch(() => false), limiteDisp: await limiteDispDaEmpresa(doc).catch(() => LIMITE_DISP), usuarios: usuarios.length, ultimoAcesso: ultimo, admins: usuarios.filter((u) => u.papel === 'admin').map((u) => u.nome || u.email) };
     try {
       const { assinatura, limite } = await limiteUsuarios(doc);
       const curadorias = await listarCuradorias(doc);
@@ -271,7 +282,7 @@ async function _empresas() {
     }
   }
   const porDeal = Object.fromEntries(orgs.filter((o) => o.dealId).map((o) => [o.dealId, o]));
-  const lista = pagos.map((p) => ({ nome: p.dealname || 'Sem nome', closedate: p.closedate, ...(porDeal[p.dealId] || { dealId: p.dealId, oraculo: false, limiteDisp: LIMITE_DISP, usuarios: 0, limite: Number(p.quantidade_usuarios) || 1, curadorias: null, ultimoAcesso: null, admins: [] }) }));
+  const lista = pagos.map((p) => ({ nome: p.dealname || 'Sem nome', closedate: p.closedate, ...(porDeal[p.dealId] || { dealId: p.dealId, oraculo: false, gratuitas: false, limiteDisp: LIMITE_DISP, usuarios: 0, limite: Number(p.quantidade_usuarios) || 1, curadorias: null, ultimoAcesso: null, admins: [] }) }));
   // empresas com usuários mas cujo negócio não está mais em Pago (expiradas ou movidas)
   for (const o of orgs) if (!o.dealId || !pagos.some((p) => p.dealId === o.dealId)) lista.push({ nome: `Documento ${o.doc}`, ...o });
   return { ok: true, empresas: lista };
@@ -310,7 +321,7 @@ export async function lerSessao(t) {
   const u = await lerUsuario(s.doc, s.email);
   if (!u || u.status !== 'ativo') return null;
   const sup = ehSuper(u.email);
-  return { doc: s.doc, email: u.email, nome: u.nome || '', celular: u.celular || '', papel: u.papel, superAdmin: sup, oraculo: sup || (await oraculoLiberado(s.doc).catch(() => false)), gratuitas: podeGratuitas(u.email) };
+  return { doc: s.doc, email: u.email, nome: u.nome || '', celular: u.celular || '', papel: u.papel, superAdmin: sup, oraculo: sup || (await oraculoLiberado(s.doc).catch(() => false)), gratuitas: podeGratuitas(u.email) || (await gratuitasLiberadas(s.doc).catch(() => false)) };
 }
 export const encerrarSessao = (t) => (t ? redis().del(kSessao(t)) : 0);
 
