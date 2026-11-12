@@ -285,6 +285,49 @@ async function criarNegocio(properties, contatoId) {
 // observação usa outro cabeçalho, para não casar com o gatilho da automação.
 const PIPE_GRATUITAS = process.env.PIPE_DEMANDAS_GRATUITAS || '883258246';
 const STAGE_GRATUITAS_NOVO = process.env.STAGE_DEMANDAS_GRATUITAS_NOVO || '1326633119';
+// Palestras gratuitas da pipeline + candidatos (objeto "Candidatos Ecossistema", 2-58134668,
+// associado ao negócio pela plataforma quando o palestrante se candidata).
+const OBJ_CANDIDATOS = process.env.OBJ_CANDIDATOS || '2-58134668';
+export async function listarPalestrasGratuitas() {
+  const PROPS = ['dealname', 'dealstage', 'createdate', 'nome_do_evento', 'titulo_da_oportunidade', 'data_prevista_do_evento',
+    'cidade', 'presencial_ou_online_', 'quantidade_de_espectadores_new', 'macro_tema', 'auto_curadoria_usuario', 'formato_evento'];
+  const [busca, pipe] = await Promise.all([
+    hs('/crm/v3/objects/deals/search', 'POST', {
+      filterGroups: [{ filters: [{ propertyName: 'pipeline', operator: 'EQ', value: PIPE_GRATUITAS }] }],
+      sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }], properties: PROPS, limit: 100,
+    }),
+    hs(`/crm/v3/pipelines/deals/${PIPE_GRATUITAS}`, 'GET').catch(() => ({ stages: [] })),
+  ]);
+  const etapa = Object.fromEntries((pipe.stages || []).map((s) => [s.id, s.label]));
+  const deals = busca.results || [];
+  // negócio -> ids dos candidatos (associações em lote)
+  const porDeal = {};
+  let erroCandidatos = '';
+  try {
+    for (let i = 0; i < deals.length; i += 100) {
+      const a = await hs(`/crm/v4/associations/deals/${OBJ_CANDIDATOS}/batch/read`, 'POST', { inputs: deals.slice(i, i + 100).map((d) => ({ id: d.id })) });
+      for (const r of a.results || []) porDeal[String(r.from.id)] = (r.to || []).map((t) => String(t.toObjectId));
+    }
+  } catch (e) { erroCandidatos = /403/.test(e.message) ? 'sem permissão para ler os candidatos no HubSpot' : 'não consegui ler os candidatos'; console.error('GRATUITAS_ASSOC', e.message.slice(0, 200)); }
+  const ids = [...new Set(Object.values(porDeal).flat())];
+  const cand = {};
+  try {
+    for (let i = 0; i < ids.length; i += 100) {
+      const r = await hs(`/crm/v3/objects/${OBJ_CANDIDATOS}/batch/read`, 'POST', {
+        inputs: ids.slice(i, i + 100).map((id) => ({ id })),
+        properties: ['nome_do_palestrante', 'link_do_perfil_do_palestrante', 'argumentacao', 'valor_do_cache_proposto', 'resposta_ao_palestrante', 'email', 'hs_createdate'],
+      });
+      for (const c of r.results || []) cand[c.id] = { id: c.id, ...c.properties };
+    }
+  } catch (e) { erroCandidatos = erroCandidatos || 'não consegui ler os candidatos'; console.error('GRATUITAS_CAND', e.message.slice(0, 200)); }
+  const palestras = deals.map((d) => ({
+    id: d.id, ...d.properties, etapa: etapa[d.properties.dealstage] || d.properties.dealstage,
+    candidatos: (porDeal[d.id] || []).map((id) => cand[id]).filter(Boolean)
+      .sort((x, y) => String(y.hs_createdate || '').localeCompare(String(x.hs_createdate || ''))),
+  }));
+  return { palestras, erroCandidatos };
+}
+
 export async function criarDemandaGratuita(briefing, usuario) {
   const [primeiro, ...resto] = (briefing.nome || '').trim().split(/\s+/);
   const pc = { email: briefing.email, firstname: primeiro || '', lastname: resto.join(' '), phone: telefoneE164(briefing.telefone), company: briefing.empresa || '' };

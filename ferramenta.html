@@ -80,7 +80,22 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .lnk-voltar:hover{color:var(--fg-1)}
 .faixa-suporte{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;background:#f8d71b;color:#02060f;font-size:13px;font-weight:600;padding:8px 16px;text-align:center}
 .faixa-suporte button{background:#02060f;color:#fff;border:0;border-radius:999px;padding:6px 14px;font:inherit;font-size:12px;cursor:pointer}
-.modo-suporte #btnDemandaGratuita,.modo-suporte #btnNovaBriefing,.modo-suporte #usuConvite,.modo-suporte .acoes-usu>button:not(.ok-suporte),.modo-suporte .acoes-cur,.modo-suporte #btnSair,.modo-suporte .btn-disp,.modo-suporte #refazer,.modo-suporte #quero-curador,.modo-suporte #tut,.modo-suporte #btnEmpresas,.modo-suporte #btnOraculo{display:none!important}
+.modo-suporte #btnDemandaGratuita,.modo-suporte #btnNovaGratuita,.modo-suporte #btnNovaBriefing,.modo-suporte #usuConvite,.modo-suporte .acoes-usu>button:not(.ok-suporte),.modo-suporte .acoes-cur,.modo-suporte #btnSair,.modo-suporte .btn-disp,.modo-suporte #refazer,.modo-suporte #quero-curador,.modo-suporte #tut,.modo-suporte #btnEmpresas,.modo-suporte #btnOraculo{display:none!important}
+.gr{border:1px solid var(--border-subtle);border-radius:var(--r-md);padding:16px 18px;background:#ffffff04}
+.gr__top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 16px;align-items:flex-start}
+.gr__tit{font-weight:700;font-size:16px;margin:0}
+.gr__sub{font-size:13px;color:var(--fg-2);margin-top:4px}
+.gr__meta{font-size:12px;color:var(--fg-3);margin-top:6px}
+.gr__etapa{font-size:11px;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--border);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.gr__etapa--novo{color:#37c07a;border-color:#37c07a66}
+.gr__btn{background:none;border:1px solid var(--border);color:var(--fg-1);border-radius:999px;padding:6px 14px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;margin-top:12px}
+.gr__btn:hover{border-color:var(--psa-orange);color:var(--psa-orange-hi)}
+.gr__cands{display:none;margin-top:12px;display:grid;gap:8px}
+.gr__c{border-top:1px solid var(--border-subtle);padding-top:10px}
+.gr__cn{font-weight:700;font-size:14px;color:var(--fg-1);text-decoration:none}
+.gr__cn:hover{color:var(--psa-orange-hi)}
+.gr__cv{font-size:12px;color:var(--fg-3);margin-left:8px}
+.gr__ca{font-size:13px;color:var(--fg-2);margin:4px 0 0;line-height:1.5}
 .emp-resumo{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:var(--s-4)}
 .emp-kpi{border:1px solid var(--border-subtle);background:#ffffff08;border-radius:var(--r-md);padding:12px 16px;min-width:120px}
 .emp-kpi b{display:block;font-size:24px;line-height:1.1;font-family:var(--font-display,inherit)}
@@ -497,7 +512,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
       <div class="abas-conta" id="abasConta" style="display:none">
         <button type="button" class="on" data-aba="curadorias">Curadorias</button>
         <button type="button" id="btnOraculo" style="display:none">Oráculo</button>
-        <button type="button" id="btnDemandaGratuita" style="display:none">Palestras gratuitas</button>
+        <button type="button" data-aba="gratuitas" id="btnDemandaGratuita" style="display:none">Palestras gratuitas</button>
         <button type="button" data-aba="usuarios" id="btnUsuarios">Usuários <span id="abaUsuQtd"></span></button>
         <button type="button" data-aba="empresas" id="btnEmpresas" style="display:none">Empresas</button>
       </div>
@@ -521,6 +536,15 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
         <p class="sub" id="escolhaSub" style="display:none;margin-top:var(--s-6)">Escolha qual quer ver:</p>
         <div id="filtroAutorBox" style="display:none;max-width:360px;margin:0 0 var(--s-4)"><label for="filtroAutor">Filtrar por usuário</label><select id="filtroAutor"></select></div>
         <div id="escolhaLista" style="display:none;gap:10px;margin:var(--s-4) 0"></div>
+      </div>
+
+      <!-- aba Palestras gratuitas: palestras da pipeline + candidatos da plataforma -->
+      <div id="painelGratuitas" style="display:none;margin-top:var(--s-5)">
+        <div class="acoes" style="margin-bottom:var(--s-4)">
+          <button class="btn" id="btnNovaGratuita" style="background:#16a34a;color:#fff;box-shadow:0 0 40px #16a34a55">Nova palestra gratuita</button>
+        </div>
+        <p class="sub" id="grResumo" style="margin-bottom:var(--s-4)"></p>
+        <div id="grLista" style="display:grid;gap:12px"></div>
       </div>
 
       <!-- aba Empresas (só suporte PSA) -->
@@ -1199,7 +1223,7 @@ function orcamentoGratuito(ligar) {
 $('#btnNovaBriefing').addEventListener('click', () => { orcamentoGratuito(false); iniciarEntrada(contatoNovo); });
 // Demanda gratuita: o time da PSA preenche o briefing completo do cliente e vira um negócio
 // na pipeline "Demandas gratuitas" (sem IA Curadoria).
-$('#btnDemandaGratuita').addEventListener('click', () => {
+$('#btnNovaGratuita').addEventListener('click', () => {
   formModo = 'gratuita'; formAlvo = null;
   ['p1', 'p2', 'p3'].forEach((p) => $('#' + p).querySelectorAll('input, textarea').forEach((el) => { el.value = ''; }));
   ['p1', 'p2', 'p3'].forEach((p) => $('#' + p).querySelectorAll('select').forEach((el) => { el.selectedIndex = 0; el.dispatchEvent(new Event('change')); }));
@@ -1311,6 +1335,7 @@ function abaConta(aba) {
   $('#escolha').style.display = aba === 'curadorias' ? '' : 'none';
   $('#painelUsuarios').style.display = aba === 'usuarios' ? '' : 'none';
   $('#painelEmpresas').style.display = aba === 'empresas' ? '' : 'none';
+  $('#painelGratuitas').style.display = aba === 'gratuitas' ? '' : 'none';
 }
 // Oráculo (só suporte PSA): abre o Oráculo em tela cheia, por cima do painel
 $('#btnOraculo').addEventListener('click', () => { const w = $('#oraculoWrap'); if (w) w.style.display = 'flex'; try { sessionStorage.setItem('oraculoAberto','1'); } catch(_){} });
@@ -1318,7 +1343,59 @@ document.querySelectorAll('#abasConta button[data-aba]').forEach((b) => b.addEve
   abaConta(b.dataset.aba);
   if (b.dataset.aba === 'usuarios') { $('#usuLinkBox').style.display = 'none'; carregarUsuarios(); }
   if (b.dataset.aba === 'empresas') carregarEmpresas();
+  if (b.dataset.aba === 'gratuitas') carregarGratuitas();
 }));
+
+// ── palestras gratuitas: lista + candidatos ──
+async function carregarGratuitas(aviso) {
+  const lista = $('#grLista');
+  lista.innerHTML = '<p class="sub">Carregando…</p>';
+  $('#grResumo').textContent = aviso || '';
+  $('#grResumo').style.color = aviso ? '#37c07a' : '';
+  let j;
+  try { j = await postJSON('/api/conta', { acao: 'gratuitas-listar', sessao: sessaoAtual }); }
+  catch (e) { lista.innerHTML = '<p class="erro">Não conseguimos carregar as palestras gratuitas.</p>'; return; }
+  if (!j.ok) { lista.innerHTML = `<p class="erro">${escHTML(j.erro || 'Não foi possível.')}</p>`; return; }
+  const ps = j.palestras || [];
+  const totalCand = ps.reduce((a, p) => a + p.candidatos.length, 0);
+  if (!aviso) $('#grResumo').textContent = `${ps.length} palestra${ps.length === 1 ? '' : 's'} gratuita${ps.length === 1 ? '' : 's'} · ${totalCand} candidato${totalCand === 1 ? '' : 's'}`
+    + (j.erroCandidatos ? ` · atenção: ${j.erroCandidatos}` : '');
+  lista.innerHTML = ps.length ? '' : '<p class="sub">Nenhuma palestra gratuita ainda.</p>';
+  ps.forEach((p) => {
+    const card = document.createElement('div');
+    card.className = 'gr';
+    const titulo = p.nome_do_evento || p.dealname;
+    const local = p.presencial_ou_online_ === 'Online' ? 'Online' : (p.cidade || '');
+    const meta = [p.data_prevista_do_evento ? `evento ${dataBRcurta(p.data_prevista_do_evento + 'T12:00:00')}` : '', local, p.quantidade_de_espectadores_new, p.macro_tema,
+      `criada em ${dataBRcurta(p.createdate)}`].filter(Boolean).join(' · ');
+    const n = p.candidatos.length;
+    card.innerHTML = `<div class="gr__top"><div style="min-width:0">
+        <p class="gr__tit">${escHTML(titulo)}</p>
+        ${p.titulo_da_oportunidade ? `<div class="gr__sub">${escHTML(p.titulo_da_oportunidade)}</div>` : ''}
+        <div class="gr__meta">${escHTML(meta)} · <a href="https://app.hubspot.com/contacts/49656171/record/0-3/${encodeURIComponent(p.id)}" target="_blank" rel="noopener" style="color:var(--fg-2)">abrir no HubSpot ↗</a></div>
+      </div><span class="gr__etapa${/novo/i.test(p.etapa) ? ' gr__etapa--novo' : ''}">${escHTML(p.etapa || '')}</span></div>`;
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'gr__btn';
+    b.textContent = n ? `Ver ${n} candidato${n === 1 ? '' : 's'} ↓` : 'Nenhum candidato ainda';
+    b.disabled = !n;
+    const box = document.createElement('div');
+    box.className = 'gr__cands'; box.style.display = 'none';
+    box.innerHTML = p.candidatos.map((c) => {
+      const cache = Number(c.valor_do_cache_proposto) > 0 ? `cachê proposto R$ ${Number(c.valor_do_cache_proposto).toLocaleString('pt-BR')}` : '';
+      const nome = escHTML(c.nome_do_palestrante || c.email || 'Palestrante');
+      return `<div class="gr__c">${c.link_do_perfil_do_palestrante ? `<a class="gr__cn" href="${escHTML(c.link_do_perfil_do_palestrante)}" target="_blank" rel="noopener">${nome} ↗</a>` : `<span class="gr__cn">${nome}</span>`}
+        <span class="gr__cv">${escHTML([cache, c.resposta_ao_palestrante, c.hs_createdate ? `em ${dataBRcurta(c.hs_createdate)}` : ''].filter(Boolean).join(' · '))}</span>
+        ${c.argumentacao ? `<p class="gr__ca">${escHTML(c.argumentacao)}</p>` : ''}</div>`;
+    }).join('');
+    b.addEventListener('click', () => {
+      const abrir = box.style.display === 'none';
+      box.style.display = abrir ? 'grid' : 'none';
+      b.textContent = abrir ? 'Esconder candidatos ↑' : `Ver ${n} candidato${n === 1 ? '' : 's'} ↓`;
+    });
+    card.append(b, box);
+    lista.appendChild(card);
+  });
+}
 
 // ── suporte PSA: lista de empresas e entrada somente leitura ──
 function dataBRcurta(iso) {
@@ -2404,8 +2481,8 @@ async function salvarDemandaGratuita() {
     formModo = 'novo';
     $('#enviar').textContent = 'Gerar minha curadoria →';
     await abrirPainel();
-    $('#eLogado').style.color = '#37c07a';
-    $('#eLogado').textContent = 'Palestra gratuita criada.';
+    abaConta('gratuitas');
+    carregarGratuitas('Palestra gratuita criada.');
   } catch (e) {
     $('#e3').textContent = e.message;
     $('#enviar').textContent = 'Criar palestra gratuita →';

@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita } from './_lib.js';
+import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas } from './_lib.js';
 
 /**
  * Usuários por empresa. A assinatura continua sendo o negócio "Pago" casado pelo CPF/CNPJ
@@ -179,6 +179,10 @@ const GRATUITAS = String(process.env.DEMANDAS_GRATUITAS || 'renato.denck@profiss
   .split(',').map((e) => normEmail(e)).filter(Boolean);
 export const podeGratuitas = (email) => GRATUITAS.includes(normEmail(email));
 const OBRIG_GRATUITA = ['nome', 'empresa', 'email', 'telefone', 'empresaPalestra', 'nomeEvento', 'qtdEspectadores', 'macroTema', 'publicoAlvo', 'formato', 'data', 'horario', 'duracao', 'localEvento', 'cidade', 'local', 'orcamento', 'vendaIngresso', 'motivacao', 'sentimento', 'briefing'];
+export async function palestrasGratuitas(sess) {
+  if (!sess || sess.suporte || !podeGratuitas(sess.email)) return { ok: false, erro: 'Acesso restrito.' };
+  return { ok: true, ...(await listarPalestrasGratuitas()) };
+}
 export async function demandaGratuita(sess, b) {
   if (!sess || sess.suporte || !podeGratuitas(sess.email)) return { ok: false, erro: 'Acesso restrito.' };
   b.orcamento = 'Gratuito';   // palestra gratuita: orçamento é sempre gratuito
