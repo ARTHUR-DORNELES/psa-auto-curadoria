@@ -175,7 +175,7 @@ const SUPER = String(process.env.SUPER_ADMINS || 'renato.denck@profissionaissa.c
 export const ehSuper = (email) => SUPER.includes(normEmail(email));
 const SUPORTE_S = 60 * 60 * 4;
 // Demandas gratuitas: por enquanto só o Renato (lista editável por env, separada por vírgula)
-const GRATUITAS = String(process.env.DEMANDAS_GRATUITAS || 'renato.denck@profissionaissa.com')
+const GRATUITAS = String(process.env.DEMANDAS_GRATUITAS || 'renato.denck@profissionaissa.com,marcio.spagnolo@profissionaissa.com')
   .split(',').map((e) => normEmail(e)).filter(Boolean);
 export const podeGratuitas = (email) => GRATUITAS.includes(normEmail(email));
 const OBRIG_GRATUITA = ['nome', 'empresa', 'email', 'telefone', 'empresaPalestra', 'nomeEvento', 'qtdEspectadores', 'macroTema', 'publicoAlvo', 'formato', 'data', 'horario', 'duracao', 'localEvento', 'cidade', 'local', 'orcamento', 'vendaIngresso', 'motivacao', 'sentimento', 'briefing'];
