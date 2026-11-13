@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos, responderCandidatoHS, ETAPAS_GRAT, moverGratuita, porquesDoPalestrante } from './_lib.js';
+import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos, responderCandidatoHS, ETAPAS_GRAT, moverGratuita, porquesDoPalestrante, infoTokensHS } from './_lib.js';
 
 /**
  * Usuários por empresa. A assinatura continua sendo o negócio "Pago" casado pelo CPF/CNPJ
@@ -245,7 +245,21 @@ export async function responderCandidato(sess, b) {
   const pal = palestras[0];
   if (pal.dealstage === ETAPAS_GRAT.perdido) return { ok: false, erro: 'Esta demanda foi cancelada.' };
   try { await responderCandidatoHS(candId, resposta, mensagem); }
-  catch (e) { console.error('RESPONDER_CANDIDATO', e.message.slice(0, 300)); return { ok: false, erro: /40[13]/.test(e.message) ? 'Sem permissão para gravar a resposta no HubSpot.' : 'Não consegui gravar a resposta agora.' }; }
+  catch (e) {
+    console.error('RESPONDER_CANDIDATO', e.message.slice(0, 300));
+    if (!/40[13]/.test(e.message)) return { ok: false, erro: 'Não consegui gravar a resposta agora.' };
+    let detalhe = '';
+    if (ehSuper(sess.email)) {   // suporte PSA: diz qual app do HubSpot precisa do escopo
+      const t = await infoTokensHS().catch(() => ({}));
+      const fmt = (x) => (x ? `app ${x.appId || '?'} (escopos custom: ${(x.custom || []).join(', ') || 'nenhum'})` : 'não configurado');
+      detalhe = `
+
+Token principal: ${fmt(t.principal)}
+Token extra: ${fmt(t.extra)}
+Falta o escopo crm.objects.custom.write em um deles.`;
+    }
+    return { ok: false, erro: 'Sem permissão para gravar a resposta no HubSpot.' + detalhe };
+  }
   // com aprovado -> Palestrante selecionado. Fechar é decisão da empresa (botão Finalizar),
   // porque pode haver mais de um palestrante escolhido.
   const cands = pal.candidatos.map((c) => (String(c.id) === candId ? { ...c, resposta_ao_palestrante: resposta } : c));

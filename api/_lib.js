@@ -406,6 +406,19 @@ export const ETAPAS_GRAT = {
   perdido: process.env.STAGE_GRAT_PERDIDO || '1326633125',
 };
 export const moverGratuita = (dealId, etapa) => hs(`/crm/v3/objects/deals/${dealId}`, 'PATCH', { properties: { dealstage: etapa } });
+// Diagnóstico (só suporte PSA): qual app do HubSpot está por trás de cada token e quais escopos tem.
+// Nunca devolve o token, só o id do app e os escopos.
+export async function infoTokensHS() {
+  const info = async (tok) => {
+    if (!tok) return null;
+    try {
+      const r = await fetch(`${HS}/oauth/v2/private-apps/get/access-token-info`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tokenKey: tok }) });
+      const j = await r.json();
+      return { appId: j.appId || null, custom: (j.scopes || []).filter((s) => /custom/.test(s)) };
+    } catch (e) { return { erro: e.message.slice(0, 80) }; }
+  };
+  return { principal: await info(process.env.HUBSPOT_TOKEN), extra: await info(await ownersToken().catch(() => null)) };
+}
 export async function responderCandidatoHS(candidatoId, resposta, mensagem) {
   const corpo = { properties: { resposta_ao_palestrante: resposta, [PROP_MSG_CANDIDATO]: mensagem || '' } };
   const caminho = `/crm/v3/objects/${OBJ_CANDIDATOS}/${candidatoId}`;
