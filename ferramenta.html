@@ -949,8 +949,11 @@ function mostra(id, indice) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+let gratuitaPulouP1 = false;
 document.querySelectorAll('[data-vai]').forEach(b => b.addEventListener('click', () => {
   const destino = b.dataset.vai;
+  // palestra gratuita sem o passo 1: "Voltar" do passo 2 volta para a lista de palestras
+  if (destino === '1' && formModo === 'gratuita' && gratuitaPulouP1) { mostra('gate', 0); caixaGate('boxLogado'); abaConta('gratuitas'); return; }
   if (destino === '2' && !valida1()) return;
   if (destino === '3' && !valida2()) return;
   mostra('p' + destino, +destino);
@@ -1311,7 +1314,14 @@ $('#btnNovaGratuita').addEventListener('click', () => {
   ['e1', 'e2', 'e3'].forEach((e) => { const el = $('#' + e); if (el) el.textContent = ''; });
   $('#enviar').textContent = 'Criar palestra gratuita →'; $('#enviar').disabled = false;
   orcamentoGratuito(true);
-  mostra('p1', 1);
+  // passo 1 (quem organiza) já é conhecido: vem de quem está logado; se estiver completo, pula
+  const u = usuarioAtual || {};
+  const set = (id, v) => { if (v) $('#' + id).value = v; };
+  set('nome', contatoNovo.nome || u.nome); set('empresa', contatoNovo.empresa);
+  set('email', u.email || contatoNovo.email); set('telefone', u.celular || contatoNovo.telefone);
+  gratuitaPulouP1 = valida1();
+  $('#e1').textContent = '';
+  if (gratuitaPulouP1) mostra('p2', 2); else mostra('p1', 1);
 });
 // "Abrir minhas curadorias": só aqui a lista aparece.
 $('#btnAbrirLista').addEventListener('click', () => {
