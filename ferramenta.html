@@ -1533,8 +1533,8 @@ async function carregarGratuitas(aviso) {
       if (/perdido/i.test(p.etapa)) { txt = 'Demanda cancelada. Os candidatos foram avisados.'; cls += ' gr__aviso--x'; }
       else if (/fechado/i.test(p.etapa)) { txt = 'Palestra fechada: palestrante escolhido e todos os candidatos responderam.'; cls += ' gr__aviso--ok'; }
       else if (aprov && pend) txt = `⚠ ${aprov} aprovado${aprov === 1 ? '' : 's'} · ${pend} candidato${pend === 1 ? '' : 's'} sem resposta. Para finalizar, todos os não escolhidos precisam de resposta (Reprovado).`;
-      else if (aprov && !pend) { txt = `✓ ${aprov} palestrante${aprov === 1 ? '' : 's'} aprovado${aprov === 1 ? '' : 's'} e todos responderam. Já pode finalizar a demanda.`; cls += ' gr__aviso--ok'; }
-      else if (!aprov && p.candidatos.length) txt = 'Aprove o(s) palestrante(s) escolhido(s). Depois, finalize a demanda.';
+      else if (aprov && !pend) { txt = `✓ ${aprov} palestrante${aprov === 1 ? '' : 's'} aprovado${aprov === 1 ? '' : 's'} e todos responderam. Já pode finalizar a contratação.`; cls += ' gr__aviso--ok'; }
+      else if (!aprov && p.candidatos.length) txt = 'Aprove o(s) palestrante(s) escolhido(s). Depois, finalize a contratação.';
       av.textContent = txt; av.className = cls; av.style.display = txt ? '' : 'none';
       card.classList.toggle('gr--fim', /fechado|perdido/i.test(p.etapa));
       const fim = /fechado|perdido/i.test(p.etapa);
@@ -1543,7 +1543,7 @@ async function carregarGratuitas(aviso) {
         btnFin.style.display = fim ? 'none' : '';
         const pode = aprov > 0 && !pend;
         btnFin.setAttribute('aria-disabled', pode ? 'false' : 'true');
-        btnFin.title = pode ? 'Fecha a demanda (Negócio fechado)' : (!aprov ? 'Aprove pelo menos um palestrante' : 'Responda todos os candidatos');
+        btnFin.title = pode ? 'Fecha a contratação (Negócio fechado)' : (!aprov ? 'Aprove pelo menos um palestrante' : 'Responda todos os candidatos');
       }
       box.querySelectorAll('.gr__dec').forEach((d) => { d.style.display = /perdido/i.test(p.etapa) ? 'none' : ''; });
     };
@@ -1640,10 +1640,10 @@ async function carregarGratuitas(aviso) {
       focoGratuita(abrir ? card : null);
     });
     const btnCancel = document.createElement('button');
-    btnCancel.type = 'button'; btnCancel.className = 'gr__cancel'; btnCancel.textContent = '✕ Cancelar demanda';
+    btnCancel.type = 'button'; btnCancel.className = 'gr__cancel'; btnCancel.textContent = '✕ Cancelar contratação';
     btnCancel.addEventListener('click', async () => {
       const n = p.candidatos.length;
-      if (!confirm(`Cancelar a demanda "${titulo}"?${n ? `\n\nOs ${n} candidato${n === 1 ? '' : 's'} recebem a resposta "Demanda cancelada"` : ''} e o negócio vai para Negócio perdido.`)) return;
+      if (!confirm(`Cancelar a contratação "${titulo}"?${n ? `\n\nOs ${n} candidato${n === 1 ? '' : 's'} recebem a resposta "Demanda cancelada"` : ''} e o negócio vai para Negócio perdido.`)) return;
       const msg = n ? prompt('Mensagem para os candidatos (opcional):', 'A demanda foi cancelada pelo contratante. Obrigado pelo interesse.') : '';
       if (msg === null) return;
       btnCancel.disabled = true; btnCancel.textContent = 'Cancelando…';
@@ -1653,23 +1653,23 @@ async function carregarGratuitas(aviso) {
         p.etapa = r.etapa; p.candidatos.forEach((c) => { c.resposta_ao_palestrante = 'Demanda cancelada'; });
         pintarCands(p.candidatos); pintarStatus();
       } catch (e) { alert('Não foi possível cancelar agora.'); }
-      finally { btnCancel.disabled = false; btnCancel.textContent = '✕ Cancelar demanda'; }
+      finally { btnCancel.disabled = false; btnCancel.textContent = '✕ Cancelar contratação'; }
     });
     const btnFin = document.createElement('button');
-    btnFin.type = 'button'; btnFin.className = 'gr__fin'; btnFin.textContent = '✓ Finalizar demanda';
+    btnFin.type = 'button'; btnFin.className = 'gr__fin'; btnFin.textContent = '✓ Finalizar contratação';
     btnFin.addEventListener('click', async () => {
       const aprov = p.candidatos.filter((c) => c.resposta_ao_palestrante === 'Aprovado');
       const pend = p.candidatos.filter((c) => !c.resposta_ao_palestrante).length;
       if (!aprov.length) { alert('Aprove pelo menos um palestrante antes de finalizar.'); return; }
       if (pend) { alert(`Ainda há ${pend} candidato${pend === 1 ? '' : 's'} sem resposta. Responda todos (Aprovado ou Reprovado) para finalizar.`); return; }
-      if (!confirm(`Finalizar a demanda "${titulo}" com ${aprov.length} palestrante${aprov.length === 1 ? '' : 's'} aprovado${aprov.length === 1 ? '' : 's'}?\n\n${aprov.map((c) => '• ' + (c.nome_do_palestrante || '')).join('\n')}\n\nO negócio vai para Negócio fechado.`)) return;
+      if (!confirm(`Finalizar a contratação "${titulo}" com ${aprov.length} palestrante${aprov.length === 1 ? '' : 's'} aprovado${aprov.length === 1 ? '' : 's'}?\n\n${aprov.map((c) => '• ' + (c.nome_do_palestrante || '')).join('\n')}\n\nO negócio vai para Negócio fechado.`)) return;
       btnFin.disabled = true; btnFin.textContent = 'Finalizando…';
       try {
         const r = await postJSON('/api/conta', { acao: 'gratuitas-finalizar', sessao: sessaoAtual, dealId: p.id });
         if (!r.ok) { alert(r.erro || 'Não foi possível finalizar.'); return; }
         p.etapa = r.etapa; pintarStatus();
       } catch (e) { alert('Não foi possível finalizar agora.'); }
-      finally { btnFin.disabled = false; btnFin.textContent = '✓ Finalizar demanda'; }
+      finally { btnFin.disabled = false; btnFin.textContent = '✓ Finalizar contratação'; }
     });
     const acoes = document.createElement('div'); acoes.className = 'gr__acoes';
     const decisao = document.createElement('div'); decisao.className = 'gr__decisao';
