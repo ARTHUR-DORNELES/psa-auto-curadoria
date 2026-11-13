@@ -475,7 +475,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
     <h1 id="gateTitulo">Vamos começar<br>sua curadoria.</h1>
 
     <!-- 1º passo: já tem senha ou é o primeiro acesso? -->
-    <div id="boxEscolha">
+    <div id="boxEscolha" style="display:none">
       <p class="sub">Como você quer entrar?</p>
       <div class="op-grade">
         <button type="button" class="op lnk-gate" data-box="boxLogin"><span class="op__tit">Já tenho senha</span><span class="op__txt">Entre com seu e-mail e senha.</span></button>
@@ -583,6 +583,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
         <div class="acoes"><button class="btn btn--primary" id="btnMeuCelular">Salvar celular →</button></div>
       </div>
 
+      <p class="sub" id="painelCarregando" style="display:none;margin-top:var(--s-5);font-size:14px;color:var(--fg-3)">Carregando suas curadorias…</p>
       <div id="escolha">
         <div class="acoes" style="margin-top:var(--s-5)">
           <button class="btn" id="btnNovaBriefing" style="display:none;background:#16a34a;color:#fff;box-shadow:0 0 40px #16a34a55">Começar uma nova curadoria</button>
@@ -977,8 +978,19 @@ function caixaGate(id, focar = true) {
 }
 // quem já entrou neste navegador vai direto para e-mail + senha
 const ULT_EMAIL = 'ac_ultimo_email';
-try { const ult = localStorage.getItem(ULT_EMAIL); if (ult) { $('#loginEmail').value = ult; BOXES_GATE.forEach((b) => { $('#' + b).style.display = b === 'boxLogin' ? '' : 'none'; }); } } catch (e) {}
+// abertura sem piscar: com sessão salva, mostra o painel (com o nome guardado) na hora;
+// sem sessão, já abre no e-mail+senha (se entrou antes) ou na escolha
+const CACHE_USU = 'ac_usuario_cache';
+{
+  let ult = ''; try { ult = localStorage.getItem(ULT_EMAIL) || ''; } catch (e) {}
+  if (ult) $('#loginEmail').value = ult;
+  const temSessao = (() => { try { return !!localStorage.getItem('ac_sessao'); } catch (e) { return false; } })();
+  const qp = new URL(location.href).searchParams;
+  const alvoIni = temSessao && !qp.get('acesso') && !qp.get('id') ? 'boxLogado' : (ult ? 'boxLogin' : 'boxEscolha');
+  BOXES_GATE.forEach((b) => { $('#' + b).style.display = b === alvoIni ? '' : 'none'; });
+}
 function guardarSessao(t) {
+  if (!t) { try { localStorage.removeItem('ac_usuario_cache'); } catch (e) {} }   // saiu: esquece o usuário guardado
   sessaoAtual = t || '';
   try { if (t) localStorage.setItem('ac_sessao', t); else localStorage.removeItem('ac_sessao'); } catch (e) {}
 }
@@ -1132,27 +1144,18 @@ async function abrirPainel() {
   mostra('gate', 0);
   caixaGate('boxLogado');
   abaConta('curadorias');
+  let cache = null; try { cache = JSON.parse(localStorage.getItem(CACHE_USU) || 'null'); } catch (e) {}
+  if (cache && !usuarioAtual) pintarUsuario(cache, true);
+  $('#painelCarregando').style.display = '';
   let j;
   try { j = await postJSON('/api/acesso', { sessao: sessaoAtual }); }
-  catch (e) { $('#eLogado').textContent = 'Não conseguimos carregar agora. Tente de novo em instantes.'; return; }
+  catch (e) { $('#painelCarregando').style.display = 'none'; $('#eLogado').textContent = 'Não conseguimos carregar agora. Tente de novo em instantes.'; return; }
+  $('#painelCarregando').style.display = 'none';
   if (!j.ok && j.motivo === 'sessao') return sessaoCaiu(j.erro);
   usuarioAtual = j.usuario || null;
+  try { if (usuarioAtual && !usuarioAtual.suporte) localStorage.setItem(CACHE_USU, JSON.stringify(usuarioAtual)); } catch (e) {}
+  pintarUsuario(usuarioAtual || {}, false);
   const u = usuarioAtual || {};
-  const nome = u.nome || u.email || '';
-  // título vira a saudação; barra da conta mostra quem está logado e o papel
-  $('#gateTitulo').innerHTML = `Olá, ${escHTML(nome.split(' ')[0] || 'tudo bem')}.`;
-  $('#contaAv').textContent = (nome.trim()[0] || '?');
-  $('#contaAv').title = u.email || '';
-  // nome curto no header: primeiro nome + último sobrenome (evita "Noelea da")
-  const partes = nome.trim().split(/\s+/);
-  $('#contaNome').textContent = partes.length > 1 ? `${partes[0]} ${partes[partes.length - 1]}` : nome;
-  $('#contaNome').title = u.email || '';
-  $('#contaPapel').textContent = u.suporte ? 'Somente leitura' : (u.papel === 'admin' ? 'Administrador' : 'Usuário');
-  $('#contaHeader').style.display = '';
-  $('#btnEmpresas').style.display = u.superAdmin && !u.suporte ? '' : 'none';
-  $('#btnOraculo').style.display = (u.superAdmin || u.oraculo) && !u.suporte ? '' : 'none';
-  $('#btnDemandaGratuita').style.display = u.gratuitas && !u.suporte ? '' : 'none';
-  if (u.suporte) $('#gateTitulo').innerHTML = escHTML(($('#fsEmpresa').textContent || 'Empresa')) + '.';
   // sem celular: pede antes de tudo (abas e lista ficam escondidas até salvar)
   const semCel = !u.celular;
   $('#boxMeuCelular').style.display = semCel ? '' : 'none';
@@ -1172,6 +1175,26 @@ async function abrirPainel() {
   contatoNovo = j.contato || {};
   montarLista(j.modo === 'escolher' ? (j.curadorias || []) : []);
   $('#btnNovaBriefing').style.display = j.modo === 'novo' || j.podeNova ? '' : 'none';
+}
+// cabeçalho, saudação e abas do usuário (do cache na abertura, do servidor em seguida)
+function pintarUsuario(u, doCache) {
+  const nome = u.nome || u.email || '';
+  // título vira a saudação; barra da conta mostra quem está logado e o papel
+  $('#gateTitulo').innerHTML = `Olá, ${escHTML(nome.split(' ')[0] || 'tudo bem')}.`;
+  $('#contaAv').textContent = (nome.trim()[0] || '?');
+  $('#contaAv').title = u.email || '';
+  // nome curto no header: primeiro nome + último sobrenome (evita "Noelea da")
+  const partes = nome.trim().split(/\s+/);
+  $('#contaNome').textContent = partes.length > 1 ? `${partes[0]} ${partes[partes.length - 1]}` : nome;
+  $('#contaNome').title = u.email || '';
+  $('#contaPapel').textContent = u.suporte ? 'Somente leitura' : (u.papel === 'admin' ? 'Administrador' : 'Usuário');
+  $('#contaHeader').style.display = '';
+  $('#btnEmpresas').style.display = u.superAdmin && !u.suporte ? '' : 'none';
+  $('#btnOraculo').style.display = (u.superAdmin || u.oraculo) && !u.suporte ? '' : 'none';
+  $('#btnDemandaGratuita').style.display = u.gratuitas && !u.suporte ? '' : 'none';
+  if (u.suporte) $('#gateTitulo').innerHTML = escHTML(($('#fsEmpresa').textContent || 'Empresa')) + '.';
+  if (doCache) $('#abasConta').style.display = u.papel === 'admin' && u.celular ? '' : 'none';
+
 }
 
 function montarLista(curadorias) {

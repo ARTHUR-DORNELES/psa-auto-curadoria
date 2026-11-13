@@ -16,9 +16,8 @@ export default async function handler(req, res) {
     const sess = await lerSessao(sessao);
     if (!sess) return res.status(200).json({ ok: false, motivo: 'sessao', erro: 'Sua sessão expirou. Entre de novo.' });
     const usuario = { ...publico({ ...sess, status: 'ativo' }) };
-    await marcarAcesso(sess.doc, sess.email);
-
-    const dec = await decidirAcesso(sess.doc);
+    // em paralelo: gravar o último acesso não precisa atrasar a abertura do painel
+    const [, dec] = await Promise.all([marcarAcesso(sess.doc, sess.email), decidirAcesso(sess.doc)]);
     const minhas = (dec.curadorias || []).filter((c) =>
       sess.papel === 'admin' || (c.autor && c.autor.email === sess.email));
     const podeNova = dec.modo === 'novo' || !!dec.podeNova;
