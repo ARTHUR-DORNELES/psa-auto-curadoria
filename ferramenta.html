@@ -112,15 +112,15 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 @media(max-width:640px){.wk{padding:0}.wk__caixa{height:100%;border-radius:0}}
 .gr__dec{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
 .gr__ok,.gr__no{border-radius:999px;padding:6px 14px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;border:1px solid}
-.gr__ok{background:#16a34a;border-color:#16a34a;color:#fff}
-.gr__ok:hover{background:#15803d}
+.gr__ok{background:none;border-color:#37c07a;color:#37c07a}
+.gr__ok:hover{background:#16a34a22}
 .gr__no{background:none;border-color:#ef4444aa;color:#ff8080}
 .gr__no:hover{background:#ef44441a}
 .gr__dec textarea{width:100%;min-height:70px;font-size:13px;padding:8px 10px}
 .gr__msg{font-size:12px;color:var(--fg-2);margin:6px 0 0;white-space:pre-line;width:100%}
 .gr__res{font-size:12px;font-weight:700;border-radius:999px;padding:4px 12px}
-.gr__res--ok{background:#16a34a22;color:#37c07a;border:1px solid #37c07a66}
-.gr__res--no{background:#ef44441a;color:#ff8080;border:1px solid #ef444466}
+.gr__res--ok{background:#16a34a;color:#fff;border:1px solid #16a34a}
+.gr__res--no{background:#dc2626;color:#fff;border:1px solid #dc2626}
 .gr__aviso{font-size:12px;margin-top:10px;padding:8px 12px;border-radius:10px;background:#f8d71b14;border:1px solid #f8d71b55;color:#f8d71b}
 .gr__aviso--ok{background:#16a34a14;border-color:#37c07a66;color:#37c07a}
 .gr__aviso--x{background:#ef44441a;border-color:#ef444466;color:#ff8080}
@@ -1616,7 +1616,7 @@ async function carregarGratuitas(aviso) {
       } catch (e) { alert('Não foi possível salvar.'); el.querySelectorAll('button,select').forEach((x) => { x.disabled = false; }); }
     };
     const botoes = (el, c) => {
-      el.innerHTML = '<button type="button" class="gr__ok">✓ Aprovado</button><button type="button" class="gr__no">✕ Reprovado</button>';
+      el.innerHTML = '<button type="button" class="gr__ok">✓ Aprovar</button><button type="button" class="gr__no">✕ Reprovar</button>';
       el.querySelector('.gr__ok').addEventListener('click', () => responder(el, c, 'Aprovado'));
       el.querySelector('.gr__no').addEventListener('click', () => {
         el.innerHTML = `<textarea aria-label="Resposta ao candidato" placeholder="Resposta ao candidato (opcional): ex. agradecemos o interesse, mas seguimos com outro perfil para este evento."></textarea><button type="button" class="gr__no">Confirmar reprovação</button><button type="button" class="gr__mudar">cancelar</button>`;
