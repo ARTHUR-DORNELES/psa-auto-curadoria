@@ -80,7 +80,7 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .lnk-voltar:hover{color:var(--fg-1)}
 .faixa-suporte{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;background:#f8d71b;color:#02060f;font-size:13px;font-weight:600;padding:8px 16px;text-align:center}
 .faixa-suporte button{background:#02060f;color:#fff;border:0;border-radius:999px;padding:6px 14px;font:inherit;font-size:12px;cursor:pointer}
-.modo-suporte .gr__dec,.modo-suporte #btnDemandaGratuita,.modo-suporte #btnNovaGratuita,.modo-suporte #btnNovaBriefing,.modo-suporte #usuConvite,.modo-suporte .acoes-usu>button:not(.ok-suporte),.modo-suporte .acoes-cur,.modo-suporte #btnSair,.modo-suporte .btn-disp,.modo-suporte #refazer,.modo-suporte #quero-curador,.modo-suporte #tut,.modo-suporte #btnEmpresas,.modo-suporte #btnOraculo{display:none!important}
+.modo-suporte .gr__dec,.modo-suporte .gr__decisao,.modo-suporte #btnNovaGratuita,.modo-suporte #btnNovaBriefing,.modo-suporte #usuConvite,.modo-suporte .acoes-usu>button:not(.ok-suporte),.modo-suporte .acoes-cur,.modo-suporte #btnSair,.modo-suporte .btn-disp,.modo-suporte #refazer,.modo-suporte #quero-curador,.modo-suporte #tut,.modo-suporte #btnEmpresas{display:none!important}
 .gr{border:1px solid var(--border-subtle);border-radius:var(--r-md);padding:16px 18px;background:#ffffff04}
 .gr__top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 16px;align-items:flex-start}
 .gr__tit{font-weight:700;font-size:16px;margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
@@ -1163,8 +1163,8 @@ async function abrirPainel() {
   const semCel = !u.celular;
   $('#boxMeuCelular').style.display = semCel ? '' : 'none';
   if (semCel) { $('#meuCelular').value = '+55 '; $('#escolha').style.display = 'none'; }
-  // abas só para admin (usuário comum só tem as curadorias dele)
-  $('#abasConta').style.display = u.papel === 'admin' && !semCel ? '' : 'none';
+  // abas: admin sempre; usuário comum só quando a empresa tem Oráculo ou Palestras gratuitas
+  $('#abasConta').style.display = temAbas(u) && !semCel ? '' : 'none';
   if (u.papel === 'admin') {
     postJSON('/api/conta', { acao: 'usuarios', op: 'listar', sessao: sessaoAtual })
       .then((r) => { if (r && r.ok) $('#abaUsuQtd').textContent = `${r.usados}/${r.limite}`; }).catch(() => {});
@@ -1179,6 +1179,7 @@ async function abrirPainel() {
   montarLista(j.modo === 'escolher' ? (j.curadorias || []) : []);
   $('#btnNovaBriefing').style.display = j.modo === 'novo' || j.podeNova ? '' : 'none';
 }
+const temAbas = (u) => u.papel === 'admin' || u.superAdmin || u.oraculo || u.gratuitas;
 // cabeçalho, saudação e abas do usuário (do cache na abertura, do servidor em seguida)
 function pintarUsuario(u, doCache) {
   const nome = u.nome || u.email || '';
@@ -1193,10 +1194,12 @@ function pintarUsuario(u, doCache) {
   $('#contaPapel').textContent = u.suporte ? 'Somente leitura' : (u.papel === 'admin' ? 'Administrador' : 'Usuário');
   $('#contaHeader').style.display = '';
   $('#btnEmpresas').style.display = u.superAdmin && !u.suporte ? '' : 'none';
-  $('#btnOraculo').style.display = (u.superAdmin || u.oraculo) && !u.suporte ? '' : 'none';
-  $('#btnDemandaGratuita').style.display = u.gratuitas && !u.suporte ? '' : 'none';
+  $('#btnOraculo').style.display = u.superAdmin || u.oraculo ? '' : 'none';
+  $('#btnDemandaGratuita').style.display = u.gratuitas ? '' : 'none';
+  // Usuários é só do admin; usuário comum vê as abas se a empresa tiver Oráculo ou Gratuitas
+  $('#btnUsuarios').style.display = u.papel === 'admin' ? '' : 'none';
   if (u.suporte) $('#gateTitulo').innerHTML = escHTML(($('#fsEmpresa').textContent || 'Empresa')) + '.';
-  if (doCache) $('#abasConta').style.display = u.papel === 'admin' && u.celular ? '' : 'none';
+  if (doCache) $('#abasConta').style.display = temAbas(u) && u.celular ? '' : 'none';
 
 }
 

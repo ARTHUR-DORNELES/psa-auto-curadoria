@@ -178,6 +178,8 @@ const SUPORTE_S = 60 * 60 * 4;
 const GRATUITAS = String(process.env.DEMANDAS_GRATUITAS || 'renato.denck@profissionaissa.com,marcio.spagnolo@profissionaissa.com')
   .split(',').map((e) => normEmail(e)).filter(Boolean);
 export const podeGratuitas = (email) => GRATUITAS.includes(normEmail(email));
+// suporte PSA logado como ele mesmo vê a pipeline inteira; no modo suporte vê só a empresa visitada
+const veTudoGrat = (sess) => !sess.suporte && ehSuper(sess.email);
 const OBRIG_GRATUITA = ['nome', 'empresa', 'email', 'telefone', 'empresaPalestra', 'nomeEvento', 'qtdEspectadores', 'macroTema', 'publicoAlvo', 'formato', 'data', 'horario', 'duracao', 'localEvento', 'cidade', 'local', 'orcamento', 'vendaIngresso', 'motivacao', 'sentimento', 'briefing'];
 // Cada empresa vê só as palestras gratuitas que ela criou (índice no Redis por documento).
 // O suporte PSA (super admin) vê a pipeline inteira.
@@ -185,11 +187,11 @@ const kGratuitas = (doc) => `ac:org:${doc}:gratuitas`;
 // a empresa não recebe o contato direto do palestrante (fala pela PSA); o e-mail só é usado no servidor
 const semContato = (c) => { delete c.email; delete c.telefone; delete c.link_do_perfil_do_palestrante; return c; };
 export async function palestrasGratuitas(sess) {
-  if (!sess || sess.suporte || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };
-  const ids = ehSuper(sess.email) ? null : await redis().smembers(kGratuitas(sess.doc));
+  if (!sess || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };
+  const ids = veTudoGrat(sess) ? null : await redis().smembers(kGratuitas(sess.doc));
   const r = await listarPalestrasGratuitas(ids);
   r.palestras.forEach((p) => p.candidatos.forEach(semContato));
-  if (!ehSuper(sess.email)) { delete r.erroDetalhe; return { ok: true, todas: false, ...r }; }   // detalhe técnico só para o suporte PSA
+  if (!veTudoGrat(sess)) { delete r.erroDetalhe; return { ok: true, todas: false, ...r }; }   // detalhe técnico só para o suporte PSA
   // suporte PSA: diz de qual empresa é cada palestra (para o filtro)
   const docPorDeal = {};
   let cursor = '0';
@@ -222,10 +224,10 @@ async function nomeDaEmpresa(doc) {
 }
 // candidatos de UMA palestra, com foto e wiki (a empresa só abre as palestras dela)
 export async function candidatosDaGratuita(sess, b) {
-  if (!sess || sess.suporte || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };
+  if (!sess || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };
   const id = String(b.dealId || '').replace(/\D/g, '');
   if (!id) return { ok: false, erro: 'Palestra não informada.' };
-  if (!ehSuper(sess.email) && !(await redis().sismember(kGratuitas(sess.doc), id))) return { ok: false, erro: 'Esta palestra não é da sua empresa.' };
+  if (!veTudoGrat(sess) && !(await redis().sismember(kGratuitas(sess.doc), id))) return { ok: false, erro: 'Esta palestra não é da sua empresa.' };
   const { palestras, erroCandidatos } = await listarPalestrasGratuitas([id]);
   if (!palestras.length) return { ok: false, erro: 'Palestra não encontrada.' };
   return { ok: true, candidatos: (await enriquecerCandidatos(palestras[0].candidatos)).map(semContato), erroCandidatos };
@@ -276,10 +278,10 @@ const nomeEtapaGrat = (id) => ({ [ETAPAS_GRAT.novo]: 'Novo', [ETAPAS_GRAT.seleci
 
 // 3 porquês de UM candidato (só quem tem wiki tem porquês)
 export async function porquesDoCandidato(sess, b) {
-  if (!sess || sess.suporte || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };
+  if (!sess || !sess.gratuitas) return { ok: false, erro: 'Acesso restrito.' };
   const dealId = String(b.dealId || '').replace(/\D/g, ''), candId = String(b.candidatoId || '').replace(/\D/g, '');
   if (!dealId || !candId) return { ok: false, erro: 'Candidato não informado.' };
-  if (!ehSuper(sess.email) && !(await redis().sismember(kGratuitas(sess.doc), dealId))) return { ok: false, erro: 'Esta palestra não é da sua empresa.' };
+  if (!veTudoGrat(sess) && !(await redis().sismember(kGratuitas(sess.doc), dealId))) return { ok: false, erro: 'Esta palestra não é da sua empresa.' };
   const { palestras } = await listarPalestrasGratuitas([dealId]);
   const c = palestras[0]?.candidatos.find((x) => String(x.id) === candId);
   if (!c) return { ok: false, erro: 'Este candidato não é desta palestra.' };
@@ -453,7 +455,7 @@ export async function lerSessao(t) {
   // sessão de suporte: admin da empresa, somente leitura, sem existir na lista de usuários
   if (s.suporte) {
     if (!ehSuper(s.realEmail)) return null;
-    return { doc: s.doc, email: s.realEmail, nome: 'Suporte PSA', celular: 'suporte', papel: 'admin', suporte: true, realEmail: s.realEmail, realNome: s.realNome };
+    return { doc: s.doc, email: s.realEmail, nome: 'Suporte PSA', celular: 'suporte', papel: 'admin', suporte: true, realEmail: s.realEmail, realNome: s.realNome, oraculo: await oraculoLiberado(s.doc).catch(() => false), gratuitas: await gratuitasLiberadas(s.doc).catch(() => false) };
   }
   const u = await lerUsuario(s.doc, s.email);
   if (!u || u.status !== 'ativo') return null;
