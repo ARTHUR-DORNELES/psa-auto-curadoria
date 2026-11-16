@@ -1179,6 +1179,9 @@ async function abrirPainel() {
   montarLista(j.modo === 'escolher' ? (j.curadorias || []) : []);
   $('#btnNovaBriefing').style.display = j.modo === 'novo' || j.podeNova ? '' : 'none';
 }
+// selo "NPS Auditado" só aparece pro cliente a partir deste valor (16/11/2026, Renato: abaixo de 50 esconde).
+// O NPS segue calculado e gravado no contato para todo mundo; isto é só exibição.
+const NPS_SELO_MIN = 50;
 const temAbas = (u) => u.papel === 'admin' || u.superAdmin || u.oraculo || u.gratuitas;
 // cabeçalho, saudação e abas do usuário (do cache na abertura, do servidor em seguida)
 function pintarUsuario(u, doCache) {
@@ -3106,7 +3109,7 @@ function htmlNomes(d) {
             <span class="ind__rank">INDICAÇÃO 0${n + 1}</span>
             <span class="ind__nome">${esc(ind.nome)}</span>
             ${redesIcones(ind.redes, ind.wiki)}
-            ${ind.nps != null && String(ind.nps) !== '' ? `<div class="ind__nps-aud"><span class="ind__nps-lbl">NPS Auditado</span><span class="ind__nps-val">${esc(ind.nps)}</span></div>` : ''}
+            ${ind.nps != null && String(ind.nps) !== '' && Number(ind.nps) >= NPS_SELO_MIN ? `<div class="ind__nps-aud"><span class="ind__nps-lbl">NPS Auditado</span><span class="ind__nps-val">${esc(ind.nps)}</span></div>` : ''}
                       </div>
           <div class="ind__doc"><span class="ind__doc-pill ind__doc-pill--${ind.docDisponivel ? 'ok' : 'no'}">${ind.docDisponivel
             ? '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.2 8.6l3 3 6.6-7"/></svg>Documentação disponível'
