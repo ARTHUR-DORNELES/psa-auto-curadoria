@@ -9,6 +9,7 @@
     "api/curar.js": { "maxDuration": 60 },
     "api/chat.js": { "maxDuration": 30 },
     "api/conta.js": { "maxDuration": 120 },
-    "api/palestrantes.js": { "maxDuration": 60 }
+    "api/palestrantes.js": { "maxDuration": 60 },
+    "api/depoimentos.js": { "maxDuration": 60 }
   }
 }

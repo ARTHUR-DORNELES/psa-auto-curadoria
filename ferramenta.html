@@ -3110,7 +3110,7 @@ function htmlNomes(d) {
                       </div>
           <div class="ind__doc"><span class="ind__doc-pill ind__doc-pill--${ind.docDisponivel ? 'ok' : 'no'}">${ind.docDisponivel
             ? '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.2 8.6l3 3 6.6-7"/></svg>Documentação disponível'
-            : '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>Documentação indisponível'}</span>${(ind.depoimentos || []).length ? `<button type="button" class="ind__dep-btn btn-dep" data-idx="${n}">Ver ${ind.depoimentos.length} depoimento${ind.depoimentos.length > 1 ? 's' : ''}</button>` : ''}</div>
+            : '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>Documentação indisponível'}</span><button type="button" class="ind__dep-btn btn-dep" data-idx="${n}"${(ind.depoimentos || []).length ? '' : ' style="display:none"'}>Ver ${(ind.depoimentos || []).length} depoimento${(ind.depoimentos || []).length > 1 ? 's' : ''}</button></div>
           <div class="ind__meta">
             ${ind.perfil ? `<strong>${esc(ind.perfil)}</strong>` : ''}
             ${(ind.resposta && ind.resposta.disponivel !== false && ind.resposta.valor)
@@ -3253,9 +3253,26 @@ function wireNomes(d) {
   $('#resultado').querySelectorAll('.btn-dep').forEach(btn => {
     btn.addEventListener('click', () => {
       const ind = r.indicacoes[Number(btn.dataset.idx)];
-      if (ind) abrirDepoimentos(ind.nome, ind.depoimentos);
+      if (ind) abrirDepoimentos(ind.nome, ind.depoimentosTodos || ind.depoimentos);
     });
   });
+  // Todos os depoimentos, buscados na hora na API do PSA (o card nasce com os até 5
+  // guardados no contato). Só troca quando a busca trouxe mais do que já havia.
+  {
+    const ids = [...new Set((r.indicacoes || []).map((i) => String(i.id_contato || '')).filter((x) => /^\d+$/.test(x)))];
+    if (ids.length) postJSON('/api/depoimentos', { ids }).then((j) => {
+      if (!j || !j.ok || !j.porId) return;
+      $('#resultado').querySelectorAll('.btn-dep').forEach((btn) => {
+        const ind = r.indicacoes[Number(btn.dataset.idx)];
+        const vivo = ind && j.porId[String(ind.id_contato || '')];
+        const n = vivo ? (vivo.depoimentos || []).length : 0;
+        if (!ind || n <= (ind.depoimentos || []).length) return;
+        ind.depoimentosTodos = vivo.depoimentos;
+        btn.textContent = `Ver ${n} depoimento${n > 1 ? 's' : ''}`;
+        btn.style.display = '';
+      });
+    }).catch(() => {});
+  }
 
   // placar do limite: começa pelo do autor (veio no GET) e, logado, troca pelo de quem está vendo
   pintarLimiteDisp(d.limiteDisp);
