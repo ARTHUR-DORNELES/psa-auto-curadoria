@@ -1,8 +1,8 @@
 import { redis, cors, hs } from './_lib.js';
 
-// Depoimentos COMPLETOS do palestrante, buscados na hora na API do PSA.
+// Depoimentos do palestrante (até 5), buscados na hora na API do PSA.
 // O card nasce com os até 5 guardados no contato (workflow "Roster NPS" do n8n);
-// esta rota traz todos os que passam no mesmo filtro, para o pop-up e para o
+// esta rota completa até 5 com o que entrou depois da varredura, mesmo filtro, para o pop-up e o
 // número do botão. Cache de 1 dia por contato.
 //
 // POST { ids: ["<id_contato>", ...] }  ->  { ok, porId: { <id>: { total, depoimentos } } }
@@ -10,7 +10,7 @@ import { redis, cors, hs } from './_lib.js';
 
 const BASE = 'https://services-prd.profissionaissa.com/login-psa-ms';
 const TTL = 86400;
-const MAX_LISTA = 80;           // teto do que vai para o pop-up
+const MAX_LISTA = 5;            // teto por palestrante (decisão do Renato: até 5), o mesmo do Roster NPS
 const MIN_PLATEIA = 61, MIN_CONTRATANTE = 40, MAX_CHARS = 320;
 
 // ---- filtro: cópia fiel do nó "Calcula NPS" (n8n-backups/novos/roster-nps) ----
