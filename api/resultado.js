@@ -114,6 +114,22 @@ export default async function handler(req, res) {
       await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
     }
 
+    // Essencial: o card mostra o CACHÊ (um valor só). Curadoria gerada antes dessa regra
+    // guardou a faixa com margem ("R$ X a R$ Y"); relê do negócio uma vez e troca pelo cachê.
+    if (reg.resultado && reg.briefing?.produto === 'essencial' && !reg.cacheEssencialRelido && reg.hubspot?.negocioId
+        && (reg.resultado.indicacoes || []).some(i => / a /.test(String(i.valorVenda || '')))) {
+      try {
+        const { nomesBruto } = await curadoriaDoNegocio(reg.hubspot.negocioId);
+        const porNome = new Map(lerNomes(nomesBruto).map(n => [chaveDeNome(n.nome), n.valorVenda]).filter(([, v]) => v));
+        for (const ind of reg.resultado.indicacoes) {
+          const vv = porNome.get(chaveDeNome(ind.nome));
+          if (vv) ind.valorVenda = vv;
+        }
+        reg.cacheEssencialRelido = true;
+        await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
+      } catch (e) { console.error('releitura do cachê (Essencial) falhou:', e.message); }
+    }
+
     // enriquecimento tardio do valor de venda: resultados gerados antes de o parser
     // capturar a linha "Valor de venda:" ficaram sem o campo. Relê o texto do negócio
     // e preenche por nome — sem refazer a curadoria (mantém os mesmos nomes).
