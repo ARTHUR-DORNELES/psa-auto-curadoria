@@ -28,8 +28,17 @@ trocar('<title>Auto Curadoria | PSA Palestras</title>', '<title>Auto Curadoria E
 const SELO = `<h1 class="selo-ess"><span class="selo-ess__nome">Auto Curadoria</span><span class="selo-ess__tag">Essencial</span></h1>`;
 trocar(`<span class="eyebrow">Para empresas · Auto Curadoria</span>
         <h1>Tá com pressa?<br><em>Sem problema.</em></h1>`, SELO);
-trocar(`<span class="eyebrow">Para agências · Auto Curadoria</span>
-        <h1>Vários eventos?<br><em>A gente cura.</em></h1>`, SELO);
+// slide de agências sai (Renato, 18/11): hero de um slide só, sem as bolinhas do carrossel
+// (o JS do carrossel já não roda com menos de 2 slides)
+{
+  const a = s.indexOf('    <div class="hero__slide" id="hero-agencias">');
+  const fimRail = s.indexOf('  </div></div>\n  <div class="wrap"><div class="hero__dots">', a);
+  const fimDots = s.indexOf('</div></div>', s.indexOf('<div class="hero__dots">', fimRail)) + '</div></div>'.length;
+  if (a < 0 || fimRail < 0) throw new Error('essencial: slide de agências não encontrado');
+  s = s.slice(0, a) + s.slice(fimRail, fimRail + '  </div></div>\n'.length) + s.slice(fimDots + 1);
+}
+// número do banco na Essencial (Renato, 18/11)
+trocar('<div class="stat__k">+80 mil</div>', '<div class="stat__k">+10 mil</div>');
 trocar(
   'alt="PSA Palestras" width="80" height="32"></a>',
   'alt="PSA Palestras" width="80" height="32"></a>\n    <span class="nav__prod">Auto Curadoria <b>Essencial</b></span>',
@@ -42,6 +51,7 @@ trocar(
 .nav__prod{font-family:var(--font-body);font-weight:700;font-size:var(--t-caption);letter-spacing:.12em;text-transform:uppercase;color:var(--fg-2);border-left:1px solid #ffffff2b;padding-left:var(--s-4)}
 .nav__prod b{color:var(--psa-orange)}
 @media(max-width:860px){.nav__prod{display:none}}
+.hero__rail{width:100%}.hero__slide{flex:0 0 100%;width:100%}
 `;
   const i = s.indexOf('</style>');
   if (i < 0) throw new Error('essencial: </style> não encontrado');
@@ -50,10 +60,6 @@ trocar(
 trocar(
   'A Auto Curadoria é uma novidade onde, a partir do preenchimento do briefing, você recebe os nomes que dão match com o seu evento <strong>em até 5 minutos</strong>.',
   'Curadoria de palestrantes para eventos com orçamento enxuto. Preencha o briefing e receba, em até 5 minutos, os nomes que dão match com o seu evento: <strong>só palestrantes com cachê de até R$ 5 mil</strong> ou em condições especiais.',
-);
-trocar(
-  'Sua agência monta a curadoria de cada cliente em minutos e recebe os nomes que dão match com cada evento. <strong>Escale o atendimento sem travar na busca por palestrante.</strong>',
-  'Para agências com clientes de orçamento enxuto: monte a curadoria de cada evento em minutos, <strong>só com palestrantes de cachê até R$ 5 mil</strong> ou em condições especiais.',
 );
 
 // card de preço: troca os dois planos por um só, da Essencial
