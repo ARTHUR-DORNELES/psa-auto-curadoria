@@ -7,12 +7,11 @@
 // pro cliente.
 import fs from 'node:fs';
 
-// PROVISÓRIO (18/11/2026): preço e checkout da Essencial ainda não existem.
-// Quando existirem, troque aqui e rode `npm run embed`.
-const PRECO = 'A definir';
-const PRECO_NOTA = 'valor e checkout em definição';
-const CHECKOUT = 'https://api.whatsapp.com/send/?phone=5511964889660&text=Ol%C3%A1%2C+quero+a+Auto+Curadoria+Essencial&type=phone_number&app_absent=0';
-const CTA_PLANO = 'Quero a Essencial →';
+// Preço e checkout da Essencial (Renato, 18/11/2026): R$ 500/mês. Mudou? troque aqui e rode `npm run embed`.
+const PRECO = 'R$ 500<small> /mês</small>';
+const PRECO_NOTA = 'cobrança mensal';
+const CHECKOUT = 'https://checkout.profissionaissa.com.br/curadoria/checkout/f3624a16-5d41-47c6-9ab1-f6e72ddb6f72';
+const CTA_PLANO = 'Adquirir agora →';
 
 let s = fs.readFileSync('index.html', 'utf8');
 
@@ -86,6 +85,8 @@ const plano = `<div class="price" style="grid-template-columns:minmax(0,440px)">
     </div>
     `;
 s = s.slice(0, ini) + plano + s.slice(fim);
+// qualquer outro botão de compra que sobrou da LP completa (ex.: card do Comparativo) vai pro checkout da Essencial
+s = s.split('https://checkout.profissionaissa.com.br/curadoria/checkout/4fbc7e0d-c39c-4241-9334-ef62c2326b55').join(CHECKOUT);
 trocar('<h2>Curadorias ilimitadas,<br>numa assinatura só.</h2>', '<h2>Curadoria de verdade,<br>no orçamento do seu evento.</h2>');
 trocar(
   'A Auto Curadoria é uma assinatura mensal: monte quantas curadorias quiser, sem limite. O cachê do palestrante é apresentado à parte, na proposta de cada indicação.',
