@@ -3102,6 +3102,7 @@ function htmlNomes(d) {
     <p class="leitura">${esc(r.leitura)}</p>
     ${r.incompleto ? `<p class="aviso">Adiantamos ${r.indicacoes.length} nome${r.indicacoes.length > 1 ? 's' : ''} de alta aderência. Um curador vai completar sua indicação e te avisar — sem custo extra.</p>` : ''}
     <p class="aviso" id="avisoLimiteDisp" style="display:none"></p>
+    ${(d.acimaDoTeto && d.acimaDoTeto.length) ? `<p class="aviso"><strong>${d.acimaDoTeto.map(esc).join(', ')}:</strong> o valor ${d.acimaDoTeto.length > 1 ? 'desses palestrantes é maior' : 'desse palestrante é maior'} que o cachê máximo da Auto Curadoria Essencial (R$ 5.000), por isso não ${d.acimaDoTeto.length > 1 ? 'entraram' : 'entrou'} nesta curadoria.</p>` : ''}
     ${(d.naoEncontrados && d.naoEncontrados.length) ? `<p class="aviso"><strong>Não localizamos na nossa base:</strong> ${d.naoEncontrados.map(esc).join(', ')}. Confira a grafia do nome completo, ou fale com um curador da PSA que a gente confirma a disponibilidade desse palestrante pra você.</p>` : ''}
     ${d.refacoesRestantes > 0 ? `
     <div class="tut" id="tut">
@@ -3130,7 +3131,7 @@ function htmlNomes(d) {
             ${(ind.resposta && ind.resposta.disponivel !== false && ind.resposta.valor)
               ? ''   // já tem valor confirmado com o palestrante: a estimativa sai de cena
               : ind.valorVenda
-              ? `<span class="ind__faixa">${d.briefing && d.briefing.produto === 'essencial' ? 'Cachê' : 'Valor da curadoria'}: ${esc(ind.valorVenda)}</span>`
+              ? `<span class="ind__faixa">${d.briefing && d.briefing.produto === 'essencial' ? 'Valor' : 'Valor da curadoria'}: ${esc(ind.valorVenda)}</span>`
               : (ind.faixa ? `<span class="ind__faixa">investimento ${esc(ind.faixa)}</span>` : '')}
           </div>
           <ul>${ind.porque.map(p => `<li>${esc(p)}</li>`).join('')}</ul>

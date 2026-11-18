@@ -1,4 +1,8 @@
 import { redis, chave, chaveProjeto, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, anexarWikiLinks, anexarDocStatus, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, limparNomesDoNegocio, finalizarCuradoria, chaveDeNome, respostasDisponibilidade, anexarBriefingAoNegocio, registrarNomesNaoEncontrados, pedidosDispEmAberto, registrarPedidosDisp, donoDoPedido, podeVerCuradoria } from './_lib.js';
+
+// Essencial: nomes pedidos pelo cliente que ficaram fora por ter cachê acima do teto.
+// O psa-ia-board grava a linha `ACIMA_DO_TETO: [A | B]` junto com os nomes.
+const acimaDoTetoDe = (txt) => { const m = String(txt || '').match(/ACIMA_DO_TETO:\s*\[([^\]]*)\]/i); return m ? m[1].split('|').map((x) => x.trim()).filter(Boolean) : []; };
 import { lerSessao } from './_auth.js';
 
 const placarDisp = (p) => ({ limite: p.limite, emAberto: p.pendentes.length, nomes: p.pendentes.map((x) => (x.evento ? `${x.nome} (${x.evento})` : x.nome)) });
@@ -82,6 +86,7 @@ export default async function handler(req, res) {
         // `categoria` (permuta!) é comercial interno: paraCliente() a remove
         indicacoes: escolhidos.map(n => ({ ...n, aderencia: n.aderencia || 'alta' })),
       };
+      reg.acimaDoTeto = acimaDoTetoDe(curadoria.nomesBruto);
       // lista fechada (cliente trouxe os nomes): a leitura padrão fala de "briefing preenchido",
       // que aqui não existe — troca por um texto que reflete que os nomes vieram do cliente.
       if (reg.nomesDoCliente) {
@@ -112,6 +117,15 @@ export default async function handler(req, res) {
       try { await anexarWikiLinks(reg.resultado.indicacoes || []); } catch (e) { console.error('anexarWikiLinks tardio falhou:', e.message); }
       reg.wikiBuscadas = true;
       await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
+    }
+
+    // Essencial: curadoria gerada antes do aviso de teto não tem `acimaDoTeto`; lê uma vez.
+    if (reg.resultado && reg.briefing?.produto === 'essencial' && reg.acimaDoTeto === undefined && reg.hubspot?.negocioId) {
+      try {
+        const { nomesBruto } = await curadoriaDoNegocio(reg.hubspot.negocioId);
+        reg.acimaDoTeto = acimaDoTetoDe(nomesBruto);
+        await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
+      } catch (e) { console.error('leitura do acima-do-teto falhou:', e.message); }
     }
 
     // Essencial: o card mostra o CACHÊ (um valor só). Curadoria gerada antes dessa regra
@@ -192,9 +206,11 @@ export default async function handler(req, res) {
     let naoEncontrados = [];
     if (reg.nomesDoCliente && Array.isArray(reg.nomesSolicitados)) {
       const achou = (cliente.indicacoes || []).map((i) => chaveDeNome(i.nome)).filter(Boolean);
+      const acima = (reg.acimaDoTeto || []).map(chaveDeNome).filter(Boolean);
       naoEncontrados = reg.nomesSolicitados.filter((sol) => {
         const k = chaveDeNome(sol);
         if (!k) return false;
+        if (acima.some((a) => a === k || a.includes(k) || k.includes(a))) return false;   // está na base, só passou do teto
         return !achou.some((a) => a === k || a.includes(k) || k.includes(a));
       });
       // salva os não encontrados (demanda: nomes fora da base) uma única vez por curadoria
@@ -229,6 +245,7 @@ export default async function handler(req, res) {
       nomesDoCliente: !!reg.nomesDoCliente,
       briefingCompleto: reg.nomesDoCliente ? !!reg.briefingCompleto : true,
       naoEncontrados,
+      acimaDoTeto: reg.acimaDoTeto || [],
       // projeto (evento com vários palestrantes): abas por macro tema. macroTema = tema desta aba.
       macroTema: reg.macroTema || (reg.briefing && reg.briefing.macroTema) || null,
       projeto: await (async () => {
