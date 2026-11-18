@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos, responderCandidatoHS, ETAPAS_GRAT, moverGratuita, porquesDoPalestrante, infoTokensHS, produtoDaEmpresa } from './_lib.js';
+import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos, responderCandidatoHS, ETAPAS_GRAT, moverGratuita, porquesDoPalestrante, infoTokensHS, produtoDaEmpresa, produtoDaAssinatura } from './_lib.js';
 
 /**
  * Usuários por empresa. A assinatura continua sendo o negócio "Pago" casado pelo CPF/CNPJ
@@ -549,8 +549,51 @@ export async function primeiroAcesso(documento) {
   return linkDoComprador(d.valor, normEmail(c.email), c.nome || '', limite);
 }
 
+/* ── Boas-vindas da compra (18/11/2026) ─────────────────────────────────────────────
+ * Chamado por webhook do workflow HubSpot "Auto Curadoria | Checkout → pipeline Auto
+ * Curadoria" quando o negócio do checkout vira "Pago | Negócio Fechado". Cadastra o
+ * comprador como admin da empresa (CPF/CNPJ) e grava o link de criar senha no contato com
+ * o tipo `boas_vindas_essencial` (ou `boas_vindas`), que o workflow de contato usa para
+ * escolher o e-mail. Seguro sem segredo: só age em negócio Pago da pipeline Auto Curadoria
+ * e só manda o link para o e-mail do próprio comprador. Idempotente por negócio (30 dias).
+ * NÃO cria observação no negócio: observação dispara a automação da IA Curadoria. */
+const PIPE_AC = '928503985';
+const STAGE_PAGO_AC = '1423408703';
+export async function boasVindasDaCompra(dealIdBruto) {
+  const dealId = String(dealIdBruto || '').replace(/\D/g, '');
+  if (!dealId) return { ok: false, erro: 'dealId ausente' };
+  const kFeito = `ac:boasvindas:${dealId}`;
+  if (await redis().get(kFeito)) return { ok: true, ja: true };
+  const deal = await hs(`/crm/v3/objects/deals/${dealId}?properties=pipeline,dealstage,dealname,descricao_do_produto,auto_curadoria_produto`, 'GET');
+  const p = deal.properties || {};
+  if (String(p.pipeline) !== PIPE_AC || String(p.dealstage) !== STAGE_PAGO_AC) return { ok: false, erro: 'negócio não está em Auto Curadoria · Pago' };
+  const produto = produtoDaAssinatura({ props: p });
+  const assoc = await hs(`/crm/v4/objects/deals/${dealId}/associations/contacts`, 'GET');
+  const contatoId = String((assoc.results || [])[0]?.toObjectId || '');
+  if (!contatoId) return { ok: false, erro: 'negócio sem contato' };
+  const c = (await hs(`/crm/v3/objects/contacts/${contatoId}?properties=email,firstname,lastname,cpf,cnpj`, 'GET')).properties || {};
+  const docs = [c.cnpj, c.cpf];
+  try {
+    const a = await hs(`/crm/v4/objects/deals/${dealId}/associations/companies`, 'GET');
+    for (const r of (a.results || []).slice(0, 3)) {
+      const emp = await hs(`/crm/v3/objects/companies/${r.toObjectId}?properties=cnpj`, 'GET');
+      if (emp.properties?.cnpj) docs.unshift(emp.properties.cnpj);
+    }
+  } catch (e) { console.error('boas-vindas: empresas do negócio falhou:', e.message); }
+  const doc = docs.map(normalizaDocumento).find(Boolean);
+  if (!doc) return { ok: false, erro: 'comprador sem CPF/CNPJ' };
+  try { await redis().del(`ac:org:${doc.valor}:produto`); } catch (e) {}   // cabeçalho reflete o produto na hora
+  const { limite } = await limiteUsuarios(doc.valor);
+  const nome = [c.firstname, c.lastname].filter(Boolean).join(' ').trim();
+  const r = await linkDoComprador(doc.valor, normEmail(c.email), nome, limite,
+    produto === 'essencial' ? 'boas_vindas_essencial' : 'boas_vindas');
+  if (r.ok) await redis().set(kFeito, new Date().toISOString(), 'EX', 60 * 60 * 24 * 30);
+  console.log('BOAS_VINDAS', dealId, produto, r.ok ? 'enviado' : r.erro);
+  return { ...r, produto };
+}
+
 // núcleo do primeiro acesso: garante o comprador como admin (pendente) e manda o link
-async function linkDoComprador(doc, email, nome, limite) {
+async function linkDoComprador(doc, email, nome, limite, tipoEmail = '') {
   if (!emailValido(email)) return { ok: false, erro: 'A compra não tem e-mail cadastrado. Fale com a PSA.' };
   const outro = await redis().get(kUsuario(email));
   if (outro && outro !== doc) return { ok: false, erro: 'Este e-mail já está ligado a outra empresa. Fale com a PSA.' };
@@ -562,7 +605,7 @@ async function linkDoComprador(doc, email, nome, limite) {
     await gravarUsuario(doc, u);
   }
   const l = await criarLink(doc, email, u.status === 'ativo' ? 'senha' : 'convite');
-  const env = await enviarLinkPorEmail({ email, nome: u.nome, url: l.url, tipo: u.status === 'ativo' ? 'redefinir_senha' : 'convite' });
+  const env = await enviarLinkPorEmail({ email, nome: u.nome, url: l.url, tipo: tipoEmail || (u.status === 'ativo' ? 'redefinir_senha' : 'convite') });
   if (!env.enviado) return { ok: false, erro: 'Não conseguimos enviar o e-mail agora. Tente de novo em instantes.' };
   return { ok: true, email: mascara(email), msg: `Enviamos um link de acesso para ${mascara(email)}.` };
 }
