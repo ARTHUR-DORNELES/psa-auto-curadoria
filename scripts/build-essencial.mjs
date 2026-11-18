@@ -7,8 +7,8 @@
 // pro cliente.
 import fs from 'node:fs';
 
-// Preço e checkout da Essencial (Renato, 18/11/2026): R$ 500/mês. Mudou? troque aqui e rode `npm run embed`.
-const PRECO = 'R$ 500<small> /mês</small>';
+// Preço e checkout da Essencial (Renato, 18/11/2026): R$ 240/mês (era 500). Mudou? troque aqui e rode `npm run embed`.
+const PRECO = 'R$ 240<small> /mês</small>';
 const PRECO_NOTA = 'cobrança mensal';
 const CHECKOUT = 'https://checkout.profissionaissa.com.br/curadoria/checkout/f3624a16-5d41-47c6-9ab1-f6e72ddb6f72';
 const CTA_PLANO = 'Adquirir agora →';
