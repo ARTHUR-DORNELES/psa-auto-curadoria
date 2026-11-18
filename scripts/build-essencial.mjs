@@ -23,20 +23,22 @@ function trocar(de, para, vezes = 1) {
 }
 
 trocar('<title>Auto Curadoria | PSA Palestras</title>', '<title>Auto Curadoria Essencial | PSA Palestras</title>');
-// NOME EM DESTAQUE (pedido do Renato, 18/11): selo grande no hero + etiqueta ao lado do logo
-const SELO = (publico) => `<div class="selo-ess"><span class="selo-ess__nome">Auto Curadoria</span><span class="selo-ess__tag">Essencial</span></div>
-        <span class="eyebrow">${publico}</span>`;
-trocar('<span class="eyebrow">Para empresas · Auto Curadoria</span>', SELO('Para empresas'));
-trocar('<span class="eyebrow">Para agências · Auto Curadoria</span>', SELO('Para agências'));
+// HERO PRÓPRIO (Renato, 18/11): sem o "Tá com pressa?"; o nome do produto é o título
+// e o texto fala da Essencial. As LPs podem ser diferentes.
+const SELO = `<h1 class="selo-ess"><span class="selo-ess__nome">Auto Curadoria</span><span class="selo-ess__tag">Essencial</span></h1>`;
+trocar(`<span class="eyebrow">Para empresas · Auto Curadoria</span>
+        <h1>Tá com pressa?<br><em>Sem problema.</em></h1>`, SELO);
+trocar(`<span class="eyebrow">Para agências · Auto Curadoria</span>
+        <h1>Vários eventos?<br><em>A gente cura.</em></h1>`, SELO);
 trocar(
   'alt="PSA Palestras" width="80" height="32"></a>',
   'alt="PSA Palestras" width="80" height="32"></a>\n    <span class="nav__prod">Auto Curadoria <b>Essencial</b></span>',
 );
 // CSS no mesmo <style> da página (o build do embed só leva o primeiro <style>)
 {
-  const css = `.selo-ess{display:flex;width:fit-content;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:var(--s-5)}
-.selo-ess__nome{font-family:var(--font-display);font-weight:800;text-transform:uppercase;line-height:.9;font-size:clamp(30px,4.2vw,48px);color:#fff;letter-spacing:-.01em}
-.selo-ess__tag{font-family:var(--font-display);font-weight:800;text-transform:uppercase;line-height:1;font-size:clamp(30px,4.2vw,48px);color:#fff;background:var(--psa-orange);padding:6px 16px 4px;border-radius:10px;transform:rotate(-2deg);box-shadow:0 8px 28px rgba(248,80,0,.35)}
+  const css = `.selo-ess{display:flex;width:fit-content;align-items:center;gap:6px 18px;flex-wrap:wrap;margin:0 0 var(--s-5)}
+.selo-ess__nome{font-family:var(--font-display);font-weight:800;text-transform:uppercase;line-height:.9;font-size:clamp(44px,7vw,96px);color:#fff;letter-spacing:-.01em;margin:0}
+.selo-ess__tag{font-family:var(--font-display);font-weight:800;text-transform:uppercase;line-height:1;font-size:clamp(44px,7vw,96px);color:#fff;background:var(--psa-orange);padding:6px 16px 4px;border-radius:10px;transform:rotate(-2deg);box-shadow:0 8px 28px rgba(248,80,0,.35)}
 .nav__prod{font-family:var(--font-body);font-weight:700;font-size:var(--t-caption);letter-spacing:.12em;text-transform:uppercase;color:var(--fg-2);border-left:1px solid #ffffff2b;padding-left:var(--s-4)}
 .nav__prod b{color:var(--psa-orange)}
 @media(max-width:860px){.nav__prod{display:none}}
@@ -47,7 +49,11 @@ trocar(
 }
 trocar(
   'A Auto Curadoria é uma novidade onde, a partir do preenchimento do briefing, você recebe os nomes que dão match com o seu evento <strong>em até 5 minutos</strong>.',
-  'A Auto Curadoria Essencial é a versão para eventos com orçamento enxuto: a partir do briefing, você recebe os nomes que dão match com o seu evento, <strong>só palestrantes com cachê de até R$ 5 mil</strong> ou em condições especiais, em até 5 minutos.',
+  'Curadoria de palestrantes para eventos com orçamento enxuto. Preencha o briefing e receba, em até 5 minutos, os nomes que dão match com o seu evento: <strong>só palestrantes com cachê de até R$ 5 mil</strong> ou em condições especiais.',
+);
+trocar(
+  'Sua agência monta a curadoria de cada cliente em minutos e recebe os nomes que dão match com cada evento. <strong>Escale o atendimento sem travar na busca por palestrante.</strong>',
+  'Para agências com clientes de orçamento enxuto: monte a curadoria de cada evento em minutos, <strong>só com palestrantes de cachê até R$ 5 mil</strong> ou em condições especiais.',
 );
 
 // card de preço: troca os dois planos por um só, da Essencial
