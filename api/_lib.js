@@ -32,16 +32,18 @@ const HS = 'https://api.hubapi.com';
 
 /* ── Produto: Auto Curadoria (completa) x Auto Curadoria Essencial ─────────────────────
  * Mesmo app, mesmo login, mesma pipeline. O que define o produto é o negócio "Pago" da
- * assinatura: propriedade `auto_curadoria_produto` = "essencial" OU nome do negócio com
+ * assinatura: `descricao_do_produto` (gravada pelo checkout) ou `auto_curadoria_produto` com "essencial", OU nome do negócio com
  * "essencial" (o checkout novo cria o negócio). Na Essencial, a curadoria só indica
  * palestrantes de PERMUTA ou com cachê até TETO_CACHE_ESSENCIAL: a ferramenta escreve o
  * marcador `TETO_CACHE: <valor> | PERMUTA_LIVRE` na observação e o n8n filtra o pool. */
 export const PROP_PRODUTO = process.env.PROP_PRODUTO || 'auto_curadoria_produto';
+// o checkout grava o nome do produto comprado aqui (hoje 'Auto curadoria'); 'essencial' no texto = Essencial
+export const PROP_DESC_PRODUTO = process.env.PROP_DESC_PRODUTO || 'descricao_do_produto';
 export const TETO_CACHE_ESSENCIAL = Number(process.env.TETO_CACHE_ESSENCIAL || 5000);
 export const NOME_PRODUTO = { completa: 'Auto Curadoria', essencial: 'Auto Curadoria Essencial' };
 export function produtoDaAssinatura(a) {
   const p = (a && a.props) || {};
-  return /essencial/i.test(String(p[PROP_PRODUTO] || '')) || /essencial/i.test(String(p.dealname || ''))
+  return [p[PROP_PRODUTO], p[PROP_DESC_PRODUTO], p.dealname].some((v) => /essencial/i.test(String(v || '')))
     ? 'essencial' : 'completa';
 }
 // Produto da empresa (documento), com cache de 1h no Redis p/ não bater no HubSpot a cada
@@ -1564,7 +1566,7 @@ const ANO_MS = 365 * 24 * 60 * 60 * 1000;
 export async function assinaturaAtivaPorDocumento(bruto) {
   // quantidade_usuarios = quantos acessos a empresa comprou (lido em _auth.js)
   const found = await _negocioAutoCuradoriaPorDoc(bruto, STAGE_PAGO, 'DESCENDING',
-    ['closedate', process.env.PROP_QTD_USUARIOS || 'quantidade_usuarios', PROP_PRODUTO]);
+    ['closedate', process.env.PROP_QTD_USUARIOS || 'quantidade_usuarios', PROP_PRODUTO, PROP_DESC_PRODUTO]);
   if (!found) return null;
   const dataPag = found.props.closedate || found.props.createdate || '';
   // HubSpot devolve datas como epoch em ms (string só de dígitos); Date.parse disso dá NaN.
