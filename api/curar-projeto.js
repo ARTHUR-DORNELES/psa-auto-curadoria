@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { criarNegocioCuradoria, redis, chave, chaveDeal, chaveProjeto, lerCorpo, cors, assinaturaAtivaPorDocumento, normalizaDocumento } from './_lib.js';
+import { criarNegocioCuradoria, redis, chave, chaveDeal, chaveProjeto, lerCorpo, cors, assinaturaAtivaPorDocumento, normalizaDocumento, produtoDaAssinatura } from './_lib.js';
 import { lerSessao } from './_auth.js';
 
 // EVENTO com vários palestrantes (caminho "quero ajuda"): cria UMA curadoria por MACRO TEMA,
@@ -63,6 +63,7 @@ export default async function handler(req, res) {
       empresaPalestra: String(b.empresaPalestra || '').slice(0, 300),
       briefing: String(b.briefing || '').slice(0, 4000),
       utm: b.utm || {},
+      produto: produtoDaAssinatura(assinatura),
     };
 
     const projetoId = crypto.randomUUID();

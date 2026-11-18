@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos, responderCandidatoHS, ETAPAS_GRAT, moverGratuita, porquesDoPalestrante, infoTokensHS } from './_lib.js';
+import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos, responderCandidatoHS, ETAPAS_GRAT, moverGratuita, porquesDoPalestrante, infoTokensHS, produtoDaEmpresa } from './_lib.js';
 
 /**
  * Usuários por empresa. A assinatura continua sendo o negócio "Pago" casado pelo CPF/CNPJ
@@ -85,7 +85,7 @@ async function gravarUsuario(doc, u) {
   await redis().set(kUsuario(u.email), doc);
 }
 export const publico = (u) => ({ email: u.email, nome: u.nome || '', celular: u.celular || '', papel: u.papel, status: u.status, criadoEm: u.criadoEm || null, ultimoAcesso: u.ultimoAcesso || null,
-  ...(u.superAdmin ? { superAdmin: true } : {}), ...(u.oraculo ? { oraculo: true } : {}), ...(u.gratuitas ? { gratuitas: true } : {}), ...(u.suporte ? { suporte: true } : {}) });
+  ...(u.superAdmin ? { superAdmin: true } : {}), ...(u.oraculo ? { oraculo: true } : {}), ...(u.gratuitas ? { gratuitas: true } : {}), ...(u.suporte ? { suporte: true } : {}), ...(u.produto === 'essencial' ? { produto: 'essencial' } : {}) });
 
 // "Último acesso": gravado no login, ao criar a senha e a cada abertura do painel.
 // Só regrava se passou 10 min (evita escrever no Redis a cada clique). Nunca lança.
@@ -455,12 +455,12 @@ export async function lerSessao(t) {
   // sessão de suporte: admin da empresa, somente leitura, sem existir na lista de usuários
   if (s.suporte) {
     if (!ehSuper(s.realEmail)) return null;
-    return { doc: s.doc, email: s.realEmail, nome: 'Suporte PSA', celular: 'suporte', papel: 'admin', suporte: true, realEmail: s.realEmail, realNome: s.realNome, oraculo: await oraculoLiberado(s.doc).catch(() => false), gratuitas: await gratuitasLiberadas(s.doc).catch(() => false) };
+    return { doc: s.doc, email: s.realEmail, nome: 'Suporte PSA', celular: 'suporte', papel: 'admin', suporte: true, realEmail: s.realEmail, realNome: s.realNome, oraculo: await oraculoLiberado(s.doc).catch(() => false), gratuitas: await gratuitasLiberadas(s.doc).catch(() => false), produto: await produtoDaEmpresa(s.doc).catch(() => 'completa') };
   }
   const u = await lerUsuario(s.doc, s.email);
   if (!u || u.status !== 'ativo') return null;
   const sup = ehSuper(u.email);
-  return { doc: s.doc, email: u.email, nome: u.nome || '', celular: u.celular || '', papel: u.papel, superAdmin: sup, oraculo: sup || (await oraculoLiberado(s.doc).catch(() => false)), gratuitas: podeGratuitas(u.email) || (await gratuitasLiberadas(s.doc).catch(() => false)) };
+  return { doc: s.doc, email: u.email, nome: u.nome || '', celular: u.celular || '', papel: u.papel, superAdmin: sup, oraculo: sup || (await oraculoLiberado(s.doc).catch(() => false)), gratuitas: podeGratuitas(u.email) || (await gratuitasLiberadas(s.doc).catch(() => false)), produto: await produtoDaEmpresa(s.doc).catch(() => 'completa') };
 }
 export const encerrarSessao = (t) => (t ? redis().del(kSessao(t)) : 0);
 

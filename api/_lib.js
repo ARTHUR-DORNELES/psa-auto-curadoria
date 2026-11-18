@@ -30,6 +30,36 @@ const STAGE_UTILIZADO = '1423413584';
 
 const HS = 'https://api.hubapi.com';
 
+/* ── Produto: Auto Curadoria (completa) x Auto Curadoria Essencial ─────────────────────
+ * Mesmo app, mesmo login, mesma pipeline. O que define o produto é o negócio "Pago" da
+ * assinatura: propriedade `auto_curadoria_produto` = "essencial" OU nome do negócio com
+ * "essencial" (o checkout novo cria o negócio). Na Essencial, a curadoria só indica
+ * palestrantes de PERMUTA ou com cachê até TETO_CACHE_ESSENCIAL: a ferramenta escreve o
+ * marcador `TETO_CACHE: <valor> | PERMUTA_LIVRE` na observação e o n8n filtra o pool. */
+export const PROP_PRODUTO = process.env.PROP_PRODUTO || 'auto_curadoria_produto';
+export const TETO_CACHE_ESSENCIAL = Number(process.env.TETO_CACHE_ESSENCIAL || 5000);
+export const NOME_PRODUTO = { completa: 'Auto Curadoria', essencial: 'Auto Curadoria Essencial' };
+export function produtoDaAssinatura(a) {
+  const p = (a && a.props) || {};
+  return /essencial/i.test(String(p[PROP_PRODUTO] || '')) || /essencial/i.test(String(p.dealname || ''))
+    ? 'essencial' : 'completa';
+}
+// Produto da empresa (documento), com cache de 1h no Redis p/ não bater no HubSpot a cada
+// leitura de sessão. As rotas que criam curadoria usam produtoDaAssinatura direto (sem cache).
+const kProduto = (doc) => `ac:org:${doc}:produto`;
+export async function produtoDaEmpresa(bruto) {
+  const doc = normalizaDocumento(bruto);
+  if (!doc) return 'completa';
+  try { const c = await redis().get(kProduto(doc.valor)); if (c) return c; } catch (e) {}
+  let prod = 'completa';
+  try { prod = produtoDaAssinatura(await assinaturaAtivaPorDocumento(bruto)); } catch (e) { return prod; }
+  try { await redis().set(kProduto(doc.valor), prod, 'EX', 3600); } catch (e) {}
+  return prod;
+}
+// marcador que o Prep Match (n8n) lê na observação
+export const marcadorProduto = (b) => (b && b.produto === 'essencial'
+  ? `TETO_CACHE: ${TETO_CACHE_ESSENCIAL} | PERMUTA_LIVRE` : '');
+
 let _redis;
 export function redis() {
   if (!_redis) _redis = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: 3 });
@@ -204,7 +234,7 @@ export async function registrarNoHubspot(briefing, resultado, id) {
 function _propsBriefing(briefing) {
   const [primeiro] = (briefing.nome || '').trim().split(/\s+/);
   const props = {
-    dealname: ['AUTO CURADORIA |', [primeiro, briefing.empresa, dataBR(briefing.data)].filter(Boolean).join(' - ')].join(' ').slice(0, 240),
+    dealname: [briefing.produto === 'essencial' ? 'AUTO CURADORIA ESSENCIAL |' : 'AUTO CURADORIA |', [primeiro, briefing.empresa, dataBR(briefing.data)].filter(Boolean).join(' - ')].join(' ').slice(0, 240),
     macro_tema: briefing.macroTema || undefined,
     micro_tema: briefing.microTema || undefined,
     janeiro___orcamento: briefing.orcamento || undefined,
@@ -658,6 +688,8 @@ export function notaDoBriefing(b, resultado, id) {
     `Como o público deve sair: ${b.sentimento || 'não informado'}`,
     `Palestrante desejado pelo cliente: ${b.palestranteDesejado || 'sem preferência informada'}`,
     `Contexto adicional: ${b.briefing?.trim() || '(não preencheu)'}`,
+    // Essencial: só permuta ou cachê até o teto (o n8n filtra o pool por este marcador)
+    ...(marcadorProduto(b) ? ['', marcadorProduto(b)] : []),
   ];
 
   if (b.utm && Object.keys(b.utm).length) {
@@ -1532,7 +1564,7 @@ const ANO_MS = 365 * 24 * 60 * 60 * 1000;
 export async function assinaturaAtivaPorDocumento(bruto) {
   // quantidade_usuarios = quantos acessos a empresa comprou (lido em _auth.js)
   const found = await _negocioAutoCuradoriaPorDoc(bruto, STAGE_PAGO, 'DESCENDING',
-    ['closedate', process.env.PROP_QTD_USUARIOS || 'quantidade_usuarios']);
+    ['closedate', process.env.PROP_QTD_USUARIOS || 'quantidade_usuarios', PROP_PRODUTO]);
   if (!found) return null;
   const dataPag = found.props.closedate || found.props.createdate || '';
   // HubSpot devolve datas como epoch em ms (string só de dígitos); Date.parse disso dá NaN.

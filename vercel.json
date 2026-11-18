@@ -3,7 +3,8 @@
   "cleanUrls": true,
   "rewrites": [
     { "source": "/auto-curadoria-briefing", "destination": "/ferramenta" },
-    { "source": "/auto-curadoria", "destination": "/" }
+    { "source": "/auto-curadoria", "destination": "/" },
+    { "source": "/auto-curadoria-essencial", "destination": "/essencial" }
   ],
   "functions": {
     "api/curar.js": { "maxDuration": 60 },

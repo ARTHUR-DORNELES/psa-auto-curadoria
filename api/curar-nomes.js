@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { criarNegocioCuradoria, redis, chave, chaveDeal, lerCorpo, cors, assinaturaAtivaPorDocumento, normalizaDocumento } from './_lib.js';
+import { criarNegocioCuradoria, redis, chave, chaveDeal, lerCorpo, cors, assinaturaAtivaPorDocumento, normalizaDocumento, produtoDaAssinatura } from './_lib.js';
 import { lerSessao } from './_auth.js';
 
 // Caminho "JÁ TENHO OS NOMES": o cliente informa até 8 palestrantes que já quer.
@@ -44,6 +44,7 @@ export default async function handler(req, res) {
       empresaPalestra: String(b.empresaPalestra || '').slice(0, 300),
       nomesSolicitados: nomes,
       utm: b.utm || {},
+      produto: produtoDaAssinatura(assinatura),
     };
 
     const id = crypto.randomUUID();

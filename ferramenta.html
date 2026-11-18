@@ -449,7 +449,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 <header>
   <div class="bar">
     <a href="/"><img src="https://psasite.vercel.app/_next/image?url=%2Fbrand%2Flogos%2Flogo-01.png&w=256&q=75" alt="PSA Palestras"></a>
-    <span class="eyebrow">Auto Curadoria</span>
+    <span class="eyebrow" id="eyebrowProduto">Auto Curadoria</span>
     <a class="volta" id="btnVoltar" href="/">← voltar</a>
     <div class="conta-h" id="contaHeader" style="display:none">
       <span class="conta__av" id="contaAv"></span>
@@ -1196,6 +1196,9 @@ function pintarUsuario(u, doCache) {
   $('#contaNome').title = u.email || '';
   $('#contaPapel').textContent = u.suporte ? 'Somente leitura' : (u.papel === 'admin' ? 'Administrador' : 'Usuário');
   $('#contaHeader').style.display = '';
+  // produto da assinatura: Essencial (só permuta ou cachê até 5 mil) ou a completa
+  $('#eyebrowProduto').textContent = u.produto === 'essencial' ? 'Auto Curadoria Essencial' : 'Auto Curadoria';
+  document.title = (u.produto === 'essencial' ? 'Auto Curadoria Essencial' : 'Auto Curadoria') + ' | PSA Palestras';
   $('#btnEmpresas').style.display = u.superAdmin && !u.suporte ? '' : 'none';
   $('#btnOraculo').style.display = u.superAdmin || u.oraculo ? '' : 'none';
   $('#btnDemandaGratuita').style.display = u.gratuitas ? '' : 'none';

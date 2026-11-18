@@ -18,6 +18,8 @@ const ALVOS = [
   { fonte: 'ferramenta.html', saida: 'embed.js', raiz: '#psa-auto-curadoria', voltarPara: '/auto-curadoria' },
   // a LP: conteúdo de venda; CTAs levam para a página da ferramenta
   { fonte: 'index.html', saida: 'embed-lp.js', raiz: '#psa-auto-curadoria-lp', destinoCta: URL_FERRAMENTA },
+  // LP da Essencial (gerada de index.html por build-essencial.mjs); mesma ferramenta
+  { fonte: 'essencial.html', saida: 'embed-lp-essencial.js', raiz: '#psa-auto-curadoria-lp', destinoCta: URL_FERRAMENTA },
 ];
 
 /**
