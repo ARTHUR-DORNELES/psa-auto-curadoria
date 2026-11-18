@@ -23,8 +23,28 @@ function trocar(de, para, vezes = 1) {
 }
 
 trocar('<title>Auto Curadoria | PSA Palestras</title>', '<title>Auto Curadoria Essencial | PSA Palestras</title>');
-trocar('<span class="eyebrow">Para empresas · Auto Curadoria</span>', '<span class="eyebrow">Para empresas · Auto Curadoria Essencial</span>');
-trocar('<span class="eyebrow">Para agências · Auto Curadoria</span>', '<span class="eyebrow">Para agências · Auto Curadoria Essencial</span>');
+// NOME EM DESTAQUE (pedido do Renato, 18/11): selo grande no hero + etiqueta ao lado do logo
+const SELO = (publico) => `<div class="selo-ess"><span class="selo-ess__nome">Auto Curadoria</span><span class="selo-ess__tag">Essencial</span></div>
+        <span class="eyebrow">${publico}</span>`;
+trocar('<span class="eyebrow">Para empresas · Auto Curadoria</span>', SELO('Para empresas'));
+trocar('<span class="eyebrow">Para agências · Auto Curadoria</span>', SELO('Para agências'));
+trocar(
+  'alt="PSA Palestras" width="80" height="32"></a>',
+  'alt="PSA Palestras" width="80" height="32"></a>\n    <span class="nav__prod">Auto Curadoria <b>Essencial</b></span>',
+);
+// CSS no mesmo <style> da página (o build do embed só leva o primeiro <style>)
+{
+  const css = `.selo-ess{display:flex;width:fit-content;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:var(--s-5)}
+.selo-ess__nome{font-family:var(--font-display);font-weight:800;text-transform:uppercase;line-height:.9;font-size:clamp(30px,4.2vw,48px);color:#fff;letter-spacing:-.01em}
+.selo-ess__tag{font-family:var(--font-display);font-weight:800;text-transform:uppercase;line-height:1;font-size:clamp(30px,4.2vw,48px);color:#fff;background:var(--psa-orange);padding:6px 16px 4px;border-radius:10px;transform:rotate(-2deg);box-shadow:0 8px 28px rgba(248,80,0,.35)}
+.nav__prod{font-family:var(--font-body);font-weight:700;font-size:var(--t-caption);letter-spacing:.12em;text-transform:uppercase;color:var(--fg-2);border-left:1px solid #ffffff2b;padding-left:var(--s-4)}
+.nav__prod b{color:var(--psa-orange)}
+@media(max-width:860px){.nav__prod{display:none}}
+`;
+  const i = s.indexOf('</style>');
+  if (i < 0) throw new Error('essencial: </style> não encontrado');
+  s = s.slice(0, i) + css + s.slice(i);
+}
 trocar(
   'A Auto Curadoria é uma novidade onde, a partir do preenchimento do briefing, você recebe os nomes que dão match com o seu evento <strong>em até 5 minutos</strong>.',
   'A Auto Curadoria Essencial é a versão para eventos com orçamento enxuto: a partir do briefing, você recebe os nomes que dão match com o seu evento, <strong>só palestrantes com cachê de até R$ 5 mil</strong> ou em condições especiais, em até 5 minutos.',
