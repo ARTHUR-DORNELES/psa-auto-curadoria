@@ -60,7 +60,7 @@ export async function produtoDaEmpresa(bruto) {
 }
 // marcador que o Prep Match (n8n) lê na observação
 export const marcadorProduto = (b) => (b && b.produto === 'essencial'
-  ? `TETO_CACHE: ${TETO_CACHE_ESSENCIAL} | PERMUTA_LIVRE` : '');
+  ? `TETO_CACHE: ${TETO_CACHE_ESSENCIAL} | MOSTRAR_CACHE` : '');
 
 let _redis;
 export function redis() {
@@ -985,7 +985,8 @@ export function lerNomes(bruto) {
       // valor de venda EXATO da automação (mostrado ao cliente por decisão do time).
       // Não passa pelo semNumerosInternos; troca o traço do intervalo por "a".
       valorVenda: String(n.valor_venda ?? n.valorVenda ?? n.valor_de_venda ?? '')
-        .replace(/\s*[–—-]\s*/, ' a ').replace(/\s{2,}/g, ' ').trim(),
+        .replace(/\s*[–—-]\s*/, ' a ').replace(/\s{2,}/g, ' ').trim()
+        .replace(/^(.+?) a \1$/, '$1'),   // Essencial: mínimo = máximo (cachê) -> um valor só
       perfil: limpar(n.perfil),
       porque: comFaixa(
         (Array.isArray(n.porque) ? n.porque.filter(Boolean).map(String)

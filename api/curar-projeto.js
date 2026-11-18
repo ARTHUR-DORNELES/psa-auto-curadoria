@@ -65,6 +65,7 @@ export default async function handler(req, res) {
       utm: b.utm || {},
       produto: produtoDaAssinatura(assinatura),
     };
+    if (briefingBase.produto === 'essencial') { briefingBase.orcamento = 'Até R$5.000,00'; for (const t of temas) t.orcamento = 'Até R$5.000,00'; }   // Essencial: faixa fixa
 
     const projetoId = crypto.randomUUID();
     const curadorias = [];   // { id, macroTema, negocioId }

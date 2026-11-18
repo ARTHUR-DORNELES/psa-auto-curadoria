@@ -60,6 +60,7 @@ export default async function handler(req, res) {
       utm: b.utm || {},
       produto: produtoDaAssinatura(assinatura),
     };
+    if (briefing.produto === 'essencial') briefing.orcamento = 'Até R$5.000,00';   // Essencial: faixa fixa
 
     const id = crypto.randomUUID();
 

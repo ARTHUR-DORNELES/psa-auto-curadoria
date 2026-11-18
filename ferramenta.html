@@ -964,6 +964,9 @@ document.querySelectorAll('[data-vai]').forEach(b => b.addEventListener('click',
 // gerencia os usuários; usuário vê só as dele. A sessão fica no navegador (30 dias) e vai
 // no corpo de cada chamada; o servidor revalida tudo (este gate é a porta, não a fechadura).
 let sessaoAtual = '', usuarioAtual = null, contatoNovo = {};
+// Auto Curadoria Essencial: orçamento é sempre até R$ 5 mil (não pergunta, nem no chat nem no formulário)
+const ORC_ESSENCIAL = 'Até R$5.000,00';
+const ehEssencial = () => !!(usuarioAtual && usuarioAtual.produto === 'essencial');
 try { sessaoAtual = localStorage.getItem('ac_sessao') || ''; } catch (e) {}
 // modo do formulário p1/p2/p3: 'novo' (cria curadoria) ou 'briefing' (completa o briefing de
 // uma curadoria de LISTA FECHADA e dispara a disponibilidade pendente). formAlvo = {id, dispNome}.
@@ -1309,6 +1312,10 @@ function orcamentoGratuito(ligar) {
   let op = [...sel.options].find((o) => o.value === 'Gratuito');
   if (ligar) { if (!op) { op = new Option('Gratuito', 'Gratuito'); sel.add(op); } sel.value = 'Gratuito'; sel.disabled = true; }
   else { if (op) op.remove(); if (sel.disabled) { sel.disabled = false; sel.selectedIndex = 0; } }
+  // Essencial: orçamento travado em até R$ 5 mil e escondido do formulário
+  const essencial = !ligar && ehEssencial();
+  if (essencial) { sel.value = ORC_ESSENCIAL; sel.disabled = true; }
+  sel.closest('div').style.display = essencial ? 'none' : '';
   // nome do evento e quantidade de espectadores: só existem na palestra gratuita
   document.querySelectorAll('.so-gratuita').forEach((d) => { d.style.display = ligar ? '' : 'none'; });
   ['#nomeEvento', '#qtdEspectadores'].forEach((id) => { $(id).disabled = !ligar; if (!ligar) $(id).value = ''; });
@@ -2082,11 +2089,12 @@ async function chatResponder(valor, rotulo) {
 
 async function chatTurno() {
   chatDigitando(true);
+  if (ehEssencial()) chatSlots.orcamento = ORC_ESSENCIAL;   // Essencial: nunca pergunta orçamento
   try {
     const r = await fetch('/api/chat', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ historico: chatHist, slots: chatSlots, campoRespondido: campoAtual,
-        pular: chatModo === 'projeto' ? ['macroTema', 'microTema', 'orcamento', 'horario', 'duracao'] : (chatSlots.macroTema ? ['macroTema', 'microTema'] : []),
+        pular: chatModo === 'projeto' ? ['macroTema', 'microTema', 'orcamento', 'horario', 'duracao'] : [...(chatSlots.macroTema ? ['macroTema', 'microTema'] : []), ...(ehEssencial() ? ['orcamento'] : [])],
         evento: tipoBriefing === 'evento', continuacao: true }),
     });
     const j = await r.json();
@@ -2362,7 +2370,7 @@ async function fluxoTemas(contato, n) {
     const hd = await pedeHorarioDuracaoPalestras(escolhas);
     escolhas.forEach((e, i) => { e.horario = hd[i].horario; e.duracao = hd[i].duracao; });
     bolha('user', escolhas.map((e, i) => `${i + 1}ª ${e.horario} (${e.duracao})`).join('   '));
-    const orcs = await coletaOrcamentoEvento(n);
+    const orcs = ehEssencial() ? escolhas.map(() => ORC_ESSENCIAL) : await coletaOrcamentoEvento(n);
     escolhas.forEach((e, i) => { e.orcamento = orcs[i]; });
   }
   // agrupa por macro tema principal; junta os secundários (reforço) + orçamento + horário + duração de cada
@@ -3122,7 +3130,7 @@ function htmlNomes(d) {
             ${(ind.resposta && ind.resposta.disponivel !== false && ind.resposta.valor)
               ? ''   // já tem valor confirmado com o palestrante: a estimativa sai de cena
               : ind.valorVenda
-              ? `<span class="ind__faixa">Valor da curadoria: ${esc(ind.valorVenda)}</span>`
+              ? `<span class="ind__faixa">${d.briefing && d.briefing.produto === 'essencial' ? 'Cachê' : 'Valor da curadoria'}: ${esc(ind.valorVenda)}</span>`
               : (ind.faixa ? `<span class="ind__faixa">investimento ${esc(ind.faixa)}</span>` : '')}
           </div>
           <ul>${ind.porque.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
