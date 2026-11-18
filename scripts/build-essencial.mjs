@@ -7,9 +7,10 @@
 // pro cliente.
 import fs from 'node:fs';
 
-// Preço e checkout da Essencial (Renato, 18/11/2026): R$ 240/mês (era 500). Mudou? troque aqui e rode `npm run embed`.
-const PRECO = 'R$ 240<small> /mês</small>';
-const PRECO_NOTA = 'cobrança mensal';
+// Preço e checkout da Essencial (Renato, 18/11/2026): plano ANUAL de R$ 240/ano. Mudou? troque aqui e rode `npm run embed`.
+// Texto da Essencial nunca fala "cachê": só "valores até R$ 5 mil" (Renato, 18/11).
+const PRECO = 'R$ 240<small> /ano</small>';
+const PRECO_NOTA = 'cobrança anual';
 const CHECKOUT = 'https://checkout.profissionaissa.com.br/curadoria/checkout/f3624a16-5d41-47c6-9ab1-f6e72ddb6f72';
 const CTA_PLANO = 'Adquirir agora →';
 
@@ -58,7 +59,7 @@ trocar(
 }
 trocar(
   'A Auto Curadoria é uma novidade onde, a partir do preenchimento do briefing, você recebe os nomes que dão match com o seu evento <strong>em até 5 minutos</strong>.',
-  'Curadoria de palestrantes para eventos com orçamento enxuto. Preencha o briefing e receba, em até 5 minutos, os nomes que dão match com o seu evento: <strong>só palestrantes com cachê de até R$ 5 mil</strong> ou em condições especiais.',
+  'Curadoria de palestrantes para eventos com orçamento enxuto. Preencha o briefing e receba, em até 5 minutos, os nomes que dão match com o seu evento: <strong>só palestrantes com valores até R$ 5 mil</strong>.',
 );
 
 // card de preço: troca os dois planos por um só, da Essencial
@@ -73,7 +74,7 @@ const plano = `<div class="price" style="grid-template-columns:minmax(0,440px)">
           <div style="font-family:var(--font-body);font-size:var(--t-body-sm);font-weight:700;color:var(--fg-bone-3);margin-top:8px">${PRECO_NOTA}</div>
         </div>
         <ul>
-          <li><strong>Só palestrantes com cachê de até R$ 5 mil</strong> ou em condições especiais</li>
+          <li><strong>Só palestrantes com valores até R$ 5 mil</strong></li>
           <li>Briefing guiado do evento</li>
           <li>Busca da IA no banco PSA</li>
           <li>Até 5 nomes por curadoria, com justificativa e ponto de atenção</li>
@@ -93,8 +94,12 @@ s = s.split('https://checkout.profissionaissa.com.br/curadoria/checkout/4fbc7e0d
 trocar('<h2>Curadorias ilimitadas,<br>numa assinatura só.</h2>', '<h2>Curadoria de verdade,<br>no orçamento do seu evento.</h2>');
 trocar(
   'A Auto Curadoria é uma assinatura mensal: monte quantas curadorias quiser, sem limite. O cachê do palestrante é apresentado à parte, na proposta de cada indicação.',
-  'A Essencial usa a mesma IA e o mesmo briefing da Auto Curadoria, com indicações dentro de um orçamento enxuto. O cachê do palestrante é apresentado à parte, na proposta de cada indicação.',
+  'A Essencial usa a mesma IA e o mesmo briefing da Auto Curadoria, com indicações dentro de um orçamento enxuto: todos os palestrantes têm valores até R$ 5 mil.',
 );
 
+trocar('O cachê do palestrante não está incluso e é apresentado na proposta.', 'O valor do palestrante não está incluso na assinatura e aparece em cada indicação, sempre até R$ 5 mil.');
+trocar('<p>A Auto Curadoria é uma assinatura em dois planos: <strong>mensal</strong> (R$ 1.150/mês, sem fidelidade, até 50 curadorias por mês) ou <strong>anual</strong> (R$ 996/mês, R$ 11.952/ano, curadorias ilimitadas). O cachê do palestrante não está incluso e é apresentado à parte, na proposta comercial de cada indicação.</p>',
+  '<p>A Auto Curadoria Essencial é uma assinatura <strong>anual de R$ 240</strong>. O valor do palestrante não está incluso e aparece em cada indicação, sempre até R$ 5 mil.</p>');
+if (/cach[êe]/i.test(s.replace(/<style>[\s\S]*?<\/style>/g, ''))) console.warn('essencial: ainda sobrou "cachê" no texto da LP');
 fs.writeFileSync('essencial.html', s);
 console.log(`essencial.html: ${(s.length / 1024).toFixed(0)} KB (gerado de index.html)`);
