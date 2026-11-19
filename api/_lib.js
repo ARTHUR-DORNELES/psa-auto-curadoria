@@ -123,13 +123,27 @@ export function semTravessao(texto) {
 
 
 // ── HubSpot ────────────────────────────────────────────────────────────────
+// Token principal reserva (19/11/2026: o HUBSPOT_TOKEN da Vercel foi revogado e a Vercel é do
+// Arthur). Se houver um token guardado no Redis, ele vale no lugar da env; sem ele, usa a env.
+// Gravado por super admin em /api/owners-token {principal:true}. Cache de 60s por instância.
+export const CHAVE_HS_PRINCIPAL = 'ac:hs_token_principal';
+let _princ = { v: '', em: 0 };
+export async function tokenPrincipal() {
+  if (Date.now() - _princ.em > 60000) {
+    let v = '';
+    try { v = (await redis().get(CHAVE_HS_PRINCIPAL)) || ''; } catch (e) { v = _princ.v; }
+    _princ = { v, em: Date.now() };
+  }
+  return _princ.v || process.env.HUBSPOT_TOKEN;
+}
 export async function hs(caminho, metodo, corpo, token) {
   // 429 = limite de chamadas do HubSpot (a busca aceita poucas por segundo): espera e tenta de novo
   let r;
+  const tok = token || await tokenPrincipal();
   for (let tentativa = 0; tentativa < 4; tentativa++) {
     r = await fetch(`${HS}${caminho}`, {
       method: metodo,
-      headers: { Authorization: `Bearer ${token || process.env.HUBSPOT_TOKEN}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
       body: corpo ? JSON.stringify(corpo) : undefined,
     });
     if (r.status !== 429 || tentativa === 3) break;
@@ -511,7 +525,7 @@ export async function infoTokensHS() {
       return { appId: j.appId || null, custom: (j.scopes || []).filter((s) => /custom/.test(s)) };
     } catch (e) { return { erro: e.message.slice(0, 80) }; }
   };
-  return { principal: await info(process.env.HUBSPOT_TOKEN), extra: await info(await ownersToken().catch(() => null)) };
+  return { principal: await info(await tokenPrincipal()), extra: await info(await ownersToken().catch(() => null)) };
 }
 export async function responderCandidatoHS(candidatoId, resposta, mensagem) {
   const corpo = { properties: { resposta_ao_palestrante: resposta, [PROP_MSG_CANDIDATO]: mensagem || '' } };

@@ -1,4 +1,5 @@
-import { cors, lerCorpo, redis, CHAVE_OWNERS_TOKEN } from './_lib.js';
+import { cors, lerCorpo, redis, CHAVE_OWNERS_TOKEN, CHAVE_HS_PRINCIPAL } from './_lib.js';
+import { lerSessao, ehSuper } from './_auth.js';
 
 // Recebe/guarda o token dedicado de leitura de usuários (owners) SEM precisar do Vercel.
 // Gate: e-mail @profissionaissa.com. Só guarda se o token realmente ler owners (valida antes).
@@ -23,6 +24,21 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     const body = await lerCorpo(req);
+    // Token PRINCIPAL reserva (vale no lugar do HUBSPOT_TOKEN da Vercel). Só super admin logado.
+    if (body.principal) {
+      const sess = await lerSessao(body.sessao).catch(() => null);
+      if (!sess || sess.suporte || !ehSuper(sess.email)) return res.status(403).json({ erro: 'só super admin logado' });
+      if (body.limpar) { await redis().del(CHAVE_HS_PRINCIPAL); return res.status(200).json({ ok: true, limpo: true }); }
+      const tk = String(body.token || '').trim();
+      if (!/^pat-/.test(tk)) return res.status(400).json({ erro: 'cole um token de app privado (começa com pat-)' });
+      for (const u of ['/crm/v3/objects/contacts?limit=1', '/crm/v3/objects/deals?limit=1']) {
+        const r = await fetch(`https://api.hubapi.com${u}`, { headers: { Authorization: `Bearer ${tk}` } });
+        if (r.status !== 200) return res.status(400).json({ erro: `o token não lê ${u.split('/')[4]}`, detalhe: `HTTP ${r.status}` });
+      }
+      await redis().set(CHAVE_HS_PRINCIPAL, tk);
+      console.log('token principal reserva: configurado por', sess.email);
+      return res.status(200).json({ ok: true });
+    }
     if (body.limpar) {
       try { await redis().del(CHAVE_OWNERS_TOKEN); } catch (e) {}
       return res.status(200).json({ ok: true, limpo: true });
