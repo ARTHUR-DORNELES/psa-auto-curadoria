@@ -1,4 +1,4 @@
-import { cors, lerCorpo, redis, CHAVE_OWNERS_TOKEN, CHAVE_HS_PRINCIPAL } from './_lib.js';
+import { cors, lerCorpo, redis, CHAVE_OWNERS_TOKEN, CHAVE_HS_PRINCIPAL, CHAVE_DIST_SECRET } from './_lib.js';
 import { lerSessao, ehSuper } from './_auth.js';
 
 // Recebe/guarda o token dedicado de leitura de usuários (owners) SEM precisar do Vercel.
@@ -24,6 +24,18 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     const body = await lerCorpo(req);
+    // Segredo da distribuição do SAL (psa-ia-board /api/dist-recomenda). Só super admin logado.
+    if (body.distSecret) {
+      const sess = await lerSessao(body.sessao).catch(() => null);
+      if (!sess || sess.suporte || !ehSuper(sess.email)) return res.status(403).json({ erro: 'só super admin logado' });
+      const v = String(body.valor || '').trim();
+      if (!v) return res.status(400).json({ erro: 'valor vazio' });
+      // valida sem distribuir nada: sem dealId o board responde 400 (aceito) ou 401 (segredo errado)
+      const r = await fetch('https://psa-ia-board.vercel.app/api/dist-recomenda', { method: 'POST', headers: { 'content-type': 'application/json', Authorization: `Bearer ${v}` }, body: '{}' });
+      if (r.status === 401 || r.status === 403) return res.status(400).json({ erro: 'o board recusou esse segredo', detalhe: `HTTP ${r.status}` });
+      await redis().set(CHAVE_DIST_SECRET, v);
+      return res.status(200).json({ ok: true, board: r.status });
+    }
     // Token PRINCIPAL reserva (vale no lugar do HUBSPOT_TOKEN da Vercel). Só super admin logado.
     if (body.principal) {
       const sess = await lerSessao(body.sessao).catch(() => null);

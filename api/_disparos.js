@@ -1,8 +1,8 @@
 // Resultado dos disparos da Essencial (e-mails de marketing do HubSpot): enviados, entregues,
 // abertos, cliques. Pega os e-mails com "Essencial" no nome; a onda sai do nome ("Onda 3").
 // WhatsApp do HubSpot não expõe leitura pela API: o relatório mede o clique pela UTM.
-// Token: HUBSPOT_REPORT_TOKEN > token extra (owners) > HUBSPOT_TOKEN, o primeiro que tiver o escopo.
-import { ownersToken, redis } from './_lib.js';
+// Token: HUBSPOT_REPORT_TOKEN > token principal (reserva do Redis) > token extra (owners) > HUBSPOT_TOKEN, o primeiro que tiver o escopo.
+import { ownersToken, redis, tokenPrincipal } from './_lib.js';
 
 const HS = 'https://api.hubapi.com';
 const CACHE = 'ac:rastro:disparos';
@@ -26,7 +26,7 @@ export async function resultadoDosDisparos() {
   const r = redis();
   const c = await r.get(CACHE);
   if (c) return JSON.parse(c);
-  const toks = [process.env.HUBSPOT_REPORT_TOKEN, await ownersToken().catch(() => null), process.env.HUBSPOT_TOKEN].filter(Boolean);
+  const toks = [process.env.HUBSPOT_REPORT_TOKEN, await tokenPrincipal().catch(() => null), await ownersToken().catch(() => null), process.env.HUBSPOT_TOKEN].filter(Boolean);
   let emails = null;
   for (const t of [...new Set(toks)]) { emails = await buscar(t); if (emails) break; }
   if (!emails) return { erro: 'O token do HubSpot do app não tem permissão para ler e-mails de marketing (escopo "content").' };

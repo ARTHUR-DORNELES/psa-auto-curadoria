@@ -288,11 +288,18 @@ export const PIPE_B2B = process.env.PIPE_B2B || 'default';
 export const STAGE_COTACAO = process.env.STAGE_COTACAO || 'decisionmakerboughtin';
 const DIST_URL = process.env.DIST_URL || 'https://psa-ia-board.vercel.app/api/dist-recomenda';
 // distribuição do SAL: escolhe e grava o dono (distribuirAuto). Nunca derruba a cotação.
+// segredo: env DIST_SECRET ou, se faltar (a Vercel de produção é do Arthur), a reserva no Redis
+export const CHAVE_DIST_SECRET = 'ac:dist_secret';
+async function distSecret() {
+  if (process.env.DIST_SECRET) return process.env.DIST_SECRET;
+  try { return (await redis().get(CHAVE_DIST_SECRET)) || ''; } catch (e) { return ''; }
+}
 async function distribuirPeloSAL(dealId) {
-  if (!process.env.DIST_SECRET) { console.error('COTACAO_DIST: DIST_SECRET ausente'); return null; }
+  const segredo = await distSecret();
+  if (!segredo) { console.error('COTACAO_DIST: DIST_SECRET ausente'); return null; }
   try {
     const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 25000);
-    const r = await fetch(DIST_URL, { method: 'POST', headers: { 'content-type': 'application/json', Authorization: `Bearer ${process.env.DIST_SECRET}` }, body: JSON.stringify({ dealId: String(dealId) }), signal: ctl.signal });
+    const r = await fetch(DIST_URL, { method: 'POST', headers: { 'content-type': 'application/json', Authorization: `Bearer ${segredo}` }, body: JSON.stringify({ dealId: String(dealId) }), signal: ctl.signal });
     clearTimeout(tm);
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { console.error('COTACAO_DIST', r.status, JSON.stringify(j).slice(0, 200)); return null; }
