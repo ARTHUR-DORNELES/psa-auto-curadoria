@@ -1,5 +1,5 @@
 import { decidirAcesso, dadosContato, lerCorpo, cors } from './_lib.js';
-import { lerSessao, publico, marcarAcesso, testeDaEmpresa, MSG_TESTE_FIM, CHECKOUT_ESSENCIAL } from './_auth.js';
+import { lerSessao, ehSuper, publico, marcarAcesso, testeDaEmpresa, MSG_TESTE_FIM, CHECKOUT_ESSENCIAL } from './_auth.js';
 
 // Porta da ferramenta, já com o usuário logado (e-mail + senha, ver api/conta.js).
 // A sessão diz a empresa (documento da assinatura) e o papel:
@@ -12,8 +12,9 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, erro: 'use POST' });
 
   const { sessao } = await lerCorpo(req);
+  let sess = null;
   try {
-    const sess = await lerSessao(sessao);
+    sess = await lerSessao(sessao);
     if (!sess) return res.status(200).json({ ok: false, motivo: 'sessao', erro: 'Sua sessão expirou. Entre de novo.' });
     const usuario = { ...publico({ ...sess, status: 'ativo' }) };
     // em paralelo: gravar o último acesso não precisa atrasar a abertura do painel
@@ -41,6 +42,8 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, modo: 'escolher', usuario, curadorias: minhas, podeNova, contato, ...(fimTeste ? { aviso: MSG_TESTE_FIM, assinar: CHECKOUT_ESSENCIAL } : {}) });
   } catch (e) {
     console.error('ACESSO_FALHOU', e.message);
-    return res.status(200).json({ ok: false, motivo: 'erro', erro: 'Não conseguimos validar agora. Tente de novo em instantes.' });
+    // super admin vê o motivo técnico (a gente não tem o log desta Vercel)
+    const diag = sess && ehSuper(sess.email) ? String(e.stack || e.message).split(/\n/).slice(0, 4).join(' | ') : undefined;
+    return res.status(200).json({ ok: false, motivo: 'erro', erro: 'Não conseguimos validar agora. Tente de novo em instantes.', diag });
   }
 }
