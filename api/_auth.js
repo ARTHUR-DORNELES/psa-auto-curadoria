@@ -35,7 +35,7 @@ const kSessao = (t) => `ac:sessao:${t}`;
 const kLink = (t) => `ac:link:${t}`;
 
 export const normEmail = (e) => String(e || '').trim().toLowerCase();
-export const emailValido = (e) => /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(normEmail(e));
+export const emailValido = (e) => { const v = normEmail(e); return /^[a-z0-9._%+'-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/.test(v) && !/\.\.|^\.|\.@|@-|-\./.test(v); };
 
 // Celular brasileiro em E.164 (+55 + DDD + 9 + 8 dígitos). Aceita com ou sem +55,
 // com espaços, parênteses e traço. Devolve '' se não for um celular válido.

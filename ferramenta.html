@@ -89,6 +89,7 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .inicio label{font-size:10.5px;margin-bottom:5px}
 .inicio input{padding:9px 12px;font-size:14px}
 .inicio .erro{margin-top:10px}
+.lnk-sug{background:none;border:0;padding:0 0 0 6px;font:inherit;color:var(--psa-orange-hi);text-decoration:underline;cursor:pointer}
 .inicio .erro:empty{min-height:0;margin:0}
 .inicio .acoes{margin-top:14px}
 .inicio .btn{padding:11px 20px;font-size:12px}
@@ -1160,6 +1161,57 @@ $('#btnIniEntrar').addEventListener('click', async () => {
 });
 comEnter('#iniEmail', '#btnIniEntrar'); comEnter('#iniSenha', '#btnIniEntrar');
 
+// ── validador de e-mail do cadastro: formato + erro de digitação comum ("gmial.com", ".con") ──
+const DOMINIOS_COMUNS = ['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'yahoo.com.br', 'icloud.com', 'live.com', 'msn.com',
+  'uol.com.br', 'bol.com.br', 'terra.com.br', 'globo.com', 'ig.com.br', 'hotmail.com.br', 'outlook.com.br', 'profissionaissa.com'];
+function distancia(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) {
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+  }
+  return d[a.length][b.length];
+}
+// devolve { ok, erro } ou { ok:true, sugestao } quando parece digitado errado
+function checarEmail(bruto) {
+  const v = String(bruto || '').trim().toLowerCase();
+  if (!v) return { ok: false, erro: 'Informe seu e-mail.' };
+  if (/\s/.test(v)) return { ok: false, erro: 'O e-mail não pode ter espaços.' };
+  const arrobas = (v.match(/@/g) || []).length;
+  if (arrobas === 0) return { ok: false, erro: 'Falta o @ no e-mail (ex.: voce@empresa.com.br).' };
+  if (arrobas > 1) return { ok: false, erro: 'O e-mail tem mais de um @.' };
+  const [usu, dom] = v.split('@');
+  if (!usu) return { ok: false, erro: 'Falta o que vem antes do @.' };
+  if (!dom || !dom.includes('.')) return { ok: false, erro: 'Falta o domínio depois do @ (ex.: @empresa.com.br).' };
+  if (/\.\.|^\.|\.$|^-|-\./.test(dom) || /\.\.|\.$|^\./.test(usu) || !/^[a-z0-9._%+'-]+$/.test(usu) || !/^[a-z0-9.-]+$/.test(dom)) return { ok: false, erro: 'Confira o e-mail: há caracteres ou pontos fora do lugar.' };
+  if (!/\.[a-z]{2,}$/.test(dom)) return { ok: false, erro: 'Confira o final do e-mail (ex.: .com ou .com.br).' };
+  if (DOMINIOS_COMUNS.includes(dom)) return { ok: true };
+  // final digitado errado: .con, .cmo, .vom, .comm, .com.bt, .br.com...
+  const fim = dom.replace(/\.(con|cmo|cpm|vom|xom|cim|comm|ocm|om|co)(\.br)?$/, '.com$2').replace(/\.com\.(bt|be|r|brr|vr)$/, '.com.br').replace(/\.br\.com$/, '.com.br');
+  // domínio parecido com um dos comuns (gmial.com, hotmal.com, outlok.com)
+  const parecido = DOMINIOS_COMUNS.map((d) => [d, distancia(fim, d)]).filter(([, n]) => n > 0 && n <= 2).sort((a, b) => a[1] - b[1])[0];
+  const sug = parecido ? parecido[0] : (fim !== dom ? fim : '');
+  return sug ? { ok: true, sugestao: `${usu}@${sug}` } : { ok: true };
+}
+let emailSemSugestao = '';   // e-mail que a pessoa confirmou que está certo mesmo com sugestão
+function avisoEmail(campo, caixaErro) {
+  const r = checarEmail($(campo).value);
+  if (!r.ok) { $(caixaErro).textContent = r.erro; return false; }
+  const v = $(campo).value.trim().toLowerCase();
+  if (r.sugestao && v !== emailSemSugestao) {
+    $(caixaErro).innerHTML = `Você quis dizer <b>${escHTML(r.sugestao)}</b>? <button type="button" class="lnk-sug" data-v="${escHTML(r.sugestao)}">Sim, corrigir</button> <button type="button" class="lnk-sug" data-ok="1">Não, está certo</button>`;
+    $(caixaErro).querySelectorAll('.lnk-sug').forEach((b) => b.addEventListener('click', () => {
+      if (b.dataset.v) $(campo).value = b.dataset.v; else emailSemSugestao = v;
+      $(caixaErro).textContent = '';
+    }));
+    return false;
+  }
+  return true;
+}
+$('#cdEmail').addEventListener('blur', () => { if ($('#cdEmail').value.trim()) avisoEmail('#cdEmail', '#eCad'); });
+$('#cdEmail').addEventListener('input', () => { if ($('#eCad').querySelector('.lnk-sug') || /e-mail/i.test($('#eCad').textContent)) $('#eCad').textContent = ''; });
+
 // cadastro direto (Essencial, sem link no e-mail): cria o acesso e já entra
 $('#btnCadastro').addEventListener('click', async () => {
   const v = (id) => $(id).value.trim();
@@ -1167,7 +1219,7 @@ $('#btnCadastro').addEventListener('click', async () => {
   const erro = (m) => { $('#eCad').textContent = m; };
   erro(''); $('#btnCadAssinar').style.display = 'none';
   if (v('#cdNome').split(/\s+/).length < 2) return erro('Informe seu nome e sobrenome.');
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(v('#cdEmail'))) return erro('Informe um e-mail válido.');
+  if (!avisoEmail('#cdEmail', '#eCad')) return;
   if (!v('#cdEmpresa')) return erro('Informe o nome da empresa.');
   if (doc.length !== 11 && doc.length !== 14) return erro('Informe o CNPJ (14 dígitos) ou CPF (11 dígitos), só números.');
   if (!celularOk(v('#cdCelular'))) return erro('Informe seu celular com DDD, ex.: +55 41 99999-9999.');
