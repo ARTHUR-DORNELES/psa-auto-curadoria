@@ -819,7 +819,23 @@ export async function dadosDoTeste(email) {
 export async function criarTeste(t, b = {}) {
   const l = await lerLink(t);
   if (!l || l.tipo !== 'teste') return { ok: false, erro: 'Este link expirou ou já foi usado. Peça um novo.' };
-  const email = l.email;
+  return criarAcessoTeste(l.email, b, t);
+}
+
+/* Cadastro DIRETO (Renato, 19/11/2026): a tela de acesso abre no cadastro da Essencial e cria o
+ * acesso de teste na hora, SEM link de confirmação no e-mail. Por isso não há pré-preenchimento
+ * pelo HubSpot (mostraria celular/CNPJ de qualquer e-mail digitado). Trava: 5 cadastros por IP
+ * a cada 15 min, além de um teste por e-mail e um por CPF/CNPJ. */
+export async function cadastroDireto(b = {}, ip = '') {
+  const email = normEmail(b.email);
+  if (!emailValido(email)) return { ok: false, erro: 'Informe um e-mail válido.' };
+  if (ip && await excedeu(`cadastro-ip:${ip}`, 5)) return { ok: false, erro: 'Muitos cadastros seguidos. Espere alguns minutos.' };
+  if (await redis().get(kUsuario(email))) return { ok: false, motivo: 'ja_tem', erro: 'Este e-mail já tem acesso. Entre com sua senha ao lado.' };
+  if (await redis().get(kTesteEmail(email))) return { ok: false, motivo: 'ja_testou', erro: 'Este e-mail já fez o teste da Auto Curadoria. Para continuar, assine a Auto Curadoria Essencial.', assinar: CHECKOUT_ESSENCIAL };
+  return criarAcessoTeste(email, b, '');
+}
+
+async function criarAcessoTeste(email, b = {}, t = '') {
   const nome = String(b.nome || '').trim().slice(0, 120);
   const empresa = String(b.empresa || '').trim().slice(0, 160);
   const d = normalizaDocumento(b.documento);
@@ -874,7 +890,7 @@ export async function criarTeste(t, b = {}) {
     await gravarUsuario(doc, u);
     await redis().set(kTesteDoc(doc), deal.id);
     await redis().set(kTesteEmail(email), doc);
-    await redis().del(kLink(t));
+    if (t) await redis().del(kLink(t));
     try { await redis().set(`ac:org:${doc}:produto`, 'essencial', 'EX', 3600); } catch (e) {}   // cabeçalho já mostra a Essencial
     await marcarAcesso(doc, email);
     console.log('TESTE_CRIADO', deal.id, doc, email);

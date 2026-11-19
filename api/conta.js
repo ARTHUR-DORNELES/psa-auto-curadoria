@@ -1,5 +1,5 @@
 import { lerCorpo, cors } from './_lib.js';
-import { login, lerLink, definirSenha, esqueciSenha, primeiroAcesso, lerSessao, encerrarSessao, gerenciar, publico, salvarMeuCelular, empresas, entrarComoSuporte, liberarOraculo, definirQtdUsuarios, definirLimiteDisp, demandaGratuita, palestrasGratuitas, liberarGratuitas, candidatosDaGratuita, responderCandidato, cancelarGratuita, porquesDoCandidato, finalizarGratuita, pedirTeste, dadosDoTeste, criarTeste, trocarProdutoEmpresa, encerrarAcessoEmpresa } from './_auth.js';
+import { login, lerLink, definirSenha, esqueciSenha, primeiroAcesso, lerSessao, encerrarSessao, gerenciar, publico, salvarMeuCelular, empresas, entrarComoSuporte, liberarOraculo, definirQtdUsuarios, definirLimiteDisp, demandaGratuita, palestrasGratuitas, liberarGratuitas, candidatosDaGratuita, responderCandidato, cancelarGratuita, porquesDoCandidato, finalizarGratuita, pedirTeste, dadosDoTeste, criarTeste, cadastroDireto, trocarProdutoEmpresa, encerrarAcessoEmpresa } from './_auth.js';
 
 // Conta e usuários (uma função só, por `acao`):
 //   entrar {email,senha}        -> { sessao, usuario }
@@ -8,6 +8,7 @@ import { login, lerLink, definirSenha, esqueciSenha, primeiroAcesso, lerSessao, 
 //   meu-celular {sessao,celular} -> o próprio usuário informa o celular
 //   esqueci {email}             -> manda link de nova senha (resposta não revela se existe)
 //   primeiro-acesso {documento} -> CPF/CNPJ da compra manda o link pro e-mail do comprador (admin)
+//   cadastro {email,nome,empresa,documento,celular,senha} -> cria o acesso de teste da Essencial direto (sem e-mail)
 //   teste-pedir {email}         -> manda o link do cadastro de teste (confirma o e-mail)
 //   teste-criar {token,nome,empresa,documento,celular,senha} -> cria o acesso de teste e já entra
 //   eu {sessao} / sair {sessao}
@@ -26,6 +27,7 @@ export default async function handler(req, res) {
       }
       case 'definir-senha': return res.status(200).json(await definirSenha(b.token, b.senha, b.celular));
       case 'teste-pedir': return res.status(200).json(await pedirTeste(b.email));
+      case 'cadastro': return res.status(200).json(await cadastroDireto(b, String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()));
       case 'teste-criar': return res.status(200).json(await criarTeste(b.token, b));
       case 'esqueci': return res.status(200).json(await esqueciSenha(b.email));
       case 'primeiro-acesso': return res.status(200).json(await primeiroAcesso(b.documento));
