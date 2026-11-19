@@ -228,8 +228,16 @@ export default async function handler(req, res) {
   const PERGUNTAVEIS = new Set([...OBRIG, ...['formato', 'data', 'microTema'].filter(c => !pularSet.has(c))]);
   const pularTema = pularSet.has('macroTema');
   const pularExtra = [...pularSet].filter(c => c !== 'macroTema' && c !== 'microTema').map(c => rotuloCampo[c] || c).join(', ');
-  const mensagens = (historico.length ? historico : [{ role: 'user', content: 'Vamos começar.' }])
-    .map(m => ({ role: m.role === 'santiago' ? 'assistant' : 'user', content: String(m.content || '').slice(0, 2000) }));
+  // resposta vazia (cliente tocou em "pular") vira texto: a API da Anthropic recusa mensagem
+  // vazia e o chat caía no "Tive um probleminha". Falas seguidas do mesmo lado são juntadas.
+  const mensagens = [];
+  for (const m of (historico.length ? historico : [{ role: 'user', content: 'Vamos começar.' }])) {
+    const role = m.role === 'santiago' ? 'assistant' : 'user';
+    const content = String(m.content || '').trim().slice(0, 2000) || (role === 'user' ? '(prefiro pular esta pergunta)' : '…');
+    const ult = mensagens[mensagens.length - 1];
+    if (ult && ult.role === role) ult.content += `\n${content}`; else mensagens.push({ role, content });
+  }
+  if (mensagens[0]?.role !== 'user') mensagens.unshift({ role: 'user', content: 'Vamos começar.' });
   const faltando = OBRIG.filter(c => !slots[c]);
 
   try {
@@ -355,6 +363,9 @@ export default async function handler(req, res) {
     return res.status(200).json({ mensagem: semTravessao(msgForcada || out.mensagem || ''), slots: slots2, widget, completo });
   } catch (e) {
     console.error('CHAT_FALHOU', e.message);
-    return res.status(200).json({ mensagem: 'Tive um probleminha aqui do meu lado. Pode repetir, por favor?', slots, widget: null, erro: true });
+    // devolve o mesmo campo de resposta: com widget null a pessoa ficava sem onde responder
+    const w = campoRespondido && campoRespondido !== 'relato' ? widgetPara(campoRespondido, slots)
+      : { campo: 'relato', tipo: 'texto', multilinha: true };
+    return res.status(200).json({ mensagem: 'Tive um probleminha aqui do meu lado. Pode repetir, por favor?', slots, widget: w, erro: true });
   }
 }
