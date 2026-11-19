@@ -156,10 +156,26 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .emp-kpi b{display:block;font-size:24px;line-height:1.1;font-family:var(--font-display,inherit)}
 .emp-kpi span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3)}
 .emp-tab{border:1px solid var(--border-subtle);border-radius:var(--r-md);overflow:hidden}
-.emp,.emp-cab{display:grid;grid-template-columns:minmax(0,1fr) 84px 92px 80px 100px 66px 76px 92px;align-items:center;gap:12px;padding:14px 18px}
-.emp-cab{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3);background:#ffffff06;padding-top:10px;padding-bottom:10px}
+.emp,.emp-cab{display:grid;grid-template-columns:minmax(0,1fr) 96px 112px 92px 104px 74px 84px 112px;align-items:stretch;gap:0;padding:0}
+.emp>*,.emp-cab>*{padding:14px 12px;display:flex;align-items:center;min-width:0}
+.emp>*+*,.emp-cab>*+*{border-left:1px solid var(--border-subtle)}
+.emp>.emp__col-nome{display:block;padding-left:18px}
+.emp-cab>*:first-child{padding-left:18px}
+.emp>.emp__entrar{align-self:center;justify-self:center;padding:7px 14px;border:1px solid var(--border);margin:0 10px}
+.emp>.emp__entrar:hover{border-color:var(--psa-orange)}
+.emp__num{white-space:nowrap}
+.emp__info.emp__datas{white-space:normal;overflow:visible;text-overflow:clip}
+.emp:nth-child(odd){background:#ffffff04}
+.emp-cab{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3);background:#ffffff0a}
+.emp-cab>*{padding-top:10px;padding-bottom:10px}
 .emp{border-top:1px solid var(--border-subtle);transition:background .15s}
-.emp:hover{background:#ffffff05}
+.emp:hover{background:#ffffff0a}
+.emp__tags{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px}
+.emp__tag{font-size:11px;font-weight:700;letter-spacing:.04em;border-radius:999px;padding:2px 9px;border:1px solid}
+.emp__tag--essencial{color:#fdba74;border-color:#f9731666;background:#f973161a}
+.emp__tag--completa{color:#93c5fd;border-color:#3b82f666;background:#3b82f61a}
+.emp__tag--gratuito{color:#86efac;border-color:#22c55e66;background:#22c55e1a}
+.emp__tag--pago{color:var(--fg-2);border-color:var(--border);background:#ffffff08}
 .emp__nome{font-weight:700;font-size:15px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;line-height:1.3}
 .emp__acoes{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px}
 .emp__acoes button{background:none;border:0;padding:0;font:inherit;font-size:12px;color:var(--fg-2);text-decoration:underline;cursor:pointer}
@@ -189,7 +205,8 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .sw input:disabled+span{opacity:.5}
 @media(max-width:760px){
   .emp-cab{display:none}
-  .emp{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 10px}
+  .emp{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 10px;padding:14px 16px}
+  .emp>*{padding:0;border-left:0!important;display:block}
   .emp>.emp__col-nome{grid-column:1/-1}
   .emp__rot{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3);margin-bottom:2px}
   .emp__ora{display:flex;align-items:center;gap:8px}
@@ -1830,12 +1847,13 @@ async function carregarEmpresas() {
   emps.forEach((e) => {
     const row = document.createElement('div');
     row.className = 'emp';
-    const datas = [e.closedate ? `${e.teste ? 'Início' : 'Pago'} ${dataBRcurta(e.closedate)}` : '', e.vence ? `vence ${dataBRcurta(e.vence)}` : ''].filter(Boolean).join(' · ');
+    const datas = [e.closedate ? `Ativa desde ${dataBRcurta(e.closedate)}` : '', e.vence ? `vence ${dataBRcurta(e.vence)}` : ''].filter(Boolean).join(' · ');
     const admins = (e.admins || []).length ? `Admin: ${e.admins.join(', ')}` : '';
     row.innerHTML = `
       <div class="emp__col-nome" style="min-width:0">
-        <div class="emp__nome" title="${escHTML(e.nome)}">${escHTML(e.nome)}</div>
-        ${datas ? `<div class="emp__info">${escHTML(datas)}</div>` : ''}
+        <div class="emp__nome" title="${escHTML(e.nome)}">${escHTML(String(e.nome || '').split(' | ')[0])}</div>
+        ${e.pago ? `<div class="emp__tags"><span class="emp__tag emp__tag--${e.produto === 'essencial' ? 'essencial' : 'completa'}">${e.produto === 'essencial' ? 'Essencial' : 'Completa'}</span><span class="emp__tag emp__tag--${e.teste ? 'gratuito' : 'pago'}">${e.teste ? 'Gratuito' : 'Pago'}</span></div>` : ''}
+        ${datas ? `<div class="emp__info emp__datas">${escHTML(datas)}</div>` : ''}
         ${admins ? `<div class="emp__info" title="${escHTML(admins)}">${escHTML(admins)}</div>` : '<span class="emp__off">ninguém entrou ainda</span>'}
         ${e.pago && e.dealId ? `<div class="emp__acoes"><button type="button" class="emp__prod">Mudar para ${e.produto === 'essencial' ? 'Completa' : 'Essencial'}</button><button type="button" class="emp__fechar">Encerrar acesso</button></div>` : ''}
       </div>
