@@ -9,7 +9,7 @@ import { lerSessao, ehSuper, normEmail, emailValido } from './_auth.js';
 import { resultadoDosDisparos } from './_disparos.js';
 
 const TIPOS = new Set(['lp_visita', 'lp_cta', 'visita', 'cadastro', 'login', 'curadoria_iniciada', 'curadoria_enviada',
-  'curadoria_pronta', 'disponibilidade', 'assinar', 'chat_pulou_pro_form']);
+  'curadoria_pronta', 'disponibilidade', 'cotacao', 'assinar', 'chat_pulou_pro_form']);
 const kV = (v) => `ac:rv:${v}`;
 const kEv = (v) => `ac:rv:${v}:ev`;
 const corta = (x, n = 120) => String(x ?? '').slice(0, n);

@@ -263,6 +263,49 @@ function _propsBriefing(briefing) {
   return props;
 }
 
+/* Cotação acima do teto (Renato, 19/11/2026): na Essencial, o nome pedido pelo cliente que passa
+ * de R$ 5 mil não entra na curadoria. O botão "Quero uma cotação" abre um negócio NOVO no funil
+ * B2B (Aguardando Farmer/SDR Finalizar), origem "Auto Curadoria Essencial", com o briefing,
+ * ligado ao contato e à empresa do negócio da curadoria. Abrir negócio B2B tira o contato da
+ * campanha Essencial Gratuita (lista-trava), que é o esperado. */
+export const PIPE_B2B = process.env.PIPE_B2B || 'default';
+export const STAGE_COTACAO = process.env.STAGE_COTACAO || '1452914812';
+export async function criarCotacaoB2B(curadoriaDealId, briefing, nomePalestrante, urlCuradoria) {
+  const assoc = async (tipo) => {
+    try {
+      const j = await hs(`/crm/v4/objects/deals/${curadoriaDealId}/associations/${tipo}`);
+      return (j.results || []).map((r) => String(r.toObjectId));
+    } catch { return []; }
+  };
+  const [contatos, empresas] = await Promise.all([assoc('contacts'), assoc('companies')]);
+  const props = _propsBriefing(briefing || {});
+  const emp = (briefing && (briefing.empresaPalestra || briefing.empresa)) || '';
+  props.dealname = `COTAÇÃO ESSENCIAL | ${nomePalestrante}${emp ? ` | ${emp}` : ''}`.slice(0, 240);
+  props.pipeline = PIPE_B2B;
+  props.dealstage = STAGE_COTACAO;
+  props.origem_do_lead = 'Auto Curadoria Essencial';
+  props.description = `Cliente da Auto Curadoria Essencial pediu cotação de ${nomePalestrante}, que está acima da faixa de R$ 5 mil da Essencial. Curadoria: ${urlCuradoria}`.slice(0, 4000);
+  const associations = [
+    ...contatos.map((id) => ({ to: { id }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 3 }] })),
+    ...empresas.map((id) => ({ to: { id }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 5 }] })),
+  ];
+  let deal;
+  for (let tentativa = 0; tentativa < 6; tentativa++) {
+    try { deal = await hs('/crm/v3/objects/deals', 'POST', { properties: props, associations }); break; }
+    catch (e) {
+      const recusadas = [...e.message.matchAll(/"name\\?":\\?"([a-z0-9_]+)\\?"/g)].map((m) => m[1])
+        .filter((k) => k in props && !['dealname', 'pipeline', 'dealstage'].includes(k));
+      if (!recusadas.length) throw e;
+      for (const k of recusadas) delete props[k];
+      console.error('COTACAO_PROP_RECUSADA', recusadas.join(','), '— criando sem ela');
+    }
+  }
+  try {
+    await nota(deal.id, `<p><strong>Pedido de cotação pela Auto Curadoria Essencial</strong></p><p>O cliente quer uma proposta para <strong>${nomePalestrante}</strong>, que ficou fora da curadoria por estar acima de R$ 5 mil.</p><p>Curadoria: <a href="${urlCuradoria}">${urlCuradoria}</a></p>`);
+  } catch (e) { console.error('nota da cotação falhou:', e.message); }
+  return { negocioId: deal.id };
+}
+
 export async function anexarBriefingAoNegocio(dealId, briefing, id) {
   let props = _propsBriefing(briefing);
 

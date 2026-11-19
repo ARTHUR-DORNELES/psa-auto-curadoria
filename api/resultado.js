@@ -1,4 +1,4 @@
-import { redis, chave, chaveProjeto, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, anexarWikiLinks, anexarDocStatus, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, limparNomesDoNegocio, finalizarCuradoria, chaveDeNome, respostasDisponibilidade, anexarBriefingAoNegocio, registrarNomesNaoEncontrados, pedidosDispEmAberto, registrarPedidosDisp, donoDoPedido, podeVerCuradoria } from './_lib.js';
+import { redis, chave, chaveProjeto, teaser, paraCliente, curadoriaDoNegocio, lerNomes, escolherIndicacoes, N_INDICACOES, anexarFotos, anexarWikiLinks, anexarDocStatus, PROP_NOMES, nota, notaDoBriefing, lerCorpo, cors, CHECKOUT_URL, criarItensDeLinha, dispararDisponibilidade, dispararWebhookCuradoria, limparNomesDoNegocio, finalizarCuradoria, chaveDeNome, respostasDisponibilidade, anexarBriefingAoNegocio, registrarNomesNaoEncontrados, pedidosDispEmAberto, registrarPedidosDisp, donoDoPedido, podeVerCuradoria, criarCotacaoB2B } from './_lib.js';
 
 // Essencial: nomes pedidos pelo cliente que ficaram fora por ter cachê acima do teto.
 // O psa-ia-board grava a linha `ACIMA_DO_TETO: [A | B]` junto com os nomes.
@@ -246,6 +246,7 @@ export default async function handler(req, res) {
       briefingCompleto: reg.nomesDoCliente ? !!reg.briefingCompleto : true,
       naoEncontrados,
       acimaDoTeto: reg.acimaDoTeto || [],
+      cotacoes: Object.keys(reg.cotacoes || {}),
       // projeto (evento com vários palestrantes): abas por macro tema. macroTema = tema desta aba.
       macroTema: reg.macroTema || (reg.briefing && reg.briefing.macroTema) || null,
       projeto: await (async () => {
@@ -355,6 +356,24 @@ export default async function handler(req, res) {
       try { await anexarBriefingAoNegocio(reg.hubspot.negocioId, bf, id); }
       catch (e) { console.error('anexar briefing (lista fechada) falhou:', e.message); }
       return res.status(200).json({ ok: true, briefingCompleto: true });
+    }
+
+    // Essencial: palestrante pedido pelo cliente acima do teto -> negócio de cotação no B2B
+    if (acao === 'cotacao') {
+      const alvo = String((Array.isArray(palestrantes) ? palestrantes[0] : palestrantes) || '').trim();
+      const k = chaveDeNome(alvo);
+      const nome = (reg.acimaDoTeto || []).find((n) => chaveDeNome(n) === k);
+      if (!nome) return res.status(400).json({ erro: 'Este palestrante não está entre os que passaram da faixa.' });
+      reg.cotacoes = reg.cotacoes || {};
+      if (reg.cotacoes[nome]) return res.status(200).json({ ok: true, jaPedido: true, cotacoes: Object.keys(reg.cotacoes) });
+      if (!reg.hubspot?.negocioId) return res.status(409).json({ erro: 'Não conseguimos registrar agora. Fale com um curador da PSA.' });
+      const url = `https://psa-auto-curadoria.vercel.app/ferramenta?id=${id}`;
+      const r2 = await criarCotacaoB2B(reg.hubspot.negocioId, reg.briefing || {}, nome, url);
+      reg.cotacoes[nome] = { negocioId: r2.negocioId, em: new Date().toISOString() };
+      reg.acoes = reg.acoes || [];
+      reg.acoes.push({ acao, palestrantes: [nome], em: reg.cotacoes[nome].em });
+      await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);
+      return res.status(200).json({ ok: true, cotacoes: Object.keys(reg.cotacoes) });
     }
 
     if (acao === 'disponibilidade') {

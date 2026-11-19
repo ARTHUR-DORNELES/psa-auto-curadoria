@@ -108,7 +108,7 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .lnk-voltar:hover{color:var(--fg-1)}
 .faixa-suporte{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;background:#f8d71b;color:#02060f;font-size:13px;font-weight:600;padding:8px 16px;text-align:center}
 .faixa-suporte button{background:#02060f;color:#fff;border:0;border-radius:999px;padding:6px 14px;font:inherit;font-size:12px;cursor:pointer}
-.modo-suporte .gr__dec,.modo-suporte .gr__decisao,.modo-suporte #btnNovaGratuita,.modo-suporte #btnNovaBriefing,.modo-suporte #usuConvite,.modo-suporte .acoes-usu>button:not(.ok-suporte),.modo-suporte .acoes-cur,.modo-suporte #btnSair,.modo-suporte .btn-disp,.modo-suporte #refazer,.modo-suporte #quero-curador,.modo-suporte #tut,.modo-suporte #btnEmpresas{display:none!important}
+.modo-suporte .gr__dec,.modo-suporte .gr__decisao,.modo-suporte #btnNovaGratuita,.modo-suporte #btnNovaBriefing,.modo-suporte #usuConvite,.modo-suporte .acoes-usu>button:not(.ok-suporte),.modo-suporte .acoes-cur,.modo-suporte #btnSair,.modo-suporte .btn-disp,.modo-suporte #refazer,.modo-suporte #quero-curador,.modo-suporte #tut,.modo-suporte #btnEmpresas,.modo-suporte .btn-cotacao{display:none!important}
 .gr{border:1px solid var(--border-subtle);border-radius:var(--r-md);padding:16px 18px;background:#ffffff04}
 .gr__top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 16px;align-items:flex-start}
 .gr__tit{font-weight:700;font-size:16px;margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
@@ -412,6 +412,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 .aviso{margin-top:var(--s-7);font-size:var(--t-caption);color:var(--fg-3);border-top:1px solid var(--border-section);padding-top:var(--s-5)}
 .aviso--teto{display:flex;gap:14px;align-items:flex-start;margin:var(--s-6) 0;padding:18px 20px;border:1px solid var(--psa-orange);border-left-width:5px;border-radius:12px;background:rgba(248,80,0,.10);font-size:var(--t-body);line-height:1.5;color:var(--fg-1)}
 .aviso--teto strong{color:var(--psa-orange)}
+.aviso--teto .cot-ok{margin:12px 0 0;color:#86efac;font-weight:700}
 .aviso--teto .aviso__ic{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:var(--psa-orange);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:15px}
 
 /* registro do briefing, abaixo do resultado */
@@ -2048,7 +2049,7 @@ let relDados = null;
 const REL_EV = {
   lp_visita: 'Visitou a LP Essencial', lp_cta: 'Clicou para entrar (LP)', visita: 'Abriu a ferramenta', cadastro: 'Criou o acesso',
   login: 'Entrou no painel', curadoria_iniciada: 'Começou uma curadoria', chat_pulou_pro_form: 'Trocou o chat pelo formulário',
-  curadoria_enviada: 'Enviou o briefing', curadoria_pronta: 'Recebeu a curadoria', disponibilidade: 'Pediu disponibilidade', assinar: 'Clicou em assinar',
+  curadoria_enviada: 'Enviou o briefing', curadoria_pronta: 'Recebeu a curadoria', disponibilidade: 'Pediu disponibilidade', cotacao: 'Pediu cotação (acima de R$ 5 mil)', assinar: 'Clicou em assinar',
 };
 const relData = (t) => { try { return new Date(t).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; } };
 const relPct = (a, b) => (b ? `<span class="pc">${Math.round((a / b) * 100)}%</span>` : '');
@@ -3577,7 +3578,12 @@ function htmlNomes(d) {
     <p class="leitura">${esc(r.leitura)}</p>
     ${r.incompleto ? `<p class="aviso">Adiantamos ${r.indicacoes.length} nome${r.indicacoes.length > 1 ? 's' : ''} de alta aderência. Um curador vai completar sua indicação e te avisar — sem custo extra.</p>` : ''}
     <p class="aviso" id="avisoLimiteDisp" style="display:none"></p>
-    ${(d.acimaDoTeto && d.acimaDoTeto.length) ? `<p class="aviso aviso--teto"><span class="aviso__ic">!</span><span><strong>${d.acimaDoTeto.map(esc).join(', ')}:</strong> o valor ${d.acimaDoTeto.length > 1 ? 'desses palestrantes é maior' : 'desse palestrante é maior'} que o valor máximo da Auto Curadoria Essencial (R$ 5.000), por isso não ${d.acimaDoTeto.length > 1 ? 'entraram' : 'entrou'} nesta curadoria.</span></p>` : ''}
+    ${(d.acimaDoTeto || []).map((n) => {
+      const pedido = (d.cotacoes || []).includes(n);
+      return `<div class="aviso aviso--teto"><span class="aviso__ic">!</span><div><strong>${esc(n)} está fora da faixa de investimento que você selecionou</strong><p style="margin:6px 0 0">Mas pode ser uma ótima escolha para o seu evento. Nossa equipe monta uma proposta personalizada para você.</p>`
+        + (pedido ? `<p class="cot-ok">✓ Pedido enviado. Nossa equipe vai falar com você com a proposta.</p>` : `<button class="btn btn--primary btn-cotacao" data-nome="${esc(n)}" style="margin-top:14px">Quero uma cotação</button>`)
+        + `</div></div>`;
+    }).join('')}
     ${(d.naoEncontrados && d.naoEncontrados.length) ? `<p class="aviso"><strong>Não localizamos na nossa base:</strong> ${d.naoEncontrados.map(esc).join(', ')}. Confira a grafia do nome completo, ou fale com um curador da PSA que a gente confirma a disponibilidade desse palestrante pra você.</p>` : ''}
     ${d.refacoesRestantes > 0 ? `
     <div class="tut" id="tut">
@@ -3771,6 +3777,19 @@ function wireNomes(d) {
       .then((r) => r.json()).then((j) => { if (j && j.ok && j.limiteDisp) { d.limiteDisp = j.limiteDisp; pintarLimiteDisp(d.limiteDisp); } }).catch(() => {});
   }
 
+  // Essencial: pedido de cotação de palestrante acima da faixa (abre negócio no B2B)
+  $('#resultado').querySelectorAll('.btn-cotacao').forEach((btn) => btn.addEventListener('click', async () => {
+    const nome = btn.dataset.nome; btn.disabled = true; btn.textContent = 'Enviando…';
+    try {
+      const r = await fetch(`/api/resultado?id=${d.id}`, { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sessao: sessaoAtual || undefined, acao: 'cotacao', palestrantes: [nome] }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) throw new Error(j.erro || 'falha');
+      try { rastro('cotacao', { p: d.id, d: nome }); } catch (e) {}
+      const ok = document.createElement('p'); ok.className = 'cot-ok'; ok.textContent = '✓ Pedido enviado. Nossa equipe vai falar com você com a proposta.';
+      btn.replaceWith(ok);
+    } catch (e) { btn.disabled = false; btn.textContent = 'Quero uma cotação'; alert(e.message && e.message !== 'falha' ? e.message : 'Não conseguimos enviar agora. Tente de novo.'); }
+  }));
   $('#resultado').querySelectorAll('.btn-disp').forEach(btn => {
     btn.addEventListener('click', async () => {
       const nome = btn.dataset.nome;
