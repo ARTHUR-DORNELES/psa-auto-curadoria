@@ -170,13 +170,15 @@ export async function salvarMeuCelular(sess, bruto) {
 // Só os e-mails desta lista veem o painel de empresas e entram em qualquer empresa.
 // A entrada é SOMENTE LEITURA e invisível: não aparece em Usuários, não grava último
 // acesso nem cria nada no HubSpot.
-const SUPER = String(process.env.SUPER_ADMINS || 'renato.denck@profissionaissa.com,marcio.spagnolo@profissionaissa.com')
-  .split(',').map((e) => normEmail(e)).filter(Boolean);
+// Equipe PSA com acesso total (Renato, 19/11/2026: a Manu com os mesmos acessos dele). A lista da
+// env SOMA com esta (não substitui), pra ninguém daqui sumir por uma env antiga na Vercel.
+const EQUIPE_PSA = ['renato.denck@profissionaissa.com', 'marcio.spagnolo@profissionaissa.com', 'emanuelle.smaniotto@profissionaissa.com'];
+const listaEmails = (env) => [...new Set([...EQUIPE_PSA, ...String(env || '').split(',')].map((e) => normEmail(e)).filter(Boolean))];
+const SUPER = listaEmails(process.env.SUPER_ADMINS);
 export const ehSuper = (email) => SUPER.includes(normEmail(email));
 const SUPORTE_S = 60 * 60 * 4;
 // Demandas gratuitas: por enquanto só o Renato (lista editável por env, separada por vírgula)
-const GRATUITAS = String(process.env.DEMANDAS_GRATUITAS || 'renato.denck@profissionaissa.com,marcio.spagnolo@profissionaissa.com')
-  .split(',').map((e) => normEmail(e)).filter(Boolean);
+const GRATUITAS = listaEmails(process.env.DEMANDAS_GRATUITAS);
 export const podeGratuitas = (email) => GRATUITAS.includes(normEmail(email));
 // suporte PSA logado como ele mesmo vê a pipeline inteira; no modo suporte vê só a empresa visitada
 const veTudoGrat = (sess) => !sess.suporte && ehSuper(sess.email);
