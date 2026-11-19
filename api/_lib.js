@@ -1572,10 +1572,25 @@ export const TESTE_DIAS = Number(process.env.TESTE_DIAS || 60);
 export const ehTeste = (a) => { const p = (a && a.props) || {}; return String(p[PROP_TESTE]) === 'true' || /\|\s*TESTE\s*\|/i.test(String(p.dealname || '')); };
 export const STAGE_PAGO_AC = STAGE_PAGO;
 export const PIPE_AC = PIPE_AUTOCURADORIA;
+// A busca do HubSpot leva alguns segundos para enxergar o CPF/CNPJ recém-gravado no contato:
+// logo após o cadastro de teste ela não acha o negócio. O cadastro guarda o id do negócio em
+// `ac:teste:doc:<doc>`; aqui ele é lido direto (vale só se ainda estiver "Pago" nesta pipeline).
+async function _negocioDoTeste(bruto, extraProps) {
+  const doc = normalizaDocumento(bruto);
+  if (!doc) return null;
+  try {
+    const id = await redis().get(`ac:teste:doc:${doc.valor}`);
+    if (!id || !/^\d+$/.test(id)) return null;
+    const d = await hs(`/crm/v3/objects/deals/${id}?properties=${['pipeline', 'dealstage', 'dealname', 'createdate', ...extraProps].join(',')}`, 'GET');
+    const p = d.properties || {};
+    if (String(p.pipeline) !== PIPE_AUTOCURADORIA || String(p.dealstage) !== STAGE_PAGO) return null;
+    return { dealId: d.id, contatoId: await _contatoDoNegocio(d.id), doc, props: p };
+  } catch (e) { return null; }
+}
 export async function assinaturaAtivaPorDocumento(bruto) {
   // quantidade_usuarios = quantos acessos a empresa comprou (lido em _auth.js)
-  const found = await _negocioAutoCuradoriaPorDoc(bruto, STAGE_PAGO, 'DESCENDING',
-    ['closedate', process.env.PROP_QTD_USUARIOS || 'quantidade_usuarios', PROP_PRODUTO, PROP_DESC_PRODUTO, PROP_TESTE]);
+  const extra = ['closedate', process.env.PROP_QTD_USUARIOS || 'quantidade_usuarios', PROP_PRODUTO, PROP_DESC_PRODUTO, PROP_TESTE];
+  const found = (await _negocioAutoCuradoriaPorDoc(bruto, STAGE_PAGO, 'DESCENDING', extra)) || (await _negocioDoTeste(bruto, extra));
   if (!found) return null;
   const dataPag = found.props.closedate || found.props.createdate || '';
   // HubSpot devolve datas como epoch em ms (string só de dígitos); Date.parse disso dá NaN.

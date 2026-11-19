@@ -840,7 +840,7 @@ export async function criarTeste(t, b = {}) {
     await redis().set(kTesteDoc(doc), deal.id);
     await redis().set(kTesteEmail(email), doc);
     await redis().del(kLink(t));
-    try { await redis().del(`ac:org:${doc}:produto`); } catch (e) {}
+    try { await redis().set(`ac:org:${doc}:produto`, 'essencial', 'EX', 3600); } catch (e) {}   // cabeçalho já mostra a Essencial
     await marcarAcesso(doc, email);
     console.log('TESTE_CRIADO', deal.id, doc, email);
     return { ok: true, sessao: await abrirSessao(doc, email), usuario: publico(u) };
