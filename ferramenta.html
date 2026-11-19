@@ -32,6 +32,8 @@
 body{background:var(--psa-deep);color:var(--fg-1);font-family:var(--font-body);font-size:var(--t-body);line-height:1.6;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
 .wrap{width:min(860px,92vw);margin-inline:auto}
+/* Relatório e Empresas: usam a largura da tela (tabelas largas) */
+body.painel-largo main.wrap{width:min(1600px,95vw)}
 .eyebrow{font-size:var(--t-eyebrow);font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--psa-orange)}
 .display{font-family:var(--font-display);font-weight:800;text-transform:uppercase;line-height:.88;letter-spacing:-.01em}
 
@@ -1119,6 +1121,7 @@ document.addEventListener('click', (ev) => { const a = ev.target.closest && ev.t
 function mostra(id, indice) {
   document.querySelectorAll('.passo').forEach(p => p.classList.remove('on'));
   $('#' + id).classList.add('on');
+  if (id !== 'gate') document.body.classList.remove('painel-largo');   // fora do painel volta à largura normal
   const barras = document.querySelectorAll('#prog i');
   $('#prog').style.display = indice ? 'flex' : 'none';
   barras.forEach((b,i) => b.classList.toggle('on', i < (indice || 0)));
@@ -1772,6 +1775,7 @@ function abaConta(aba) {
   $('#painelUsuarios').style.display = aba === 'usuarios' ? '' : 'none';
   $('#painelEmpresas').style.display = aba === 'empresas' ? '' : 'none';
   $('#painelRelatorio').style.display = aba === 'relatorio' ? '' : 'none';
+  document.body.classList.toggle('painel-largo', aba === 'relatorio' || aba === 'empresas');
   $('#painelGratuitas').style.display = aba === 'gratuitas' ? '' : 'none';
 }
 // Oráculo (só suporte PSA): abre o Oráculo em tela cheia, por cima do painel
