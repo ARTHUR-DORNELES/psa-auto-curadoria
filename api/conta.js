@@ -1,5 +1,5 @@
 import { lerCorpo, cors } from './_lib.js';
-import { login, lerLink, definirSenha, esqueciSenha, primeiroAcesso, lerSessao, encerrarSessao, gerenciar, publico, salvarMeuCelular, empresas, entrarComoSuporte, liberarOraculo, definirQtdUsuarios, definirLimiteDisp, demandaGratuita, palestrasGratuitas, liberarGratuitas, candidatosDaGratuita, responderCandidato, cancelarGratuita, porquesDoCandidato, finalizarGratuita } from './_auth.js';
+import { login, lerLink, definirSenha, esqueciSenha, primeiroAcesso, lerSessao, encerrarSessao, gerenciar, publico, salvarMeuCelular, empresas, entrarComoSuporte, liberarOraculo, definirQtdUsuarios, definirLimiteDisp, demandaGratuita, palestrasGratuitas, liberarGratuitas, candidatosDaGratuita, responderCandidato, cancelarGratuita, porquesDoCandidato, finalizarGratuita, pedirTeste, dadosDoTeste, criarTeste } from './_auth.js';
 
 // Conta e usuários (uma função só, por `acao`):
 //   entrar {email,senha}        -> { sessao, usuario }
@@ -8,6 +8,8 @@ import { login, lerLink, definirSenha, esqueciSenha, primeiroAcesso, lerSessao, 
 //   meu-celular {sessao,celular} -> o próprio usuário informa o celular
 //   esqueci {email}             -> manda link de nova senha (resposta não revela se existe)
 //   primeiro-acesso {documento} -> CPF/CNPJ da compra manda o link pro e-mail do comprador (admin)
+//   teste-pedir {email}         -> manda o link do cadastro de teste (confirma o e-mail)
+//   teste-criar {token,nome,empresa,documento,celular,senha} -> cria o acesso de teste e já entra
 //   eu {sessao} / sair {sessao}
 //   usuarios {sessao, op: listar|convidar|reenviar|celular|papel|remover, email, nome, celular, papel} (só admin)
 export default async function handler(req, res) {
@@ -19,9 +21,12 @@ export default async function handler(req, res) {
       case 'entrar': return res.status(200).json(await login(b.email, b.senha));
       case 'link': {
         const l = await lerLink(b.token);
+        if (l && l.tipo === 'teste') return res.status(200).json({ ok: true, email: l.email, tipo: 'teste', dados: await dadosDoTeste(l.email) });
         return res.status(200).json(l ? { ok: true, email: l.email, nome: l.nome, celular: l.celular, tipo: l.tipo } : { ok: false, erro: 'Este link expirou ou já foi usado. Peça um novo.' });
       }
       case 'definir-senha': return res.status(200).json(await definirSenha(b.token, b.senha, b.celular));
+      case 'teste-pedir': return res.status(200).json(await pedirTeste(b.email));
+      case 'teste-criar': return res.status(200).json(await criarTeste(b.token, b));
       case 'esqueci': return res.status(200).json(await esqueciSenha(b.email));
       case 'primeiro-acesso': return res.status(200).json(await primeiroAcesso(b.documento));
       case 'eu': {

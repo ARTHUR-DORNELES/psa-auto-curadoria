@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos, responderCandidatoHS, ETAPAS_GRAT, moverGratuita, porquesDoPalestrante, infoTokensHS, produtoDaEmpresa, produtoDaAssinatura } from './_lib.js';
+import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos, responderCandidatoHS, ETAPAS_GRAT, moverGratuita, porquesDoPalestrante, infoTokensHS, produtoDaEmpresa, produtoDaAssinatura, docVariantes, PROP_DESC_PRODUTO, PROP_TESTE, PIPE_AC as PIPE_AC_LIB, STAGE_PAGO_AC as STAGE_PAGO_LIB } from './_lib.js';
 
 /**
  * Usuários por empresa. A assinatura continua sendo o negócio "Pago" casado pelo CPF/CNPJ
@@ -499,13 +499,17 @@ export async function lerLink(t) {
   if (!t || t.length > 100) return null;
   const v = await redis().get(kLink(t));
   if (!v) return null;
-  try { const l = JSON.parse(v); const u = await lerUsuario(l.doc, l.email); return u ? { ...l, nome: u.nome || '', celular: u.celular || '' } : null; }
+  try {
+    const l = JSON.parse(v);
+    if (l.tipo === 'teste') return l;   // cadastro de teste: ainda não há usuário
+    const u = await lerUsuario(l.doc, l.email); return u ? { ...l, nome: u.nome || '', celular: u.celular || '' } : null;
+  }
   catch (e) { return null; }
 }
 
 export async function definirSenha(t, senha, celularBruto) {
   const l = await lerLink(t);
-  if (!l) return { ok: false, erro: 'Este link expirou ou já foi usado. Peça um novo.' };
+  if (!l || l.tipo === 'teste') return { ok: false, erro: 'Este link expirou ou já foi usado. Peça um novo.' };
   const celular = celularBruto ? normCelular(celularBruto) : '';
   if (celularBruto && !celular) return { ok: false, erro: ERRO_CELULAR };
   const fraca = senhaFraca(senha);
@@ -724,4 +728,125 @@ export async function gerenciar(sess, acao, b = {}) {
     return { ok: true };
   }
   return { ok: false, erro: 'ação inválida' };
+}
+
+/* ── Acesso de teste (19/11/2026) ─────────────────────────────────────────────────────
+ * "Quero testar": a pessoa informa o e-mail, recebe um link (prova que o e-mail é dela) e
+ * o link abre um formulário JÁ PREENCHIDO com o que o HubSpot sabe dela (nome, empresa,
+ * celular, CPF/CNPJ). Ela ajusta, cria a senha e entra. Isso cria um negócio "Pago" da
+ * Essencial marcado como teste (expira em TESTE_DIAS, ver _lib.js) e ela vira admin.
+ * Os dados só aparecem DEPOIS do link: ninguém vê o cadastro de um e-mail alheio.
+ * Um teste por e-mail e um por CPF/CNPJ (Redis, sem validade). O prazo não é dito ao cliente. */
+const kTesteDoc = (doc) => `ac:teste:doc:${doc}`;
+const kTesteEmail = (email) => `ac:teste:email:${email}`;
+export const testeDaEmpresa = async (doc) => (doc ? !!(await redis().get(kTesteDoc(doc))) : false);
+export const MSG_TESTE_FIM = 'Seu acesso de teste terminou. Para continuar montando curadorias, assine a Auto Curadoria Essencial.';
+export const CHECKOUT_ESSENCIAL = process.env.CHECKOUT_ESSENCIAL || 'https://checkout.profissionaissa.com.br/curadoria/checkout/f3624a16-5d41-47c6-9ab1-f6e72ddb6f72';
+
+export async function pedirTeste(emailBruto) {
+  const email = normEmail(emailBruto);
+  if (!emailValido(email)) return { ok: false, erro: 'Informe um e-mail válido.' };
+  if (await excedeu(`teste:${email}`, 3)) return { ok: false, erro: 'Já enviamos o link. Confira sua caixa de entrada (e o spam).' };
+  if (await redis().get(kUsuario(email))) return { ok: false, motivo: 'ja_tem', erro: 'Este e-mail já tem acesso à Auto Curadoria. Entre com sua senha ou use "Esqueci minha senha".' };
+  if (await redis().get(kTesteEmail(email))) return { ok: false, motivo: 'ja_testou', erro: 'Este e-mail já fez o teste da Auto Curadoria. Para continuar, assine a Auto Curadoria Essencial.', assinar: CHECKOUT_ESSENCIAL };
+  const l = await criarLink('', email, 'teste');
+  const env = await enviarLinkPorEmail({ email, url: l.url, tipo: 'teste' });
+  if (!env.enviado) return { ok: false, erro: 'Não conseguimos enviar o e-mail agora. Tente de novo em instantes.' };
+  return { ok: true, msg: `Enviamos um link para ${email}. Abra o e-mail para confirmar seus dados e criar sua senha.` };
+}
+
+// o que o HubSpot já sabe de quem pediu o teste (só depois do link do e-mail). Nunca lança.
+export async function dadosDoTeste(email) {
+  try {
+    const busca = await hs('/crm/v3/objects/contacts/search', 'POST', {
+      filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: email }] }],
+      properties: ['firstname', 'lastname', 'company', 'mobilephone', 'phone', 'cpf', 'cnpj'], limit: 1,
+    });
+    const r = busca.results?.[0];
+    if (!r) return {};
+    const c = r.properties || {};
+    let empresa = String(c.company || '').trim(), cnpj = c.cnpj || '';
+    try {
+      const a = await hs(`/crm/v4/objects/contacts/${r.id}/associations/companies`, 'GET');
+      const id = (a.results || [])[0]?.toObjectId;
+      if (id) {
+        const e = (await hs(`/crm/v3/objects/companies/${id}?properties=name,cnpj`, 'GET')).properties || {};
+        if (!empresa) empresa = String(e.name || '').trim();
+        if (!normalizaDocumento(cnpj)) cnpj = e.cnpj || '';
+      }
+    } catch (e) {}
+    const doc = normalizaDocumento(cnpj) || normalizaDocumento(c.cpf);
+    const cel = normCelular(c.mobilephone || '') || normCelular(c.phone || '');
+    return { nome: [c.firstname, c.lastname].filter(Boolean).join(' ').trim(), empresa, celular: cel || '', documento: doc ? doc.valor : '' };
+  } catch (e) { console.error('DADOS_TESTE_FALHOU', e.message.slice(0, 200)); return {}; }
+}
+
+export async function criarTeste(t, b = {}) {
+  const l = await lerLink(t);
+  if (!l || l.tipo !== 'teste') return { ok: false, erro: 'Este link expirou ou já foi usado. Peça um novo.' };
+  const email = l.email;
+  const nome = String(b.nome || '').trim().slice(0, 120);
+  const empresa = String(b.empresa || '').trim().slice(0, 160);
+  const d = normalizaDocumento(b.documento);
+  const celular = normCelular(b.celular);
+  if (nome.length < 3) return { ok: false, erro: 'Informe seu nome completo.' };
+  if (empresa.length < 2) return { ok: false, erro: 'Informe o nome da empresa.' };
+  if (!d) return { ok: false, erro: 'Informe um CPF (11 dígitos) ou CNPJ (14 dígitos).' };
+  if (!celular) return { ok: false, erro: ERRO_CELULAR };
+  const fraca = senhaFraca(b.senha);
+  if (fraca) return { ok: false, erro: fraca };
+  if (await redis().get(kUsuario(email))) return { ok: false, erro: 'Este e-mail já tem acesso. Entre com sua senha.' };
+  if (await redis().get(kTesteEmail(email))) return { ok: false, erro: 'Este e-mail já fez o teste da Auto Curadoria.' };
+  const doc = d.valor;
+  if ((await listarUsuarios(doc)).length || await assinaturaAtivaPorDocumento(doc)) {
+    return { ok: false, erro: 'Sua empresa já tem acesso à Auto Curadoria. Peça a um administrador para te convidar.' };
+  }
+  // trava: um teste por documento (também segura o clique duplo)
+  if (!(await redis().set(kTesteDoc(doc), 'criando', 'NX'))) return { ok: false, erro: 'Esta empresa já fez o teste da Auto Curadoria.' };
+  try {
+    // contato: grava o que a pessoa confirmou (o CPF/CNPJ no contato é o que liga a empresa ao negócio)
+    const busca = await hs('/crm/v3/objects/contacts/search', 'POST', {
+      filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: email }] }], properties: ['email'], limit: 1,
+    });
+    const [first, ...rest] = nome.split(/\s+/);
+    const propsC = { firstname: first, lastname: rest.join(' '), company: empresa, mobilephone: celular, [d.tipo]: doc };
+    let contatoId = busca.results?.[0]?.id;
+    if (contatoId) await hs(`/crm/v3/objects/contacts/${contatoId}`, 'PATCH', { properties: propsC });
+    else contatoId = (await hs('/crm/v3/objects/contacts', 'POST', { properties: { email, ...propsC } })).id;
+    // empresa do CRM com esse CNPJ (não cria empresa nova)
+    let empresaId = '';
+    if (d.tipo === 'cnpj') {
+      try {
+        const e = await hs('/crm/v3/objects/companies/search', 'POST', {
+          filterGroups: [{ filters: [{ propertyName: 'cnpj', operator: 'IN', values: docVariantes(d) }] }], properties: ['cnpj'], limit: 1,
+        });
+        empresaId = e.results?.[0]?.id || '';
+      } catch (e) {}
+    }
+    const deal = await hs('/crm/v3/objects/deals', 'POST', {
+      properties: {
+        dealname: `AUTO CURADORIA ESSENCIAL | TESTE | ${empresa}`,
+        pipeline: PIPE_AC_LIB, dealstage: STAGE_PAGO_LIB, closedate: new Date().toISOString(),
+        [PROP_DESC_PRODUTO]: 'Auto Curadoria Essencial (teste)', [PROP_TESTE]: 'true',
+      },
+      associations: [
+        { to: { id: contatoId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 3 }] },
+        ...(empresaId ? [{ to: { id: empresaId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 5 }] }] : []),
+      ],
+    });
+    const agora = new Date().toISOString();
+    const u = { email, nome, celular, papel: 'admin', status: 'ativo', senha: hashSenha(b.senha), criadoEm: agora, ativadoEm: agora, convidadoPor: 'teste', contatoId };
+    await gravarUsuario(doc, u);
+    await redis().set(kTesteDoc(doc), deal.id);
+    await redis().set(kTesteEmail(email), doc);
+    await redis().del(kLink(t));
+    try { await redis().del(`ac:org:${doc}:produto`); } catch (e) {}
+    await marcarAcesso(doc, email);
+    console.log('TESTE_CRIADO', deal.id, doc, email);
+    return { ok: true, sessao: await abrirSessao(doc, email), usuario: publico(u) };
+  } catch (e) {
+    await redis().del(kTesteDoc(doc));
+    console.error('TESTE_FALHOU', email, e.message.slice(0, 300));
+    return { ok: false, erro: 'Não conseguimos criar seu acesso agora. Tente de novo em instantes.' };
+  }
 }

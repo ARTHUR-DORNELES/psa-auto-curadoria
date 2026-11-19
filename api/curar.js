@@ -43,7 +43,7 @@ export default async function handler(req, res) {
       return res.status(502).json({ erro: 'não conseguimos validar seu acesso agora. Tente de novo em instantes.' });
     }
     if (!assinatura) return res.status(402).json({ erro: 'Não encontramos uma assinatura para este CPF/CNPJ.' });
-    if (!assinatura.ativa) return res.status(402).json({ erro: 'Sua assinatura expirou. Renove para montar novas curadorias.' });
+    if (!assinatura.ativa) return res.status(402).json({ erro: assinatura.teste ? 'Seu acesso de teste terminou. Para continuar montando curadorias, assine a Auto Curadoria Essencial.' : 'Sua assinatura expirou. Renove para montar novas curadorias.' });
 
     const briefing = {
       nome: b.nome, empresa: b.empresa, email: b.email.toLowerCase().trim(), telefone: b.telefone,

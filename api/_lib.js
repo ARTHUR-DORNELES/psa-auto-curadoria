@@ -1564,23 +1564,33 @@ export async function creditoPagoPorDocumento(bruto) {
 // (usa `closedate`; cai no `createdate` se vazio). Ativa => curadorias ILIMITADAS. Passado
 // 1 ano e ainda "Pago", expira preguiçoso (move p/ "Utilizado"). Nunca lança.
 const ANO_MS = 365 * 24 * 60 * 60 * 1000;
+/* Acesso de TESTE (19/11/2026): cadastro self-service cria um negócio "Pago" da Essencial
+ * marcado com `auto_curadoria_teste` = true (ou "| TESTE |" no nome). Vale TESTE_DIAS a
+ * partir do closedate e expira sozinho como a assinatura. O prazo nunca aparece pro cliente. */
+export const PROP_TESTE = process.env.PROP_TESTE || 'auto_curadoria_teste';
+export const TESTE_DIAS = Number(process.env.TESTE_DIAS || 60);
+export const ehTeste = (a) => { const p = (a && a.props) || {}; return String(p[PROP_TESTE]) === 'true' || /\|\s*TESTE\s*\|/i.test(String(p.dealname || '')); };
+export const STAGE_PAGO_AC = STAGE_PAGO;
+export const PIPE_AC = PIPE_AUTOCURADORIA;
 export async function assinaturaAtivaPorDocumento(bruto) {
   // quantidade_usuarios = quantos acessos a empresa comprou (lido em _auth.js)
   const found = await _negocioAutoCuradoriaPorDoc(bruto, STAGE_PAGO, 'DESCENDING',
-    ['closedate', process.env.PROP_QTD_USUARIOS || 'quantidade_usuarios', PROP_PRODUTO, PROP_DESC_PRODUTO]);
+    ['closedate', process.env.PROP_QTD_USUARIOS || 'quantidade_usuarios', PROP_PRODUTO, PROP_DESC_PRODUTO, PROP_TESTE]);
   if (!found) return null;
   const dataPag = found.props.closedate || found.props.createdate || '';
   // HubSpot devolve datas como epoch em ms (string só de dígitos); Date.parse disso dá NaN.
   const raw = String(dataPag).trim();
   const ts = /^\d{10,}$/.test(raw) ? Number(raw) : Date.parse(raw);
   // sem data legível -> considera ativa (não travar acesso por falta de campo)
-  const ativa = Number.isFinite(ts) ? (Date.now() - ts) < ANO_MS : true;
-  const vence = Number.isFinite(ts) ? new Date(ts + ANO_MS).toISOString() : null;
+  const teste = ehTeste(found);
+  const dur = teste ? TESTE_DIAS * 24 * 60 * 60 * 1000 : ANO_MS;
+  const ativa = Number.isFinite(ts) ? (Date.now() - ts) < dur : true;
+  const vence = Number.isFinite(ts) ? new Date(ts + dur).toISOString() : null;
   if (!ativa) {
     try { await hs(`/crm/v3/objects/deals/${found.dealId}`, 'PATCH', { properties: { dealstage: STAGE_UTILIZADO } }); }
     catch (e) { console.error('expiração da assinatura falhou:', e.message); }
   }
-  return { dealId: found.dealId, contatoId: found.contatoId, doc: found.doc, ativa, vence, props: found.props };
+  return { dealId: found.dealId, contatoId: found.contatoId, doc: found.doc, ativa, vence, teste, props: found.props };
 }
 
 /**

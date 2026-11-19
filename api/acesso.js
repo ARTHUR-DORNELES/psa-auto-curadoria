@@ -1,5 +1,5 @@
 import { decidirAcesso, dadosContato, lerCorpo, cors } from './_lib.js';
-import { lerSessao, publico, marcarAcesso } from './_auth.js';
+import { lerSessao, publico, marcarAcesso, testeDaEmpresa, MSG_TESTE_FIM, CHECKOUT_ESSENCIAL } from './_auth.js';
 
 // Porta da ferramenta, já com o usuário logado (e-mail + senha, ver api/conta.js).
 // A sessão diz a empresa (documento da assinatura) e o papel:
@@ -21,10 +21,12 @@ export default async function handler(req, res) {
     const minhas = (dec.curadorias || []).filter((c) =>
       sess.papel === 'admin' || (c.autor && c.autor.email === sess.email));
     const podeNova = dec.modo === 'novo' || !!dec.podeNova;
+    // acesso de teste que terminou: mensagem própria (sem dizer o prazo) e botão de assinar
+    const fimTeste = !podeNova && await testeDaEmpresa(sess.doc).catch(() => false);
+    const semAcesso = (msg) => (fimTeste ? { ok: false, motivo: 'nao_encontrado', usuario, erro: MSG_TESTE_FIM, assinar: CHECKOUT_ESSENCIAL } : { ok: false, motivo: 'nao_encontrado', usuario, erro: msg });
 
     if (dec.modo === 'invalido' || dec.modo === 'nenhum' || (dec.modo === 'esgotado' && !minhas.length)) {
-      return res.status(200).json({ ok: false, motivo: 'nao_encontrado', usuario,
-        erro: dec.modo === 'esgotado' ? 'A assinatura da sua empresa expirou. Fale com a PSA para renovar.' : 'Não encontramos uma assinatura ativa para a sua empresa.' });
+      return res.status(200).json(semAcesso(dec.modo === 'esgotado' ? 'A assinatura da sua empresa expirou. Fale com a PSA para renovar.' : 'Não encontramos uma assinatura ativa para a sua empresa.'));
     }
     // dados de quem está logado pré-preenchem o briefing (o Santiago cumprimenta pelo nome).
     // Empresa vem do comprador (mesma empresa); nome, e-mail e celular são de quem está
@@ -33,10 +35,10 @@ export default async function handler(req, res) {
     const contato = podeNova ? { ...comprador, nome: sess.nome || comprador.nome, email: sess.email, telefone: sess.celular || comprador.telefone } : null;
 
     if (!minhas.length) {
-      if (!podeNova) return res.status(200).json({ ok: false, motivo: 'nao_encontrado', usuario, erro: 'A assinatura da sua empresa expirou. Fale com a PSA para renovar.' });
+      if (!podeNova) return res.status(200).json(semAcesso('A assinatura da sua empresa expirou. Fale com a PSA para renovar.'));
       return res.status(200).json({ ok: true, modo: 'novo', usuario, contato });
     }
-    return res.status(200).json({ ok: true, modo: 'escolher', usuario, curadorias: minhas, podeNova, contato });
+    return res.status(200).json({ ok: true, modo: 'escolher', usuario, curadorias: minhas, podeNova, contato, ...(fimTeste ? { aviso: MSG_TESTE_FIM, assinar: CHECKOUT_ESSENCIAL } : {}) });
   } catch (e) {
     console.error('ACESSO_FALHOU', e.message);
     return res.status(200).json({ ok: false, motivo: 'erro', erro: 'Não conseguimos validar agora. Tente de novo em instantes.' });
