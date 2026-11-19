@@ -1793,10 +1793,40 @@ export async function negociosPagos() {
       { propertyName: 'dealstage', operator: 'EQ', value: STAGE_PAGO },
     ] }],
     sorts: [{ propertyName: 'closedate', direction: 'DESCENDING' }],
-    properties: ['dealname', 'closedate', 'createdate', process.env.PROP_QTD_USUARIOS || 'quantidade_usuarios'],
+    properties: ['dealname', 'closedate', 'createdate', process.env.PROP_QTD_USUARIOS || 'quantidade_usuarios', PROP_PRODUTO, PROP_DESC_PRODUTO, PROP_TESTE],
     limit: 100,
   });
-  return (r.results || []).map((d) => ({ dealId: d.id, ...d.properties }));
+  const deals = (r.results || []).map((d) => ({ dealId: d.id, ...d.properties }));
+  const nomes = await nomesDasEmpresas(deals.map((d) => d.dealId)).catch(() => ({}));
+  return deals.map((d) => ({ ...d, empresa: nomes[d.dealId] || '' }));
+}
+
+// Nome da empresa de cada negócio: empresa associada > campo "empresa" do contato comprador.
+// Em lote (4 chamadas no total, não por negócio). Nunca lança: falhou, volta {}.
+async function nomesDasEmpresas(ids) {
+  if (!ids.length) return {};
+  const assoc = async (para) => {
+    const a = await hs(`/crm/v4/associations/deals/${para}/batch/read`, 'POST', { inputs: ids.map((id) => ({ id })) });
+    return Object.fromEntries((a.results || []).map((x) => [String(x.from?.id), String((x.to || [])[0]?.toObjectId || '')]));
+  };
+  const ler = async (obj, idsObj, prop) => {
+    const u = [...new Set(idsObj.filter(Boolean))];
+    if (!u.length) return {};
+    const b = await hs(`/crm/v3/objects/${obj}/batch/read`, 'POST', { inputs: u.map((id) => ({ id })), properties: [prop] });
+    return Object.fromEntries((b.results || []).map((x) => [x.id, String(x.properties?.[prop] || '').trim()]));
+  };
+  const [dEmp, dCon] = await Promise.all([assoc('companies').catch(() => ({})), assoc('contacts').catch(() => ({}))]);
+  const [nEmp, nCon] = await Promise.all([ler('companies', Object.values(dEmp), 'name').catch(() => ({})), ler('contacts', Object.values(dCon), 'company').catch(() => ({}))]);
+  return Object.fromEntries(ids.map((id) => [id, nEmp[dEmp[id]] || nCon[dCon[id]] || '']));
+}
+
+// Rótulo padrão no painel de empresas: "Empresa | Essencial | Gratuito" (ou "| Completa | Pago").
+export function rotuloEmpresa(d) {
+  const a = { props: d };
+  const nome = String(d.empresa || '').trim()
+    || String(d.dealname || '').replace(/^AUTO CURADORIA( ESSENCIAL)?\s*\|\s*(TESTE\s*\|\s*)?/i, '').replace(/^Checkout\s*-\s*/i, '').trim()
+    || 'Sem nome';
+  return `${nome} | ${produtoDaAssinatura(a) === 'essencial' ? 'Essencial' : 'Completa'} | ${ehTeste(a) ? 'Gratuito' : 'Pago'}`;
 }
 
 // CPF/CNPJ de um negócio: do contato comprador e, se não houver, do cnpj da empresa

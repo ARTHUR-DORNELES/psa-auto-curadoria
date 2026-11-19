@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos, responderCandidatoHS, ETAPAS_GRAT, moverGratuita, porquesDoPalestrante, infoTokensHS, produtoDaEmpresa, produtoDaAssinatura, docVariantes, PROP_DESC_PRODUTO, PROP_TESTE, PIPE_AC as PIPE_AC_LIB, STAGE_PAGO_AC as STAGE_PAGO_LIB } from './_lib.js';
+import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos, responderCandidatoHS, ETAPAS_GRAT, moverGratuita, porquesDoPalestrante, infoTokensHS, produtoDaEmpresa, produtoDaAssinatura, docVariantes, PROP_DESC_PRODUTO, PROP_TESTE, PIPE_AC as PIPE_AC_LIB, STAGE_PAGO_AC as STAGE_PAGO_LIB, rotuloEmpresa, ehTeste } from './_lib.js';
 
 /**
  * Usuários por empresa. A assinatura continua sendo o negócio "Pago" casado pelo CPF/CNPJ
@@ -421,7 +421,7 @@ async function _empresas() {
     }
   }
   const porDeal = Object.fromEntries(orgs.filter((o) => o.dealId).map((o) => [o.dealId, o]));
-  const lista = pagos.map((p) => ({ nome: p.dealname || 'Sem nome', closedate: p.closedate, ...(porDeal[p.dealId] || { dealId: p.dealId, oraculo: false, gratuitas: false, limiteDisp: LIMITE_DISP, usuarios: 0, limite: Number(p.quantidade_usuarios) || 1, curadorias: null, ultimoAcesso: null, admins: [] }) }));
+  const lista = pagos.map((p) => ({ nome: rotuloEmpresa(p), teste: ehTeste({ props: p }), closedate: p.closedate, ...(porDeal[p.dealId] || { dealId: p.dealId, oraculo: false, gratuitas: false, limiteDisp: LIMITE_DISP, usuarios: 0, limite: Number(p.quantidade_usuarios) || 1, curadorias: null, ultimoAcesso: null, admins: [] }) }));
   // empresas com usuários mas cujo negócio não está mais em Pago (expiradas ou movidas)
   for (const o of orgs) if (!o.dealId || !pagos.some((p) => p.dealId === o.dealId)) lista.push({ nome: `Documento ${o.doc}`, ...o });
   return { ok: true, empresas: lista };
@@ -825,7 +825,7 @@ export async function criarTeste(t, b = {}) {
     }
     const deal = await hs('/crm/v3/objects/deals', 'POST', {
       properties: {
-        dealname: `AUTO CURADORIA ESSENCIAL | TESTE | ${empresa}`,
+        dealname: `${empresa} | Essencial | Gratuito`,
         pipeline: PIPE_AC_LIB, dealstage: STAGE_PAGO_LIB, closedate: new Date().toISOString(),
         [PROP_DESC_PRODUTO]: 'Auto Curadoria Essencial (teste)', [PROP_TESTE]: 'true',
       },
