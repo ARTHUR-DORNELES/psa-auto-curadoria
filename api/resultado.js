@@ -369,7 +369,7 @@ export default async function handler(req, res) {
       if (!reg.hubspot?.negocioId) return res.status(409).json({ erro: 'Não conseguimos registrar agora. Fale com um curador da PSA.' });
       const url = `https://psa-auto-curadoria.vercel.app/ferramenta?id=${id}`;
       const r2 = await criarCotacaoB2B(reg.hubspot.negocioId, reg.briefing || {}, nome, url);
-      reg.cotacoes[nome] = { negocioId: r2.negocioId, em: new Date().toISOString() };
+      reg.cotacoes[nome] = { negocioId: r2.negocioId, dono: r2.dono, distribuicao: r2.distribuicao, em: new Date().toISOString() };
       reg.acoes = reg.acoes || [];
       reg.acoes.push({ acao, palestrantes: [nome], em: reg.cotacoes[nome].em });
       await redis().set(chave(id), JSON.stringify(reg), 'EX', 60 * 60 * 24 * 90);

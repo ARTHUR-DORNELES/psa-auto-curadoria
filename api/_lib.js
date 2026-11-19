@@ -265,11 +265,26 @@ function _propsBriefing(briefing) {
 
 /* Cotação acima do teto (Renato, 19/11/2026): na Essencial, o nome pedido pelo cliente que passa
  * de R$ 5 mil não entra na curadoria. O botão "Quero uma cotação" abre um negócio NOVO no funil
- * B2B (Aguardando Farmer/SDR Finalizar), origem "Auto Curadoria Essencial", com o briefing,
- * ligado ao contato e à empresa do negócio da curadoria. Abrir negócio B2B tira o contato da
+ * B2B, origem "Auto Curadoria Essencial", com o briefing, ligado ao contato e à empresa do
+ * negócio da curadoria. O DONO vem da distribuição do SAL (psa-ia-board /api/dist-recomenda,
+ * Renato 19/11): por isso nasce em "Reunião agendada / Qualificado", já que a etapa "Aguardando
+ * Farmer/SDR Finalizar" está em etapasIgnoradas e a distribuição pularia o negócio. Abrir negócio B2B tira o contato da
  * campanha Essencial Gratuita (lista-trava), que é o esperado. */
 export const PIPE_B2B = process.env.PIPE_B2B || 'default';
-export const STAGE_COTACAO = process.env.STAGE_COTACAO || '1452914812';
+export const STAGE_COTACAO = process.env.STAGE_COTACAO || 'decisionmakerboughtin';
+const DIST_URL = process.env.DIST_URL || 'https://psa-ia-board.vercel.app/api/dist-recomenda';
+// distribuição do SAL: escolhe e grava o dono (distribuirAuto). Nunca derruba a cotação.
+async function distribuirPeloSAL(dealId) {
+  if (!process.env.DIST_SECRET) { console.error('COTACAO_DIST: DIST_SECRET ausente'); return null; }
+  try {
+    const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 25000);
+    const r = await fetch(DIST_URL, { method: 'POST', headers: { 'content-type': 'application/json', Authorization: `Bearer ${process.env.DIST_SECRET}` }, body: JSON.stringify({ dealId: String(dealId) }), signal: ctl.signal });
+    clearTimeout(tm);
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { console.error('COTACAO_DIST', r.status, JSON.stringify(j).slice(0, 200)); return null; }
+    return j;
+  } catch (e) { console.error('COTACAO_DIST falhou:', e.message); return null; }
+}
 export async function criarCotacaoB2B(curadoriaDealId, briefing, nomePalestrante, urlCuradoria) {
   const assoc = async (tipo) => {
     try {
@@ -303,7 +318,8 @@ export async function criarCotacaoB2B(curadoriaDealId, briefing, nomePalestrante
   try {
     await nota(deal.id, `<p><strong>Pedido de cotação pela Auto Curadoria Essencial</strong></p><p>O cliente quer uma proposta para <strong>${nomePalestrante}</strong>, que ficou fora da curadoria por estar acima de R$ 5 mil.</p><p>Curadoria: <a href="${urlCuradoria}">${urlCuradoria}</a></p>`);
   } catch (e) { console.error('nota da cotação falhou:', e.message); }
-  return { negocioId: deal.id };
+  const dist = await distribuirPeloSAL(deal.id);
+  return { negocioId: deal.id, dono: dist?.primary || null, distribuicao: dist ? (dist.skip || dist.papel || 'ok') : 'falhou' };
 }
 
 export async function anexarBriefingAoNegocio(dealId, briefing, id) {
