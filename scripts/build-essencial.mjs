@@ -103,5 +103,42 @@ trocar('<p>A Auto Curadoria é uma assinatura em dois planos: <strong>mensal</st
 if (/cach[êe]/i.test(s.replace(/<style>[\s\S]*?<\/style>/g, ''))) console.warn('essencial: ainda sobrou "cachê" no texto da LP');
 // CTAs marcam a origem: na ferramenta, "voltar" e o logo levam de volta para a LP Essencial
 s = s.split('href="/ferramenta"').join('href="/ferramenta?lp=essencial"');
+// rastro da jornada (aba Essencial do painel) + código do HubSpot: visita da LP, clique no CTA,
+// e os links pra ferramenta levam UTM e o id do visitante (a ferramenta continua a jornada).
+{
+  const js = `<!--rastro-->
+<script>
+(function () {
+  var q = new URLSearchParams(location.search), utm = {};
+  q.forEach(function (v, k) { if (k.indexOf('utm_') === 0) utm[k] = v; });
+  var vid = ''; try { vid = localStorage.getItem('ac_vid') || ''; } catch (e) {}
+  if (!/^[a-z0-9]{8,40}$/i.test(vid)) vid = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  try { localStorage.setItem('ac_vid', vid); } catch (e) {}
+  function ev(tipo, d) {
+    try {
+      var c = JSON.stringify({ acao: 'evento', vid: vid, tipo: tipo, utm: utm, ref: document.referrer || '', lp: 'essencial', d: d || '' });
+      if (!(navigator.sendBeacon && navigator.sendBeacon('/api/rastro', new Blob([c], { type: 'application/json' }))))
+        fetch('/api/rastro', { method: 'POST', headers: { 'content-type': 'application/json' }, body: c, keepalive: true });
+    } catch (e) {}
+  }
+  ev('lp_visita');
+  document.querySelectorAll('a[href*="/ferramenta"]').forEach(function (a) {
+    try {
+      var u = new URL(a.getAttribute('href'), location.href);
+      Object.keys(utm).forEach(function (k) { u.searchParams.set(k, utm[k]); });
+      u.searchParams.set('vid', vid);
+      a.setAttribute('href', u.pathname + u.search);
+    } catch (e) {}
+    a.addEventListener('click', function () { ev('lp_cta', (a.textContent || '').trim().slice(0, 60)); });
+  });
+})();
+</script>
+<script id="hs-script-loader" async defer src="https://js.hs-scripts.com/49656171.js"></script>
+<!--/rastro-->
+`;
+  const i = s.lastIndexOf('</body>');
+  if (i < 0) throw new Error('essencial: </body> não encontrado');
+  s = s.slice(0, i) + js + s.slice(i);
+}
 fs.writeFileSync('essencial.html', s);
 console.log(`essencial.html: ${(s.length / 1024).toFixed(0)} KB (gerado de index.html)`);

@@ -643,5 +643,34 @@ a{color:inherit;text-decoration:none}
 })();
 </script>
 
+<!--rastro-->
+<script>
+(function () {
+  var q = new URLSearchParams(location.search), utm = {};
+  q.forEach(function (v, k) { if (k.indexOf('utm_') === 0) utm[k] = v; });
+  var vid = ''; try { vid = localStorage.getItem('ac_vid') || ''; } catch (e) {}
+  if (!/^[a-z0-9]{8,40}$/i.test(vid)) vid = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  try { localStorage.setItem('ac_vid', vid); } catch (e) {}
+  function ev(tipo, d) {
+    try {
+      var c = JSON.stringify({ acao: 'evento', vid: vid, tipo: tipo, utm: utm, ref: document.referrer || '', lp: 'essencial', d: d || '' });
+      if (!(navigator.sendBeacon && navigator.sendBeacon('/api/rastro', new Blob([c], { type: 'application/json' }))))
+        fetch('/api/rastro', { method: 'POST', headers: { 'content-type': 'application/json' }, body: c, keepalive: true });
+    } catch (e) {}
+  }
+  ev('lp_visita');
+  document.querySelectorAll('a[href*="/ferramenta"]').forEach(function (a) {
+    try {
+      var u = new URL(a.getAttribute('href'), location.href);
+      Object.keys(utm).forEach(function (k) { u.searchParams.set(k, utm[k]); });
+      u.searchParams.set('vid', vid);
+      a.setAttribute('href', u.pathname + u.search);
+    } catch (e) {}
+    a.addEventListener('click', function () { ev('lp_cta', (a.textContent || '').trim().slice(0, 60)); });
+  });
+})();
+</script>
+<script id="hs-script-loader" async defer src="https://js.hs-scripts.com/49656171.js"></script>
+<!--/rastro-->
 </body>
 </html>

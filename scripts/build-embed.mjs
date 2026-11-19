@@ -84,7 +84,8 @@ function escoparCss(css, RAIZ) {
 }
 
 for (const alvo of ALVOS) {
-  const src = fs.readFileSync(alvo.fonte, 'utf8');
+  // bloco do rastro + código do HubSpot: só vale na página da Vercel (a casca do HubSpot já rastreia)
+  const src = fs.readFileSync(alvo.fonte, 'utf8').replace(/<!--rastro-->[\s\S]*?<!--\/rastro-->\s*/g, '');
 
   // comentário antes de um seletor entra no seletor ao prefixar (e faz `body` deixar
   // de ser reconhecido como `body`). Num bundle gerado não servem para nada.
