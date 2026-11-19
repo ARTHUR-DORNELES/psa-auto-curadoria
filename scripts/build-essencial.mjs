@@ -101,5 +101,7 @@ trocar('O cachê do palestrante não está incluso e é apresentado na proposta.
 trocar('<p>A Auto Curadoria é uma assinatura em dois planos: <strong>mensal</strong> (R$ 1.150/mês, sem fidelidade, até 50 curadorias por mês) ou <strong>anual</strong> (R$ 996/mês, R$ 11.952/ano, curadorias ilimitadas). O cachê do palestrante não está incluso e é apresentado à parte, na proposta comercial de cada indicação.</p>',
   '<p>A Auto Curadoria Essencial é uma assinatura <strong>anual de R$ 240</strong>. O valor do palestrante não está incluso e aparece em cada indicação, sempre até R$ 5 mil.</p>');
 if (/cach[êe]/i.test(s.replace(/<style>[\s\S]*?<\/style>/g, ''))) console.warn('essencial: ainda sobrou "cachê" no texto da LP');
+// CTAs marcam a origem: na ferramenta, "voltar" e o logo levam de volta para a LP Essencial
+s = s.split('href="/ferramenta"').join('href="/ferramenta?lp=essencial"');
 fs.writeFileSync('essencial.html', s);
 console.log(`essencial.html: ${(s.length / 1024).toFixed(0)} KB (gerado de index.html)`);

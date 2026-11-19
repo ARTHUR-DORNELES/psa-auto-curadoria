@@ -106,9 +106,9 @@ for (const alvo of ALVOS) {
 
   // CTAs da LP apontam para a página da ferramenta
   if (alvo.destinoCta) {
-    const antes = (corpo.match(/href="\/ferramenta"/g) || []).length;
+    const antes = (corpo.match(/href="\/ferramenta(\?[^"]*)?"/g) || []).length;
     if (!antes) throw new Error(`${alvo.fonte}: nenhum CTA para /ferramenta — os links mudaram?`);
-    corpo = corpo.replaceAll('href="/ferramenta"', `href="${alvo.destinoCta}"`);
+    corpo = corpo.replace(/href="\/ferramenta(\?[^"]*)?"/g, (_, q) => `href="${alvo.destinoCta}${q || ''}"`);
     console.log(`  ${antes} CTAs -> ${alvo.destinoCta}`);
   }
 

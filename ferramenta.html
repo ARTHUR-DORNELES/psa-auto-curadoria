@@ -499,7 +499,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
 
 <header>
   <div class="bar">
-    <a href="/"><img src="https://psasite.vercel.app/_next/image?url=%2Fbrand%2Flogos%2Flogo-01.png&w=256&q=75" alt="PSA Palestras"></a>
+    <a href="/" id="lnkLogo"><img src="https://psasite.vercel.app/_next/image?url=%2Fbrand%2Flogos%2Flogo-01.png&w=256&q=75" alt="PSA Palestras"></a>
     <span class="eyebrow" id="eyebrowProduto">Auto Curadoria</span>
     <a class="volta" id="btnVoltar" href="/">← voltar</a>
     <div class="conta-h" id="contaHeader" style="display:none">
@@ -1447,6 +1447,7 @@ const NPS_SELO_MIN = 50;
 const temAbas = (u) => u.papel === 'admin' || u.superAdmin || u.oraculo || u.gratuitas;
 // cabeçalho, saudação e abas do usuário (do cache na abertura, do servidor em seguida)
 function pintarUsuario(u, doCache) {
+  if (u && u.produto === 'essencial') voltarParaEssencial();
   const nome = u.nome || u.email || '';
   // título vira a saudação; barra da conta mostra quem está logado e o papel
   $('#gateTitulo').innerHTML = `Olá, ${escHTML(nome.split(' ')[0] || 'tudo bem')}.`;
@@ -2167,6 +2168,18 @@ $('#btnConvidar').addEventListener('click', async () => {
     mostrarLinkConvite(email, r);
   } catch (e) { $('#eUsu').textContent = 'Não conseguimos convidar agora.'; $('#btnConvidar').disabled = false; }
 });
+
+// De onde a pessoa veio: LP Essencial (?lp=essencial ou página anterior) -> "voltar" e logo voltam pra ela.
+// Fica guardado na aba (sessionStorage) para valer depois de navegar dentro da ferramenta.
+function voltarParaEssencial() {
+  const lp = /vercel\.app$/.test(location.hostname) ? '/auto-curadoria-essencial' : 'https://psa-auto-curadoria.vercel.app/auto-curadoria-essencial';
+  $('#btnVoltar').href = lp; $('#lnkLogo').href = lp;
+}
+{
+  let veio = new URL(location.href).searchParams.get('lp') === 'essencial' || /essencial/i.test(document.referrer || '');
+  try { if (veio) sessionStorage.setItem('ac_lp', 'essencial'); else veio = sessionStorage.getItem('ac_lp') === 'essencial'; } catch (e) {}
+  if (veio) voltarParaEssencial();
+}
 
 // "← voltar": no gate, o link leva pra fora (LP). Nas demais telas, volta pro painel do
 // logado (lista de curadorias). Sem sessão, volta pro login.
