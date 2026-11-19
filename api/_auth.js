@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos, responderCandidatoHS, ETAPAS_GRAT, moverGratuita, porquesDoPalestrante, infoTokensHS, produtoDaEmpresa, produtoDaAssinatura, docVariantes, PROP_DESC_PRODUTO, PROP_TESTE, PIPE_AC as PIPE_AC_LIB, STAGE_PAGO_AC as STAGE_PAGO_LIB, rotuloEmpresa, ehTeste } from './_lib.js';
+import { redis, hs, assinaturaAtivaPorDocumento, dadosContato, normalizaDocumento, listarCuradorias, negociosPagos, documentoDoNegocio, limiteDispDaEmpresa, gravarLimiteDisp, LIMITE_DISP, criarDemandaGratuita, listarPalestrasGratuitas, enriquecerCandidatos, responderCandidatoHS, ETAPAS_GRAT, moverGratuita, porquesDoPalestrante, infoTokensHS, produtoDaEmpresa, produtoDaAssinatura, docVariantes, PROP_DESC_PRODUTO, PROP_TESTE, PIPE_AC as PIPE_AC_LIB, STAGE_PAGO_AC as STAGE_PAGO_LIB, rotuloEmpresa, ehTeste, PROP_PRODUTO, consumirCredito } from './_lib.js';
 
 /**
  * Usuários por empresa. A assinatura continua sendo o negócio "Pago" casado pelo CPF/CNPJ
@@ -391,6 +391,41 @@ export async function definirLimiteDisp(sess, b) {
   return { ok: true, doc, limiteDisp: n };
 }
 
+// negócio da assinatura que o painel pode mexer: pipeline Auto Curadoria, etapa Pago
+async function negocioPagoDoPainel(dealIdBruto) {
+  const dealId = String(dealIdBruto || '').replace(/\D/g, '');
+  if (!dealId) return null;
+  const d = await hs(`/crm/v3/objects/deals/${dealId}?properties=pipeline,dealstage`, 'GET');
+  const p = d.properties || {};
+  return String(p.pipeline) === PIPE_AC_LIB && String(p.dealstage) === STAGE_PAGO_LIB ? dealId : null;
+}
+const limpaProduto = async (doc) => { const d = normalizaDocumento(doc)?.valor; if (d) { try { await redis().del(`ac:org:${d}:produto`); } catch (e) {} } };
+
+// Essencial <-> Completa: grava auto_curadoria_produto no negócio (manda sobre descrição e nome)
+export async function trocarProdutoEmpresa(sess, b) {
+  if (!sess || !ehSuper(sess.realEmail || sess.email) || sess.suporte) return { ok: false, erro: 'Acesso restrito.' };
+  const produto = b.produto === 'essencial' ? 'essencial' : b.produto === 'completa' ? 'completa' : '';
+  if (!produto) return { ok: false, erro: 'Produto inválido.' };
+  const dealId = await negocioPagoDoPainel(b.dealId);
+  if (!dealId) return { ok: false, erro: 'Essa empresa não tem uma assinatura em Pago.' };
+  await hs(`/crm/v3/objects/deals/${dealId}`, 'PATCH', { properties: { [PROP_PRODUTO]: produto } });
+  await limpaProduto(b.doc);
+  console.log('EMPRESA_PRODUTO', dealId, produto, sess.realEmail || sess.email);
+  return { ok: true, produto };
+}
+
+// Encerrar o acesso: o negócio sai de Pago (vai p/ Utilizado). A empresa continua vendo as
+// curadorias que já montou, mas não monta novas (igual a uma assinatura vencida).
+export async function encerrarAcessoEmpresa(sess, b) {
+  if (!sess || !ehSuper(sess.realEmail || sess.email) || sess.suporte) return { ok: false, erro: 'Acesso restrito.' };
+  const dealId = await negocioPagoDoPainel(b.dealId);
+  if (!dealId) return { ok: false, erro: 'Essa empresa não tem uma assinatura em Pago.' };
+  if (!(await consumirCredito(dealId))) return { ok: false, erro: 'Não conseguimos mover o negócio agora. Tente de novo.' };
+  await limpaProduto(b.doc);
+  console.log('EMPRESA_ENCERRADA', dealId, sess.realEmail || sess.email);
+  return { ok: true };
+}
+
 export async function empresas(sess) {
   if (!sess || !ehSuper(sess.realEmail || sess.email)) return { ok: false, erro: 'Acesso restrito.' };
   try { return await _empresas(); }
@@ -421,7 +456,7 @@ async function _empresas() {
     }
   }
   const porDeal = Object.fromEntries(orgs.filter((o) => o.dealId).map((o) => [o.dealId, o]));
-  const lista = pagos.map((p) => ({ nome: rotuloEmpresa(p), teste: ehTeste({ props: p }), closedate: p.closedate, ...(porDeal[p.dealId] || { dealId: p.dealId, oraculo: false, gratuitas: false, limiteDisp: LIMITE_DISP, usuarios: 0, limite: Number(p.quantidade_usuarios) || 1, curadorias: null, ultimoAcesso: null, admins: [] }) }));
+  const lista = pagos.map((p) => ({ nome: rotuloEmpresa(p), teste: ehTeste({ props: p }), produto: produtoDaAssinatura({ props: p }), pago: true, closedate: p.closedate, ...(porDeal[p.dealId] || { dealId: p.dealId, oraculo: false, gratuitas: false, limiteDisp: LIMITE_DISP, usuarios: 0, limite: Number(p.quantidade_usuarios) || 1, curadorias: null, ultimoAcesso: null, admins: [] }) }));
   // empresas com usuários mas cujo negócio não está mais em Pago (expiradas ou movidas)
   for (const o of orgs) if (!o.dealId || !pagos.some((p) => p.dealId === o.dealId)) lista.push({ nome: `Documento ${o.doc}`, ...o });
   return { ok: true, empresas: lista };

@@ -1,5 +1,5 @@
 import { lerCorpo, cors } from './_lib.js';
-import { login, lerLink, definirSenha, esqueciSenha, primeiroAcesso, lerSessao, encerrarSessao, gerenciar, publico, salvarMeuCelular, empresas, entrarComoSuporte, liberarOraculo, definirQtdUsuarios, definirLimiteDisp, demandaGratuita, palestrasGratuitas, liberarGratuitas, candidatosDaGratuita, responderCandidato, cancelarGratuita, porquesDoCandidato, finalizarGratuita, pedirTeste, dadosDoTeste, criarTeste } from './_auth.js';
+import { login, lerLink, definirSenha, esqueciSenha, primeiroAcesso, lerSessao, encerrarSessao, gerenciar, publico, salvarMeuCelular, empresas, entrarComoSuporte, liberarOraculo, definirQtdUsuarios, definirLimiteDisp, demandaGratuita, palestrasGratuitas, liberarGratuitas, candidatosDaGratuita, responderCandidato, cancelarGratuita, porquesDoCandidato, finalizarGratuita, pedirTeste, dadosDoTeste, criarTeste, trocarProdutoEmpresa, encerrarAcessoEmpresa } from './_auth.js';
 
 // Conta e usuários (uma função só, por `acao`):
 //   entrar {email,senha}        -> { sessao, usuario }
@@ -42,6 +42,8 @@ export default async function handler(req, res) {
       case 'empresas': return res.status(200).json(await empresas(await lerSessao(b.sessao)));
       case 'gratuitas-liberar': return res.status(200).json(await liberarGratuitas(await lerSessao(b.sessao), b));
       case 'oraculo-liberar': return res.status(200).json(await liberarOraculo(await lerSessao(b.sessao), b));
+      case 'empresa-produto': return res.status(200).json(await trocarProdutoEmpresa(await lerSessao(b.sessao), b));
+      case 'empresa-encerrar': return res.status(200).json(await encerrarAcessoEmpresa(await lerSessao(b.sessao), b));
       case 'empresa-usuarios': return res.status(200).json(await definirQtdUsuarios(await lerSessao(b.sessao), b));
       case 'empresa-limite-disp': return res.status(200).json(await definirLimiteDisp(await lerSessao(b.sessao), b));
       case 'gratuitas-porques': return res.status(200).json(await porquesDoCandidato(await lerSessao(b.sessao), b));

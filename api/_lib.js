@@ -43,6 +43,9 @@ export const TETO_CACHE_ESSENCIAL = Number(process.env.TETO_CACHE_ESSENCIAL || 5
 export const NOME_PRODUTO = { completa: 'Auto Curadoria', essencial: 'Auto Curadoria Essencial' };
 export function produtoDaAssinatura(a) {
   const p = (a && a.props) || {};
+  // escolhido no painel de empresas (super admin): vale sobre o resto
+  const fixo = String(p[PROP_PRODUTO] || '').toLowerCase();
+  if (fixo === 'completa' || fixo === 'essencial') return fixo;
   return [p[PROP_PRODUTO], p[PROP_DESC_PRODUTO], p.dealname].some((v) => /essencial/i.test(String(v || '')))
     ? 'essencial' : 'completa';
 }
