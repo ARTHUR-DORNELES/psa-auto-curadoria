@@ -5,7 +5,7 @@
 import { ownersToken, redis, tokenPrincipal } from './_lib.js';
 
 const HS = 'https://api.hubapi.com';
-const CACHE = 'ac:rastro:disparos:v2';   // v2: + WhatsApp
+const CACHE = 'ac:rastro:disparos:v3';   // v2: + WhatsApp; v3: + ids de campanha dos e-mails
 
 async function buscar(tok) {
   const emails = [];
@@ -92,6 +92,8 @@ export async function resultadoDosDisparos() {
       const onda = (String(e.name).match(/onda\s*(\d+)/i) || [])[1];
       return {
         id: e.id, nome: e.name, assunto: e.subject || '', estado: e.state, tipo: e.type,
+        campanhas: (e.allEmailCampaignIds || []).map(String),   // o HubSpot troca a UTM do link por utm_content=<id de campanha do e-mail>
+
         onda: onda ? `Onda ${onda}` : '', enviadoEm: e.publishDate || e.createdAt,
         enviados: k.sent || 0, entregues: k.delivered || 0, abertos: k.open || 0, cliques: k.click || 0,
         bounces: (k.bounce || 0) + (k.hardbounced || 0), descadastros: k.unsubscribed || 0,

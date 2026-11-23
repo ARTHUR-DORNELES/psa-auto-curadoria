@@ -131,6 +131,14 @@ async function relatorio(b) {
   todos.sort((a, b) => b.ultimo - a.ultimo);
   let disparos = null;
   try { disparos = await resultadoDosDisparos(); } catch (e) { disparos = { erro: e.message.slice(0, 160) }; }
+  // clique de e-mail de fluxo do HubSpot chega com utm_source=hs_automation e utm_content=<id de campanha>:
+  // a onda sai do e-mail dono desse id
+  const ondaDaCampanha = new Map();
+  for (const e of disparos?.emails || []) for (const c of e.campanhas || []) if (e.onda) ondaDaCampanha.set(c, e.onda);
+  for (const p of todos) {
+    const c = String(p.origem?.utm_content || '');
+    if (!p.onda && /^\d+$/.test(c) && ondaDaCampanha.has(c)) p.onda = ondaDaCampanha.get(c);
+  }
   return { ok: true, dias, pessoas: todos, disparos };
 }
 
