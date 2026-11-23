@@ -623,6 +623,17 @@ a{color:inherit;text-decoration:none}
     } catch (e) {}
   }
   ev('lp_visita');
+  // leu ou só abriu? rolagem até 40% da página e 15 s com a página visível (robô de link não faz nenhum dos dois)
+  var rolou = false;
+  addEventListener('scroll', function () {
+    if (rolou) return;
+    var h = document.documentElement;
+    if ((h.scrollTop + innerHeight) / h.scrollHeight > 0.4) { rolou = true; ev('lp_rolou'); }
+  }, { passive: true });
+  var visivel = 0, tick = setInterval(function () {
+    if (document.visibilityState === 'visible') visivel++;
+    if (visivel >= 15) { clearInterval(tick); ev('lp_tempo', '15s'); }
+  }, 1000);
   document.querySelectorAll('a[href*="/ferramenta"]').forEach(function (a) {
     try {
       var u = new URL(a.getAttribute('href'), location.href);

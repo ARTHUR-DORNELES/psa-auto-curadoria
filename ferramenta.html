@@ -755,7 +755,8 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
       <!-- relatório da Essencial (só super admin): jornada de quem entrou + resultado dos disparos -->
       <div id="painelRelatorio" style="display:none;margin-top:var(--s-5)">
         <div class="rel-filtros">
-          <select id="relDias"><option value="7">Últimos 7 dias</option><option value="30" selected>Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="365">Último ano</option></select>
+          <select id="relDias"><option value="hoje">Hoje</option><option value="7">Últimos 7 dias</option><option value="30" selected>Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="365">Último ano</option><option value="custom">Data personalizada</option></select>
+          <span id="relPeriodo" hidden><input type="date" id="relDe" aria-label="De"> até <input type="date" id="relAte" aria-label="Até"></span>
           <select id="relOnda"><option value="">Todas as ondas e origens</option></select>
           <label><input type="checkbox" id="relSoEss" checked> Só Essencial</label>
           <label><input type="checkbox" id="relSoId"> Só quem se identificou</label>
@@ -2047,7 +2048,7 @@ async function carregarGratuitas(aviso) {
 // ── Relatório Essencial (super admin): por onde a pessoa veio, o que fez, e o resultado dos disparos ──
 let relDados = null;
 const REL_EV = {
-  lp_visita: 'Visitou a LP Essencial', lp_cta: 'Clicou para entrar (LP)', visita: 'Abriu a ferramenta', cadastro: 'Criou o acesso',
+  lp_visita: 'Visitou a LP Essencial', lp_rolou: 'Rolou a LP (40%)', lp_tempo: 'Ficou 15 s na LP', lp_cta: 'Clicou para entrar (LP)', visita: 'Abriu a ferramenta', cadastro: 'Criou o acesso',
   login: 'Entrou no painel', curadoria_iniciada: 'Começou uma curadoria', chat_pulou_pro_form: 'Trocou o chat pelo formulário',
   curadoria_enviada: 'Enviou o briefing', curadoria_pronta: 'Recebeu a curadoria', disponibilidade: 'Pediu disponibilidade', cotacao: 'Pediu cotação (acima de R$ 5 mil)', assinar: 'Clicou em assinar',
 };
@@ -2056,7 +2057,18 @@ const relPct = (a, b) => (b ? `<span class="pc">${Math.round((a / b) * 100)}%</s
 async function carregarRelatorio() {
   $('#relCorpo').innerHTML = '<p class="sub">Carregando…</p>'; $('#relResumo').innerHTML = '';
   let j;
-  try { j = await postJSON('/api/rastro', { acao: 'relatorio', sessao: sessaoAtual, dias: $('#relDias').value }); }
+  const per = $('#relDias').value, corpo = { acao: 'relatorio', sessao: sessaoAtual };
+  $('#relPeriodo').hidden = per !== 'custom';
+  if (per === 'hoje') { const d = new Date(); d.setHours(0, 0, 0, 0); corpo.de = d.getTime(); corpo.ate = Date.now(); }
+  else if (per === 'custom') {
+    const iso = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    if (!$('#relAte').value) $('#relAte').value = iso(Date.now());
+    if (!$('#relDe').value) $('#relDe').value = iso(Date.now() - 6 * 864e5);
+    const de = $('#relDe').value, ate = $('#relAte').value;
+    corpo.de = new Date(`${de}T00:00:00`).getTime(); corpo.ate = new Date(`${ate}T23:59:59.999`).getTime();
+    if (corpo.de > corpo.ate) { $('#relCorpo').innerHTML = '<p class="erro">A data inicial é depois da final.</p>'; return; }
+  } else corpo.dias = per;
+  try { j = await postJSON('/api/rastro', corpo); }
   catch (e) { $('#relCorpo').innerHTML = '<p class="erro">Não conseguimos carregar o relatório.</p>'; return; }
   if (!j.ok) { $('#relCorpo').innerHTML = `<p class="erro">${escHTML(j.erro || 'Não foi possível.')}</p>`; return; }
   relDados = j;
@@ -2080,7 +2092,7 @@ function pintarRelatorio() {
   const quem = (k) => ps.filter((p) => p[k] > 0).length;
   const kpi = (n, t, base) => `<div class="emp-kpi"><b>${n}${base !== undefined ? relPct(n, base) : ''}</b><span>${t}</span></div>`;
   const nLp = quem('lp'), nTotal = ps.length;
-  $('#relResumo').innerHTML = kpi(nTotal, 'pessoas') + kpi(nLp, 'viram a LP') + kpi(quem('visitas'), 'abriram a ferramenta', nTotal)
+  $('#relResumo').innerHTML = kpi(nTotal, 'pessoas') + kpi(nLp, 'viram a LP') + kpi(quem('tempo'), 'ficaram 15 s na LP', nLp) + kpi(quem('rolou'), 'rolaram a LP', nLp) + kpi(quem('visitas'), 'abriram a ferramenta', nTotal)
     + kpi(quem('cadastro'), 'criaram acesso', nTotal) + kpi(quem('iniciadas'), 'começaram curadoria', nTotal)
     + kpi(quem('prontas'), 'receberam curadoria', nTotal) + kpi(quem('disp'), 'pediram disponibilidade', nTotal) + kpi(quem('assinar'), 'clicaram em assinar', nTotal);
 
@@ -2144,7 +2156,7 @@ function pintarRelatorio() {
     tr.after(l);
   }));
 }
-['#relDias'].forEach((id) => $(id).addEventListener('change', carregarRelatorio));
+['#relDias', '#relDe', '#relAte'].forEach((id) => $(id).addEventListener('change', carregarRelatorio));
 ['#relOnda', '#relSoEss', '#relSoId'].forEach((id) => $(id).addEventListener('change', pintarRelatorio));
 $('#relAtualizar').addEventListener('click', carregarRelatorio);
 

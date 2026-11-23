@@ -8,7 +8,7 @@ import { lerCorpo, cors, redis } from './_lib.js';
 import { lerSessao, ehSuper, normEmail, emailValido } from './_auth.js';
 import { resultadoDosDisparos } from './_disparos.js';
 
-const TIPOS = new Set(['lp_visita', 'lp_cta', 'visita', 'cadastro', 'login', 'curadoria_iniciada', 'curadoria_enviada',
+const TIPOS = new Set(['lp_visita', 'lp_cta', 'lp_rolou', 'lp_tempo', 'visita', 'cadastro', 'login', 'curadoria_iniciada', 'curadoria_enviada',
   'curadoria_pronta', 'disponibilidade', 'cotacao', 'assinar', 'chat_pulou_pro_form']);
 const kV = (v) => `ac:rv:${v}`;
 const kEv = (v) => `ac:rv:${v}:ev`;
@@ -61,8 +61,18 @@ const canalDe = (o) => {
 
 async function relatorio(b) {
   const r = redis();
-  const dias = Math.min(Math.max(Number(b.dias) || 30, 1), 400);
-  const desde = Date.now() - dias * 864e5;
+  // período: de/até em ms (Hoje / Data personalizada) ou os últimos N dias
+  const agora = Date.now();
+  let desde, ate = agora, dias;
+  if (Number(b.de) > 0) {
+    desde = Math.max(Number(b.de), agora - 400 * 864e5);
+    ate = Math.min(Number(b.ate) > 0 ? Number(b.ate) : agora, agora);
+    dias = Math.max(1, Math.round((ate - desde) / 864e5));
+  } else {
+    dias = Math.min(Math.max(Number(b.dias) || 30, 1), 400);
+    desde = agora - dias * 864e5;
+  }
+  // o zset guarda o ÚLTIMO acesso: pega todo mundo ativo desde o início do período e corta os eventos depois
   const vids = (await r.zrevrangebyscore('ac:rastro:vids', '+inf', desde, 'LIMIT', 0, 3000));
   const pessoas = [];
   for (let i = 0; i < vids.length; i += 200) {
@@ -90,12 +100,12 @@ async function relatorio(b) {
     if (!a.origem?.utm_source && p.origem?.utm_source) a.origem = p.origem;
   }
   const todos = [...porEmail.values(), ...anonimos].map((p) => {
-    const ev = p.eventos.filter((e) => e.t >= desde);
+    const ev = p.eventos.filter((e) => e.t >= desde && e.t <= ate);
     const conta = (t) => ev.filter((e) => e.tipo === t).length;
     return {
       email: p.email || '', essencial: !!p.essencial, primeiro: p.primeiro, ultimo: p.ultimo,
       onda: ondaDe(p.origem), canal: canalDe(p.origem), origem: p.origem || null,
-      lp: conta('lp_visita'), visitas: conta('visita'), cadastro: conta('cadastro'), login: conta('login'),
+      lp: conta('lp_visita'), rolou: conta('lp_rolou'), tempo: conta('lp_tempo'), cta: conta('lp_cta'), visitas: conta('visita'), cadastro: conta('cadastro'), login: conta('login'),
       iniciadas: conta('curadoria_iniciada'), enviadas: conta('curadoria_enviada'), prontas: conta('curadoria_pronta'),
       disp: conta('disponibilidade'), assinar: conta('assinar'),
       eventos: ev.slice(-80),
