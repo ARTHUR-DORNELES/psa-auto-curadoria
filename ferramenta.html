@@ -2089,15 +2089,18 @@ function pintarRelatorio() {
   for (const p of ps) { const g = p.onda || `Sem onda · ${p.canal}`; if (!grupos.has(g)) grupos.set(g, []); grupos.get(g).push(p); }
   const emails = (j.disparos && j.disparos.emails) || [];
   const mailDa = (onda) => emails.filter((e) => e.onda === onda).reduce((a, e) => ({ env: a.env + e.enviados, ab: a.ab + e.abertos, cl: a.cl + e.cliques }), { env: 0, ab: 0, cl: 0 });
+  const whats = (j.disparos && j.disparos.whats) || [];
+  const wppDa = (onda) => whats.filter((w) => w.onda === onda).reduce((a, w) => a + w.disparados, 0);
   const ordem = [...grupos.keys()].sort((a, b) => (/^Onda/.test(a) ? parseInt(a.replace(/\D/g, '')) : 999) - (/^Onda/.test(b) ? parseInt(b.replace(/\D/g, '')) : 999) || a.localeCompare(b));
   const linhasGrupo = ordem.map((g) => {
     const l = grupos.get(g), c = (k) => l.filter((p) => p[k] > 0).length, m = /^Onda/.test(g) ? mailDa(g) : null;
     const wpp = l.filter((p) => p.canal === 'WhatsApp').length, mail = l.filter((p) => p.canal === 'E-mail').length;
     return `<tr><td>${escHTML(g)}${/^Onda/.test(g) ? `<small>${mail} via e-mail · ${wpp} via WhatsApp</small>` : ''}</td>`
       + `<td class="n">${m && m.env ? `${m.env} enviados<small>${m.ab} abriram${relPct(m.ab, m.env)} · ${m.cl} clicaram${relPct(m.cl, m.env)}</small>` : '—'}</td>`
+      + `<td class="n">${/^Onda/.test(g) && wppDa(g) ? `${wppDa(g)} disparados<small>${wpp} entraram pelo link${relPct(wpp, wppDa(g))}</small>` : '—'}</td>`
       + `<td class="n">${l.length}</td><td class="n">${c('cadastro')}${relPct(c('cadastro'), l.length)}</td><td class="n">${c('prontas')}${relPct(c('prontas'), l.length)}</td><td class="n">${c('disp')}</td><td class="n">${c('assinar')}</td></tr>`;
   }).join('');
-  const tabGrupos = `<div class="rel-sec"><h3>Por onda e origem</h3><div class="rel-wrap"><table class="rel-tab"><thead><tr><th>Onda / origem</th><th class="n">E-mail</th><th class="n">Chegaram</th><th class="n">Criaram acesso</th><th class="n">Curadoria</th><th class="n">Disponib.</th><th class="n">Assinar</th></tr></thead><tbody>${linhasGrupo || '<tr><td colspan="7">Ninguém neste período.</td></tr>'}</tbody></table></div>
+  const tabGrupos = `<div class="rel-sec"><h3>Por onda e origem</h3><div class="rel-wrap"><table class="rel-tab"><thead><tr><th>Onda / origem</th><th class="n">E-mail</th><th class="n">WhatsApp</th><th class="n">Chegaram</th><th class="n">Criaram acesso</th><th class="n">Curadoria</th><th class="n">Disponib.</th><th class="n">Assinar</th></tr></thead><tbody>${linhasGrupo || '<tr><td colspan="8">Ninguém neste período.</td></tr>'}</tbody></table></div>
     <p class="dica-rel">A onda vem do link do disparo (utm_content=onda-N). "Chegaram" conta quem abriu a LP ou a ferramenta por esse link.</p></div>`;
 
   // disparos de e-mail (HubSpot)
@@ -2108,8 +2111,17 @@ function pintarRelatorio() {
     + emails.map((e) => `<tr><td>${escHTML(e.nome)}<small>${escHTML(e.assunto || '')}${e.onda ? ` · ${escHTML(e.onda)}` : ''}</small></td><td class="n">${e.enviados}</td><td class="n">${e.entregues}${relPct(e.entregues, e.enviados)}</td><td class="n">${e.abertos}${relPct(e.abertos, e.entregues)}</td><td class="n">${e.cliques}${relPct(e.cliques, e.entregues)}</td><td class="n">${e.bounces}</td><td class="n">${e.descadastros}</td></tr>`).join('')
     + '</tbody></table></div>';
   const wppTotal = ps.filter((p) => p.canal === 'WhatsApp').length;
-  const secMail = `<div class="rel-sec"><h3>Disparos</h3>${tabMail}
-    <p class="dica-rel">E-mails: números do HubSpot (todos os e-mails com "Essencial" no nome, com a onda no nome: "Onda 3"). WhatsApp: o HubSpot não entrega a leitura pela API, então contamos quem clicou no link do WhatsApp (utm_source=whatsapp): <b>${wppTotal}</b> ${wppTotal === 1 ? 'pessoa' : 'pessoas'} no período.</p></div>`;
+  const wppPorOnda = (onda) => ps.filter((p) => p.canal === 'WhatsApp' && p.onda === onda).length;
+  let tabWpp;
+  if (j.disparos && j.disparos.whatsErro) tabWpp = `<p class="erro">${escHTML(j.disparos.whatsErro)}</p>`;
+  else if (!whats.length) tabWpp = '<p class="sub">Nenhum disparo de WhatsApp registrado ainda.</p>';
+  else tabWpp = `<div class="rel-wrap"><table class="rel-tab"><thead><tr><th>Mensagem de WhatsApp</th><th class="n">Disparados</th><th class="n">Entraram pelo link (onda)</th><th class="n">Entregues e lidos</th></tr></thead><tbody>`
+    + whats.map((w) => `<tr><td>${escHTML(w.modelo || w.categoria)}<small>${escHTML(w.disparo)} · ${escHTML(w.onda)} · ${escHTML(w.categoria)}</small></td><td class="n">${w.disparados}</td><td class="n">${wppPorOnda(w.onda)}<small>na onda toda</small></td><td class="n">${w.pagina ? `<a href="${escHTML(w.pagina)}" target="_blank" rel="noopener">ver no HubSpot ↗</a>` : '—'}</td></tr>`).join('')
+    + '</tbody></table></div>';
+  const secMail = `<div class="rel-sec"><h3>Disparos de e-mail</h3>${tabMail}
+    <p class="dica-rel">Números do HubSpot (todos os e-mails com "Essencial" no nome, com a onda no nome: "Onda 3"). Abertura e clique sobre os entregues.</p></div>
+    <div class="rel-sec"><h3>Disparos de WhatsApp</h3>${tabWpp}
+    <p class="dica-rel">Disparados: contatos da lista de cada disparo, pela onda e categoria. O HubSpot não entrega "entregues" e "lidos" pela API: veja no link de cada mensagem. Quem entrou pelo WhatsApp é contado pelo link (utm_source=whatsapp): <b>${wppTotal}</b> ${wppTotal === 1 ? 'pessoa' : 'pessoas'} no período.</p></div>`;
 
   // pessoas
   const chip = (on, t, q) => `<span class="rel-chip${on ? (q ? ' quente' : ' on') : ''}">${t}</span>`;
