@@ -100,6 +100,23 @@ trocar(
 trocar('O cachê do palestrante não está incluso e é apresentado na proposta.', 'O valor do palestrante não está incluso na assinatura e aparece em cada indicação, sempre até R$ 5 mil.');
 trocar('<p>A Auto Curadoria é uma assinatura em dois planos: <strong>mensal</strong> (R$ 1.150/mês, sem fidelidade, até 50 curadorias por mês) ou <strong>anual</strong> (R$ 996/mês, R$ 11.952/ano, curadorias ilimitadas). O cachê do palestrante não está incluso e é apresentado à parte, na proposta comercial de cada indicação.</p>',
   '<p>A Auto Curadoria Essencial é uma assinatura <strong>anual de R$ 240</strong>. O valor do palestrante não está incluso e aparece em cada indicação, sempre até R$ 5 mil.</p>');
+// MODELO GRATUITO (Renato, 23/11/2026): a Essencial ficou free. Sai tudo que é venda (seção de preço,
+// link "Investimento", "Ver planos", pergunta da assinatura) sem anunciar nada; botões de compra vão pra ferramenta.
+// Voltou a cobrar? apague este bloco e rode `npm run embed`.
+{
+  const a = s.indexOf('<!-- PREÇO -->'), b = s.indexOf('<!-- FAQ -->', a);
+  if (a < 0 || b < 0) throw new Error('essencial: seção de preço não encontrada');
+  s = s.slice(0, a) + s.slice(b);
+  trocar('      <a href="#planos">Investimento</a>\n', '');
+  trocar('\n          <a class="btn btn--ghost" href="#planos">Ver planos</a>', '');
+  trocar(CHECKOUT, '/ferramenta');
+  const q = s.indexOf('<summary>Como funciona a assinatura?</summary>');
+  if (q < 0) throw new Error('essencial: pergunta da assinatura não encontrada');
+  const qi = s.lastIndexOf('<details>', q), qf = s.indexOf('</details>', q) + '</details>'.length;
+  s = s.slice(0, s.lastIndexOf('\n', qi)) + s.slice(qf);
+  trocar('Sua compra já inclui uma rodada extra', 'Você tem uma rodada extra');
+  if (/#planos|checkout\.profissionaissa|assinatura|R\$ 240/.test(s)) throw new Error('essencial: sobrou texto de venda');
+}
 if (/cach[êe]/i.test(s.replace(/<style>[\s\S]*?<\/style>/g, ''))) console.warn('essencial: ainda sobrou "cachê" no texto da LP');
 // CTAs marcam a origem: na ferramenta, "voltar" e o logo levam de volta para a LP Essencial
 s = s.split('href="/ferramenta"').join('href="/ferramenta?lp=essencial"');
