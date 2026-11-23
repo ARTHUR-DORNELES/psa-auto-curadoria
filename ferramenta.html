@@ -199,6 +199,8 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
 .rel-pessoa:hover{background:#ffffff0a!important}
 .rel-chips{display:flex;flex-wrap:wrap;gap:5px}
 .rel-chip{font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;border:1px solid var(--border);color:var(--fg-3);white-space:nowrap}
+.rel-teste{font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;border:1px dashed var(--border);background:none;color:var(--fg-3);cursor:pointer;white-space:nowrap}
+.rel-teste:hover{color:var(--fg-1);border-color:var(--psa-orange)}
 .rel-chip.on{color:#86efac;border-color:#22c55e66;background:#22c55e1a}
 .rel-chip.quente{color:#fdba74;border-color:#f9731666;background:#f973161a}
 .rel-linha td{background:#00000030;padding:12px 16px 14px}
@@ -761,6 +763,7 @@ textarea{min-height:170px;resize:vertical;line-height:1.6}
           <select id="relOnda"><option value="">Todas as ondas e origens</option></select>
           <label><input type="checkbox" id="relSoEss" checked> Só Essencial</label>
           <label><input type="checkbox" id="relSoId"> Só quem se identificou</label>
+          <label><input type="checkbox" id="relSemTeste" checked> Tirar testes</label>
           <button type="button" class="btn btn--ghost" id="relAtualizar" style="padding:7px 14px;font-size:12px">Atualizar</button>
         </div>
         <div class="emp-resumo" id="relResumo"></div>
@@ -2088,6 +2091,7 @@ function pintarRelatorio() {
   let ps = j.pessoas;
   if ($('#relSoEss').checked) ps = ps.filter((p) => p.essencial);
   if ($('#relSoId').checked) ps = ps.filter((p) => p.email);
+  if ($('#relSemTeste').checked) ps = ps.filter((p) => !p.teste);
   if (f.startsWith('onda:')) ps = ps.filter((p) => p.onda === f.slice(5));
   if (f.startsWith('canal:')) ps = ps.filter((p) => p.canal === f.slice(6));
   const quem = (k) => ps.filter((p) => p[k] > 0).length;
@@ -2140,11 +2144,21 @@ function pintarRelatorio() {
   const chip = (on, t, q) => `<span class="rel-chip${on ? (q ? ' quente' : ' on') : ''}">${t}</span>`;
   const linhasP = ps.slice(0, 400).map((p, i) => `<tr class="rel-pessoa" data-i="${j.pessoas.indexOf(p)}"><td>${p.email ? `${escHTML(p.nome || p.email)}${p.nome ? `<small>${escHTML(p.email)}</small>` : ''}` : '<span style="color:var(--fg-3)">Visitante sem identificação</span>'}</td>`
     + `<td>${escHTML(p.onda || '—')}<small>${escHTML(p.canal)}</small></td><td class="n">${relData(p.primeiro)}</td><td class="n">${relData(p.ultimo)}</td>`
-    + `<td><div class="rel-chips">${chip(p.lp, 'LP')}${chip(p.visitas, 'Ferramenta')}${chip(p.cadastro, 'Cadastro')}${chip(p.iniciadas, `Curadoria${p.prontas > 1 ? ` ×${p.prontas}` : ''}`)}${chip(p.disp, `Disponib.${p.disp > 1 ? ` ×${p.disp}` : ''}`, 1)}${chip(p.assinar, 'Assinar', 1)}</div></td></tr>`).join('');
+    + `<td><div class="rel-chips"><button type="button" class="rel-teste" data-i="${j.pessoas.indexOf(p)}" title="${p.teste ? 'Voltar a contar esta pessoa' : 'Tirar do relatório: é teste da equipe'}">${p.teste ? 'não é teste' : 'é teste'}</button>${chip(p.lp, 'LP')}${chip(p.tempo, '15 s')}${chip(p.rolou, 'Rolou')}${chip(p.visitas, 'Ferramenta')}${chip(p.cadastro, 'Cadastro')}${chip(p.iniciadas, `Curadoria${p.prontas > 1 ? ` ×${p.prontas}` : ''}`)}${chip(p.disp, `Disponib.${p.disp > 1 ? ` ×${p.disp}` : ''}`, 1)}${chip(p.assinar, 'Assinar', 1)}</div></td></tr>`).join('');
   const secP = `<div class="rel-sec"><h3>Pessoas (${ps.length})</h3><div class="rel-wrap"><table class="rel-tab" id="relPessoas"><thead><tr><th>Pessoa</th><th>Onda / origem</th><th class="n">Primeira visita</th><th class="n">Última</th><th>Por onde passou</th></tr></thead><tbody>${linhasP || '<tr><td colspan="5">Ninguém neste período.</td></tr>'}</tbody></table></div>
     <p class="dica-rel">Clique numa pessoa para ver a jornada passo a passo. Quem não entrou com e-mail aparece como visitante sem identificação.</p></div>`;
 
   $('#relCorpo').innerHTML = tabGrupos + secMail + secP;
+  $('#relPessoas').querySelectorAll('.rel-teste').forEach((b) => b.addEventListener('click', async (ev) => {
+    ev.stopPropagation();
+    const p = relDados.pessoas[Number(b.dataset.i)];
+    b.disabled = true;
+    try {
+      const r = await postJSON('/api/rastro', { acao: 'marcarTeste', sessao: sessaoAtual, vids: p.vids || [], teste: !p.teste });
+      if (!r.ok) throw new Error(r.erro || 'falhou');
+      p.teste = !p.teste; pintarRelatorio();
+    } catch (e) { b.disabled = false; alert('Não consegui marcar agora.'); }
+  }));
   $('#relPessoas').querySelectorAll('.rel-pessoa').forEach((tr) => tr.addEventListener('click', () => {
     const prox = tr.nextElementSibling;
     if (prox && prox.classList.contains('rel-linha')) { prox.remove(); return; }
@@ -2158,7 +2172,7 @@ function pintarRelatorio() {
   }));
 }
 ['#relDias', '#relDe', '#relAte'].forEach((id) => $(id).addEventListener('change', carregarRelatorio));
-['#relOnda', '#relSoEss', '#relSoId'].forEach((id) => $(id).addEventListener('change', pintarRelatorio));
+['#relOnda', '#relSoEss', '#relSoId', '#relSemTeste'].forEach((id) => $(id).addEventListener('change', pintarRelatorio));
 $('#relAtualizar').addEventListener('click', carregarRelatorio);
 
 // ── suporte PSA: lista de empresas e entrada somente leitura ──

@@ -99,11 +99,15 @@ async function relatorio(b) {
     a.ultimo = Math.max(a.ultimo, p.ultimo); a.essencial = a.essencial || p.essencial;
     if (!a.origem?.utm_source && p.origem?.utm_source) a.origem = p.origem;
   }
+  // testes: visitante marcado no painel (ac:rastro:testes) ou link com "teste" na UTM
+  const testes = new Set(await r.smembers('ac:rastro:testes'));
   const todos = [...porEmail.values(), ...anonimos].map((p) => {
+    const vids = p.vids || [p.vid];
+    const teste = vids.some((v) => testes.has(v)) || /teste/i.test(JSON.stringify(p.origem || {}));
     const ev = p.eventos.filter((e) => e.t >= desde && e.t <= ate);
     const conta = (t) => ev.filter((e) => e.tipo === t).length;
     return {
-      email: p.email || '', essencial: !!p.essencial, primeiro: p.primeiro, ultimo: p.ultimo,
+      email: p.email || '', vids, teste, essencial: !!p.essencial, primeiro: p.primeiro, ultimo: p.ultimo,
       onda: ondaDe(p.origem), canal: canalDe(p.origem), origem: p.origem || null,
       lp: conta('lp_visita'), rolou: conta('lp_rolou'), tempo: conta('lp_tempo'), cta: conta('lp_cta'), visitas: conta('visita'), cadastro: conta('cadastro'), login: conta('login'),
       iniciadas: conta('curadoria_iniciada'), enviadas: conta('curadoria_enviada'), prontas: conta('curadoria_pronta'),
@@ -137,10 +141,16 @@ export default async function handler(req, res) {
   if (typeof b === 'string') { try { b = JSON.parse(b); } catch { b = {}; } }
   try {
     if (b.acao === 'evento') return res.status(200).json(await evento(b, req));
-    if (b.acao === 'relatorio') {
+    if (b.acao === 'relatorio' || b.acao === 'marcarTeste') {
       const s = await lerSessao(b.sessao);
       if (!s || !ehSuper(s.realEmail || s.email) || s.suporte) return res.status(200).json({ ok: false, erro: 'Acesso restrito.' });
-      return res.status(200).json(await relatorio(b));
+      if (b.acao === 'relatorio') return res.status(200).json(await relatorio(b));
+      // marca/desmarca visitantes como teste da equipe (saem do relatório com "Tirar testes")
+      const vids = (Array.isArray(b.vids) ? b.vids : []).map(String).filter((v) => /^[a-z0-9]{8,40}$/i.test(v)).slice(0, 50);
+      if (!vids.length) return res.status(200).json({ ok: false, erro: 'Nenhum visitante.' });
+      if (b.teste === false) await redis().srem('ac:rastro:testes', ...vids);
+      else await redis().sadd('ac:rastro:testes', ...vids);
+      return res.status(200).json({ ok: true });
     }
     return res.status(400).json({ ok: false });
   } catch (e) {
