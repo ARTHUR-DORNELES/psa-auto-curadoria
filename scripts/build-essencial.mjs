@@ -115,6 +115,15 @@ trocar('<p>A Auto Curadoria é uma assinatura em dois planos: <strong>mensal</st
   const qi = s.lastIndexOf('<details>', q), qf = s.indexOf('</details>', q) + '</details>'.length;
   s = s.slice(0, s.lastIndexOf('\n', qi)) + s.slice(qf);
   trocar('Sua compra já inclui uma rodada extra', 'Você tem uma rodada extra');
+  // deixa claro que é gratuito (Renato, 23/11): quem chega da campanha leu "de graça" no WhatsApp/e-mail
+  trocar(
+    'Curadoria de palestrantes para eventos com orçamento enxuto. Preencha o briefing e receba, em até 5 minutos, os nomes que dão match com o seu evento: <strong>só palestrantes com valores até R$ 5 mil</strong>.',
+    'Monte a curadoria de palestrantes do seu evento <strong>de graça</strong>. Preencha o briefing e receba, em até 5 minutos, os nomes que dão match com o seu evento, só palestrantes com valores até R$ 5 mil. Você só paga se decidir contratar um palestrante.',
+  );
+  trocar('<a class="btn btn--primary" href="/ferramenta">Faça agora! →</a>', '<a class="btn btn--primary" href="/ferramenta">Montar minha curadoria grátis →</a>');
+  trocar('<a class="nav__cta" href="/ferramenta">Começar</a>', '<a class="nav__cta" href="/ferramenta">Começar grátis</a>');
+  trocar('      <details>\n        <summary>Por que até 5 nomes?</summary>',
+    '      <details>\n        <summary>Quanto custa?</summary>\n        <p>Montar a curadoria é gratuito. Você só paga se decidir contratar um palestrante: o valor dele, que já aparece na curadoria, mais as despesas de viagem quando o evento for presencial. A PSA cuida de toda a contratação, do contrato à agenda e à logística.</p>\n      </details>\n      <details>\n        <summary>Por que até 5 nomes?</summary>');
   if (/#planos|checkout\.profissionaissa|assinatura|R\$ 240/.test(s)) throw new Error('essencial: sobrou texto de venda');
 }
 if (/cach[êe]/i.test(s.replace(/<style>[\s\S]*?<\/style>/g, ''))) console.warn('essencial: ainda sobrou "cachê" no texto da LP');
