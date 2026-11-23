@@ -266,7 +266,8 @@ input,select,textarea{width:100%;background:#ffffff08;border:1px solid var(--bor
   .emp__ora .emp__rot{margin:0}
   .emp__entrar{grid-column:2/-1}
 }
-.abas-conta{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin-top:var(--s-5);border-bottom:1px solid var(--border)}
+.abas-conta{display:flex;flex-wrap:wrap;gap:0 4px;margin-top:var(--s-5);border-bottom:1px solid var(--border)}
+@media(max-width:900px){.abas-conta button{padding:12px 12px}}
 .abas-conta button{background:none;border:0;border-bottom:3px solid transparent;color:var(--fg-3);font-family:var(--font-body);font-weight:700;font-size:var(--t-body-sm);letter-spacing:.08em;text-transform:uppercase;padding:14px 18px;cursor:pointer;margin-bottom:-1px;transition:color .2s,border-color .2s}
 .abas-conta button:hover{color:var(--fg-1)}
 .abas-conta button.on{color:var(--fg-1);border-bottom-color:var(--psa-orange)}
